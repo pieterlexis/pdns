@@ -20,6 +20,7 @@ if(NOT DEFINED BUILD_SHARED_LIBS)
         set(BUILD_SHARED_LIBS ON)
 endif()
 
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pdns)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pdns/backends/bind)
