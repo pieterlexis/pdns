@@ -40,6 +40,12 @@ include_directories(${Boost_INCLUDE_DIR})
 # libdl
 find_library(DL_LIBRARY dl)
 
+# Lua
+pkg_search_module(LUA lua5.2 lua5.1 lua5.0)
+if (LUA_FOUND)
+  set(HAVE_LUA)
+endif(LUA_FOUND)
+
 # shipped libs
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pdns/ext/rapidjson/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pdns/ext/polarssl-1.1.2/include)
