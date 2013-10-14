@@ -52,9 +52,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pdns/ext/polarssl-1.1.2/include)
 
 # Version
 set(VERSION "1.0")
-set(SYSCONFDIR "${CMAKE_INSTALL_PREFIX}/etc")
+set(SYSCONFDIR "${CMAKE_INSTALL_PREFIX}/etc/powerdns")
 set(LOCALSTATEDIR "${CMAKE_INSTALL_PREFIX}/share/powerdns")
-set(POWERDNS_LIBRARY_PATH "${CMAKE_INSTALL_LIBDIR}/powerdns")
+set(POWERDNS_LIBRARY_PATH "${CMAKE_INSTALL_LIBDIR}/lib/powerdns/")
 set(DIST_HOST "")
 set(BUILD_DATE "")
 set(BUILD_HOST "")
