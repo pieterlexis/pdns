@@ -228,6 +228,10 @@ target_link_libraries(pdns_recursor ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(pdns_recursor ${Boost_LIBRARIES})
 
 
+###############################################################################
+# Tools
+###############################################################################
+
 macro(add_tool _tool_name)
   add_executable(${_tool_name} ${${_tool_name}_SRCS})
   install(TARGETS ${_tool_name} DESTINATION bin)
@@ -236,15 +240,10 @@ macro(add_tool _tool_name)
 endmacro(add_tool)
 
 
-###############################################################################
-# Tools
-###############################################################################
-
 set(dnswasher_SRCS
   dnswasher.cc
 )
 add_tool(dnswasher)
-
 
 set(dnsbulktest_SRCS
   dnsbulktest.cc
