@@ -35,15 +35,13 @@ add_custom_command(
   COMMENT "Copying bindparser.hh to bindparser.h"
 )
 
-add_custom_command(
-  OUTPUT  "${CMAKE_CURRENT_BINARY_DIR}/${SRCPATH}/version_generated.h"
-  COMMAND echo '\#pragma once'> "${CMAKE_CURRENT_BINARY_DIR}/${SRCPATH}/version_generated.h"
-  COMMAND echo '\#define PDNS_VERSION \"${VERSION}\"' >> "${CMAKE_CURRENT_BINARY_DIR}/${SRCPATH}/version_generated.h"
-  COMMAND echo '\#define DIST_HOST \"${DIST_HOST}\"' >> "${CMAKE_CURRENT_BINARY_DIR}/${SRCPATH}/version_generated.h"
-  COMMAND echo '\#define BUILD_DATE \"${BUILD_DATE}\"' >> "${CMAKE_CURRENT_BINARY_DIR}/${SRCPATH}/version_generated.h"
-  COMMAND echo '\#define BUILD_HOST \"${BUILD_HOST}\"' >> "${CMAKE_CURRENT_BINARY_DIR}/${SRCPATH}/version_generated.h"
-  COMMENT "Set Version"
-)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${SRCPATH}/version_generated.h "
+#pragma once
+#define PDNS_VERSION \"${VERSION}\"
+#define DIST_HOST \"${DIST_HOST}\"
+#define BUILD_DATE \"${BUILD_DATE}\"
+#define BUILD_HOST \"${BUILD_HOST}\"
+")
 
 add_library(DNSUTILITY_LIB STATIC
   misc.cc misc.hh

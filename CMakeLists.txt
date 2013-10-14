@@ -1,11 +1,29 @@
 cmake_minimum_required(VERSION 2.6)
 
 project(PowerDNS C CXX)
-
 set(CMAKE_COLOR_MAKEFILE ON)
-
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/)
 
+# Version
+execute_process(COMMAND "date" "+%Y%m%d%H%M%S" OUTPUT_VARIABLE DATE_STAMP)
+string(REGEX REPLACE "(.+)\r?\n" "\\1" DATE_STAMP ${DATE_STAMP})
+execute_process(COMMAND git describe --match NONE --always OUTPUT_VARIABLE GIT_VERSION)
+string(REGEX REPLACE "(.+)\r?\n" "\\1" GIT_VERSION ${GIT_VERSION})
+if(NOT GIT_VERSION)
+  set(GIT_VERSION "export")
+else()
+  set(GIT_VERSION "git-${GIT_VERSION}")
+endif()
+# If VERSION is given, use it.
+if(NOT VERSION)
+  set(VERSION ${GIT_VERSION})
+endif()
+message("${PROJECT_NAME} Version ${VERSION}")
+set(DIST_HOST "")
+set(BUILD_DATE ${DATE_STAMP})
+set(BUILD_HOST "")
+
+# Load feature finders
 include(FindPkgConfig)
 include(FeatureSummary)
 include(CheckFunctionExists)
@@ -51,14 +69,9 @@ endif(LUA_FOUND)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pdns/ext/rapidjson/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pdns/ext/polarssl-1.1.2/include)
 
-# Version
-set(VERSION "1.0")
 set(SYSCONFDIR "${CMAKE_INSTALL_PREFIX}/etc/powerdns")
 set(LOCALSTATEDIR "${CMAKE_INSTALL_PREFIX}/share/powerdns")
 set(POWERDNS_LIBRARY_PATH "${CMAKE_INSTALL_LIBDIR}/lib/powerdns/")
-set(DIST_HOST "")
-set(BUILD_DATE "")
-set(BUILD_HOST "")
 
 add_definitions("-DHAVE_CONFIG_H")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config-cmake.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
