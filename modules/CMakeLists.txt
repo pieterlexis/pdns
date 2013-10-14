@@ -1,0 +1,11 @@
+macro(add_backend _backend_name)
+  add_library(${_backend_name} ${${_backend_name}_SRCS})
+  install(TARGETS ${backend_name} DESTINATION ${POWERDNS_LIBRARY_PATH})
+endmacro(add_backend)
+
+set(FILENAME "CMakeLists.txt")
+file(GLOB FILEPATHS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*/${FILENAME}")
+foreach(FILEPATH ${FILEPATHS})
+  string(REGEX REPLACE "^([^/]*)//${FILENAME}" "\\1" DIR ${FILEPATH})
+  add_subdirectory(${DIR})
+endforeach(FILEPATH)
