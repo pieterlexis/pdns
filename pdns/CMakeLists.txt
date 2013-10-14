@@ -57,6 +57,7 @@ add_library(DNSUTILITY_LIB STATIC
   aes/dns_random.cc
   randomhelper.cc
   dns_random.hh
+  arguments.cc arguments.hh
 )
 
 add_library(DNSPCAP_LIB STATIC
@@ -92,7 +93,7 @@ add_library(PDNSAUTH_LIB STATIC
   dnssecsigner.cc
   signingpipe.cc cachecleaner.hh
   serialtweaker.cc
-  arguments.cc packetcache.cc sstuff.hh
+  packetcache.cc sstuff.hh
 )
 
 add_library(BINDBACKEND_LIB STATIC
@@ -115,7 +116,6 @@ set(PDNS_SRCS
   packethandler.cc
   tcpreceiver.cc
   pdnsexception.hh
-  arguments.hh
   distributor.hh
   dns.hh
   dynmessenger.hh
@@ -185,7 +185,6 @@ target_link_libraries(pdnssec ${DL_LIBRARY})
 
 set(PDNS_CONTROL_SRCS
   dynloader.cc dynmessenger.cc
-  arguments.cc arguments.hh
 )
 add_executable(pdns_control ${PDNS_CONTROL_SRCS})
 install(TARGETS pdns_control DESTINATION bin)
@@ -199,8 +198,8 @@ target_link_libraries(pdns_control ${Boost_LIBRARIES})
 ###############################################################################
 
 set(REC_CONTROL_SRCS
-  rec_channel.cc rec_channel.hh rec_control.cc
-  arguments.cc arguments.hh
+  rec_control.cc
+  rec_channel.cc rec_channel.hh
 )
 add_executable(rec_control ${REC_CONTROL_SRCS})
 install(TARGETS rec_control DESTINATION bin)
@@ -210,16 +209,22 @@ target_link_libraries(rec_control ${Boost_LIBRARIES})
 
 
 set(PDNS_RECURSOR_SRCS
-  syncres.cc resolver.hh
-  arguments.cc arguments.hh
+  syncres.cc syncres.hh
+  resolver.hh
   lwres.cc pdns_recursor.cc reczones.cc lwres.hh
   dns.cc
-  mtasker.hh syncres.hh recursor_cache.cc recursor_cache.hh
-  zoneparser-tng.cc zoneparser-tng.hh rec_channel.cc rec_channel.hh
-  rec_channel_rec.cc selectmplexer.cc epollmplexer.cc htimer.cc htimer.hh
+  recursor_cache.cc recursor_cache.hh
+  zoneparser-tng.cc zoneparser-tng.hh
+  rec_channel.cc rec_channel.hh
+  rec_channel_rec.cc
+  mtasker.hh
+  selectmplexer.cc epollmplexer.cc
+  htimer.cc htimer.hh
   lua-pdns.cc lua-pdns.hh lua-recursor.cc lua-recursor.hh
-  recpacketcache.cc recpacketcache.hh cachecleaner.hh json_ws.cc json_ws.hh
-  json.cc json.hh version.hh version.cc
+  recpacketcache.cc recpacketcache.hh cachecleaner.hh
+  json_ws.cc json_ws.hh
+  json.cc json.hh
+  version.cc version.hh
 )
 add_executable(pdns_recursor ${PDNS_RECURSOR_SRCS})
 install(TARGETS pdns_recursor DESTINATION bin)
