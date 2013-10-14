@@ -1,6 +1,13 @@
 macro(add_backend _backend_name)
-  add_library(${_backend_name} ${${_backend_name}_SRCS})
-  install(TARGETS ${backend_name} DESTINATION ${POWERDNS_LIBRARY_PATH})
+  if (BUILD_SHARED_LIBS)
+    message("** Adding DYNAMIC backend ${_backend_name}")
+    add_library(${_backend_name} ${${_backend_name}_SRCS})
+    install(TARGETS ${backend_name} DESTINATION ${POWERDNS_LIBRARY_PATH})
+  else()
+    message("** Adding STATIC backend ${_backend_name}")
+    add_library(${_backend_name} STATIC ${${_backend_name}_SRCS})
+    set(PDNS_STATIC_BACKENDS ${PDNS_STATIC_BACKENDS} ${_backend_name} PARENT_SCOPE)
+  endif()
 endmacro(add_backend)
 
 set(FILENAME "CMakeLists.txt")
@@ -9,3 +16,6 @@ foreach(FILEPATH ${FILEPATHS})
   string(REGEX REPLACE "^([^/]*)//${FILENAME}" "\\1" DIR ${FILEPATH})
   add_subdirectory(${DIR})
 endforeach(FILEPATH)
+
+# Promote PDNS_STATIC_BACKENDS into parent scope
+set(PDNS_STATIC_BACKENDS ${PDNS_STATIC_BACKENDS} PARENT_SCOPE)

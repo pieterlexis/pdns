@@ -76,5 +76,5 @@ set(POWERDNS_LIBRARY_PATH "${CMAKE_INSTALL_LIBDIR}/lib/powerdns/")
 add_definitions("-DHAVE_CONFIG_H")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config-cmake.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
-add_subdirectory(pdns)
 add_subdirectory(modules)
+add_subdirectory(pdns)

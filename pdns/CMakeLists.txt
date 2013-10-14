@@ -168,6 +168,8 @@ target_link_libraries(PDNS ${Boost_LIBRARIES})
 target_link_libraries(PDNS ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(PDNS ${DL_LIBRARY})
 target_link_libraries(PDNS ${LUA_LIBRARIES})
+message("PDNS linking with static backends: ${PDNS_STATIC_BACKENDS}")
+target_link_libraries(PDNS ${PDNS_STATIC_BACKENDS})
 
 
 set(PDNSSEC_SRCS
