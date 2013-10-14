@@ -169,6 +169,7 @@ target_link_libraries(PDNS polarssl)
 target_link_libraries(PDNS ${Boost_LIBRARIES})
 target_link_libraries(PDNS ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(PDNS ${DL_LIBRARY})
+target_link_libraries(PDNS ${LUA_LIBRARIES})
 
 
 set(PDNSSEC_SRCS
@@ -231,6 +232,7 @@ install(TARGETS pdns_recursor DESTINATION bin)
 target_link_libraries(pdns_recursor DNSUTILITY_LIB DNS_LIB)
 target_link_libraries(pdns_recursor ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(pdns_recursor ${Boost_LIBRARIES})
+target_link_libraries(pdns_recursor ${LUA_LIBRARIES})
 
 
 ###############################################################################

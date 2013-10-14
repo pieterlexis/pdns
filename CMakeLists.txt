@@ -43,7 +43,8 @@ find_library(DL_LIBRARY dl)
 # Lua
 pkg_search_module(LUA lua5.2 lua5.1 lua5.0)
 if (LUA_FOUND)
-  set(HAVE_LUA)
+  set(HAVE_LUA 1)
+  include_directories(${LUA_INCLUDE_DIRS})
 endif(LUA_FOUND)
 
 # shipped libs
