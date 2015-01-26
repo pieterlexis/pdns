@@ -1046,7 +1046,6 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
   BOOST_FOREACH(const DNSResourceRecord& rr, new_ptrs) {
     DNSPacket fakePacket;
     SOAData sd;
-    sd.db = (DNSBackend *)-1;
     fakePacket.qtype = QType::PTR;
 
     if (!B.getAuth(&fakePacket, &sd, rr.qname, 0))
