@@ -276,10 +276,9 @@ bool UeberBackend::getAuth(DNSPacket *p, SOAData *sd, const string &target)
   int best_match_len = -1;
   bool from_cache = false;  // Was this result fetched from the cache?
 
-  // If not special case of caching explicitly disabled (sd->db = -1), first
-  // find the best match from the cache. If DS then we need to find parent so
-  // dont bother with caching as it confuses matters.
-  if( sd->db != (DNSBackend *)-1 && d_cache_ttl && p->qtype != QType::DS ) {
+  // First find the best match from the cache. If DS then we need to
+  // find parent so dont bother with caching as it confuses matters.
+  if( d_cache_ttl && p->qtype != QType::DS ) {
       string subdomain(target);
       int cstat, loops = 0;
       do {
