@@ -414,7 +414,7 @@ static void gatherRecords(const Value& container, vector<DNSResourceRecord>& new
         DNSPacket fakePacket;
         SOAData sd;
         fakePacket.qtype = QType::PTR;
-        if (!B.getAuth(&fakePacket, &sd, ptr.qname, 0))
+        if (!B.getAuth(&fakePacket, &sd, ptr.qname))
           throw ApiException("Could not find domain for PTR '"+ptr.qname+"' requested for '"+ptr.content+"'");
 
         ptr.domain_id = sd.domain_id;
@@ -1048,7 +1048,7 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
     SOAData sd;
     fakePacket.qtype = QType::PTR;
 
-    if (!B.getAuth(&fakePacket, &sd, rr.qname, 0))
+    if (!B.getAuth(&fakePacket, &sd, rr.qname))
       throw ApiException("Could not find domain for PTR '"+rr.qname+"' requested for '"+rr.content+"' (while saving)");
 
     sd.db->startTransaction(rr.qname);
