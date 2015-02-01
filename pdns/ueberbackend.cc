@@ -273,6 +273,11 @@ void UeberBackend::getUpdatedMasters(vector<DomainInfo>* domains)
 
 bool UeberBackend::getAuth(DNSPacket *p, SOAData *sd, const string &target)
 {
+    // XXX
+    // XXX getAuth special case -1 removed - getAuth doesn't return backend in this case,
+    // thereby crashing ws-auth - check other callers
+    // XXX
+    // XXX
   int best_match_len = -1;
   bool from_cache = false;  // Was this result fetched from the cache?
 
