@@ -1171,6 +1171,14 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
     }
 
     if (boolFromJson(document, "dnssec", false)) {
+
+      if (document["nsec3param"].string_value().length() > 0) {
+        NSEC3PARAMRecordContent ns3pr(document["nsec3param"].string_value());
+        if (!dk.setNSEC3PARAM(zonename, ns3pr, boolFromJson(document, "nsec3narrow", false))) {
+          throw ApiException("Cannot use given NSEC3 parameters for zone '" + zonename.toString() + "'.");
+        }
+      }
+
       for (auto &k_algo: k_algos) {
         int algo = DNSSECKeeper::shorthand2algorithm(k_algo);
 
@@ -1202,7 +1210,11 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
       }
     }
 
-    // TODO rectify zone
+    if (!dk.isPresigned(zonename)) {
+      if (!dk.rectifyZone(B, zonename)) {
+        throw ApiException("Failed to rectify '" + zonename.toString() + "'. Check if the zone contains too many non-empty terminals.");
+      }
+    }
 
     updateDomainSettingsFromDocument(di, zonename, document);
 
@@ -1555,6 +1567,13 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
     di.backend->abortTransaction();
     throw;
   }
+
+  DNSSECKeeper dk;
+  if (!dk.isPresigned(zonename)) {
+    if (!dk.rectifyZone(B, zonename))
+      throw ApiException("Failed to rectify '" + zonename.toString() + "'. Check if the zone contains too many non-empty terminals.");
+  }
+
   di.backend->commitTransaction();
 
   purgeAuthCachesExact(zonename);
