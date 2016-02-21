@@ -20011,6 +20011,7 @@
 +host-9997.example.com:192.168.1.13:120
 +host-9998.example.com:192.168.1.14:120
 +host-9999.example.com:192.168.1.15:120
++host-for-auto-ptr.example.com:192.0.2.1:120
 +host.\052.sub.example.com:192.168.6.1:120
 +italy-ns1.example.com:192.168.5.1:120
 +italy-ns2.example.com:192.168.5.2:120
@@ -20158,10 +20159,6 @@ Zexample.com:ns1.example.com.:ahu.example.com.:2847484148:28800:7200:604800:8640
 +ns2.test.com:2.2.2.2:3600
 +server1.test.com:1.2.3.4:3600
 +www.test.test.com:4.3.2.1:3600
-:_double._tcp.dc.test.com:33:\000\000\000d\001\205\007server1\004test\003com\000:3600
-:_double._tcp.dc.test.com:33:\000\001\000d\001\205\007server1\004test\003com\000:3600
-:_ldap._tcp.dc.test.com:33:\000\000\000d\001\205\007server2\007example\003net\000:3600
-:_root._tcp.dc.test.com:33:\000\000\000\000\000\000\000:3600
 :_underscore.test.com:16:\030underscores\040are\040terrible:3600
 :aland.test.com:16:\016\303\205LAND\040ISLANDS:3600
 :d.test.com:39:\002d2\005test2\003com\000:3600
@@ -20178,6 +20175,10 @@ C\052.test.test.com:server1.test.com.:3600
 Ctoroot.test.com:..:3600
 Cwithin-server.test.com:outpost.example.com.:3600
 Cwww.test.com:server1.test.com.:3600
+S_double._tcp.dc.test.com::server1.test.com.:0:100:389:3600
+S_double._tcp.dc.test.com::server1.test.com.:1:100:389:3600
+S_ldap._tcp.dc.test.com::server2.example.net.:0:100:389:3600
+S_root._tcp.dc.test.com::..:0:0:0:3600
 Ztest.com:ns1.test.com.:ahu.example.com.:2005092501:28800:7200:604800:86400:3600
 #2012060701 auto axfr-get
 &test.dyndns::ns1.test.dyndns.:3600
@@ -20284,3 +20285,7 @@ Zstest.com:ns1.example.com.:ahu.example.com.:2000081501:28800:7200:604800:86400:
 +ns1.cdnskey-cds-test.com:1.1.1.1:3600
 +ns2.cdnskey-cds-test.com:2.2.2.2:3600
 Zcdnskey-cds-test.com:ns1.cdnskey-cds-test.:ahu.example.com.:2005092501:28800:7200:604800:86400:3600
+#2000081501 auto axfr-get
+&2.0.192.in-addr.arpa::ns1.example.com.:120
+&2.0.192.in-addr.arpa::ns2.example.com.:120
+Z2.0.192.in-addr.arpa:ns1.example.com.:ahu.example.com.:2000081501:28800:7200:604800:86400:120
