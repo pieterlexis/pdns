@@ -4,6 +4,66 @@ language: cpp
 compiler:
   - gcc
   - clang
+addons:
+  apt:
+    packages:
+    ### build requirements ###
+    # global build requirements
+    - libboost-all-dev
+    - liblua5.1-dev
+    - libedit-dev
+    # pkcs11 build requirements
+    - libp11-kit-dev
+    # geoip-backend
+    - libgeoip-dev
+    - libyaml-cpp-dev
+    # ldap-backend
+    - libldap-dev
+    # opendbx-backend
+    - libopendbx1-dev
+    - libopendbx1-sqlite3
+    # remote-backend build requirements
+    - libzmq3-dev
+    ### documentation requirements ###
+    - pandoc
+    - xmlto
+    ### test requirements ###
+    # authoritative
+    - bind9utils
+    - ldnsutils
+    - libnet-dns-perl
+    - moreutils
+    - unbound-host
+    - validns
+    - default-jre
+    - jq
+    # pkcs11
+    - p11-kit
+    - softhsm
+    # geoip backend
+    - geoip-database
+    # bind backend
+    - alien
+    # gmysql-backend test requirements
+    - mysql-server
+    # remotebackend
+    - ruby-json
+    - rubygems-integration
+    - socat
+    - bundler
+    - ruby-sqlite3
+    - ruby-ffi
+    - ruby-ffi-zmq
+    # tinydns
+    - libcdb-dev
+    # recursor
+    - authbind
+    - daemontools
+    # no-backend tests
+    - faketime
+    # ldapbackend
+    - slapd
+    - ldap-utils
 
 before_script:
   - git describe --always --dirty=+
@@ -14,72 +74,25 @@ before_script:
   - export CFLAGS=-O0
   - export CXXFLAGS=-O0
   - export OPTFLAGS=-O0
-  - sudo apt-get -qq update
-
 
   ### build requirements ###
 
   # global build requirements
-  - sudo apt-get -qq --no-install-recommends install
-    libboost-all-dev
-    liblua5.1-dev
-    libedit-dev
   - cd ..
   - wget http://ppa.launchpad.net/kalon33/gamesgiroll/ubuntu/pool/main/libs/libsodium/libsodium-dev_1.0.3-1~ppa14.04+1_amd64.deb
   - wget http://ppa.launchpad.net/kalon33/gamesgiroll/ubuntu/pool/main/libs/libsodium/libsodium13_1.0.3-1~ppa14.04+1_amd64.deb
   - sudo dpkg -i libsodium-dev_1.0.3-1~ppa14.04+1_amd64.deb libsodium13_1.0.3-1~ppa14.04+1_amd64.deb
   - cd pdns
 
-  # pkcs11 build requirements
-  - sudo apt-get -qq --no-install-recommends install
-    libp11-kit-dev
-
-  # geoip-backend
-  - sudo apt-get -qq --no-install-recommends install
-    libgeoip-dev
-    libyaml-cpp-dev
-
-  # ldap-backend
-  - sudo apt-get -qq --no-install-recommends install
-    libldap-dev
-
-  # opendbx-backend
-  - sudo apt-get -qq --no-install-recommends install
-    libopendbx1-dev
-    libopendbx1-sqlite3
-
-  # remote-backend build requirements
-  - sudo apt-get -qq --no-install-recommends install
-    libzmq3-dev
-
-
-  ### documentation requirements
-  - sudo apt-get -qq --no-install-recommends install
-    pandoc
-    xmlto
-
-
   ### test requirements ###
 
   # authoritative test requirements / setup
-  - sudo apt-get -qq --no-install-recommends install
-    bind9utils
-    ldnsutils
-    libnet-dns-perl
-    moreutils
-    unbound-host
-    validns
-    default-jre
-    jq
   - cd ..
   - wget http://www.verisignlabs.com/dnssec-tools/packages/jdnssec-tools-0.12.tar.gz
   - sudo tar xfz jdnssec-tools-0.12.tar.gz --strip-components=1 -C /
   - cd pdns
 
   # pkcs11 test requirements / setup
-  - sudo apt-get -qq --no-install-recommends install
-    p11-kit
-    softhsm
   - sudo mkdir -p /etc/pkcs11/modules/
   - sudo cp -f regression-tests/softhsm.mod /etc/pkcs11/modules/softhsm.module
   - sudo cp -f regression-tests/softhsm.conf /etc/softhsm/softhsm.conf
@@ -89,8 +102,6 @@ before_script:
   - p11-kit -l # ensure it's ok
 
   # bind-backend tests requirements
-  - sudo apt-get -qq --no-install-recommends install
-    alien
   - cd ..
   - wget ftp://ftp.nominum.com/pub/nominum/dnsperf/2.0.0.0/dnsperf-2.0.0.0-1-rhel-6-x86_64.tar.gz
   - tar xzvf dnsperf-2.0.0.0-1-rhel-6-x86_64.tar.gz
@@ -99,22 +110,13 @@ before_script:
   - cd pdns
 
   # geoip-backend test requirements / setup
-  - sudo apt-get -qq --no-install-recommends install
-    geoip-database
   - export geoipregion=oc geoipregionip=1.2.3.4
-
-  # gmysql-backend test requirements
-  - sudo apt-get -qq --no-install-recommends install
-    mysql-server
 
   # godbc-backend test setup
   - echo -e "[pdns-sqlite3-1]\nDriver = SQLite3\nDatabase = ${PWD}/regression-tests/pdns.sqlite3\n\n[pdns-sqlite3-2]\nDriver = SQLite3\nDatabase = ${PWD}/regression-tests/pdns.sqlite32\n" > ${HOME}/.odbc.ini
   - export GODBC_SQLITE3_DSN=pdns-sqlite3-1
 
   # ldap-backend test setup
-  - sudo apt-get -qq --no-install-recommends install
-    slapd
-    ldap-utils
   - mkdir /tmp/ldap-dns
   - pushd /tmp/ldap-dns
   - for schema in /etc/ldap/schema/{core,cosine}.schema ${TRAVIS_BUILD_DIR}/modules/ldapbackend/{dnsdomain2,pdns-domaininfo}.schema ; do echo include $schema ; done > ldap.conf
@@ -128,18 +130,9 @@ before_script:
   - sudo ldapadd -Y EXTERNAL -H ldapi:/// -f ./modules/ldapbackend/testfiles/add.ldif
 
   # remote-backend tests requirements
-  - sudo apt-get -qq --no-install-recommends install
-    ruby-json
-    rubygems-integration
-    socat
-  - gem install bundler --no-rdoc --no-ri
   - cd modules/remotebackend
-  - ruby -S bundle install
+  - bundle install
   - cd ../..
-
-  # tinydns
-  - sudo apt-get -qq --no-install-recommends install
-    libcdb-dev
 
   # documentation test requirements
   - virtualenv $HOME/.venv
@@ -147,9 +140,6 @@ before_script:
   - pip install -q pandocfilters==1.2.3 mkdocs==0.14 linkchecker==9.3 click==5.1
 
   # recursor test requirements / setup
-  - sudo apt-get -qq --no-install-recommends install
-    authbind
-    daemontools
   - cd ..
   - wget http://s3.amazonaws.com/alexa-static/top-1m.csv.zip
   - unzip top-1m.csv.zip -d ./pdns/regression-tests
@@ -157,11 +147,6 @@ before_script:
   - 'for suffix in {1..40}; do sudo /sbin/ip addr add 10.0.3.$suffix/32 dev lo; done'
   - sudo touch /etc/authbind/byport/53
   - sudo chmod 755 /etc/authbind/byport/53
-
-  # no-backend tests
-  - sudo apt-get -qq --no-install-recommends install
-    faketime
-
 
 script:
   - ./bootstrap
