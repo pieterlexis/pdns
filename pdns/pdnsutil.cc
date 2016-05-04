@@ -937,7 +937,7 @@ int editZone(DNSSECKeeper& dk, const DNSName &zone) {
 }
 
 
-int loadZone(DNSName zone, const string& fname) {
+int loadZone(DNSSECKeeper& dk, DNSName zone, const string& fname) {
   UeberBackend B;
   DomainInfo di;
 
@@ -977,6 +977,11 @@ int loadZone(DNSName zone, const string& fname) {
     db->feedRecord(rr, DNSName());
   }
   db->commitTransaction();
+  cout<<"Zone loaded, checking now"<<endl;
+  checkZone(dk, B, zone);
+  if(dk.isSecuredZone(zone)) {
+    rectifyZone(dk, zone);
+  }
   return EXIT_SUCCESS;
 }
 
@@ -2285,7 +2290,7 @@ try
     if(cmds[1]==".")
       cmds[1].clear();
 
-    exit(loadZone(DNSName(cmds[1]), cmds[2]));
+    exit(loadZone(dk, DNSName(cmds[1]), cmds[2]));
   }
   else if(cmds[0] == "secure-zone") {
     if(cmds.size() < 2) {
