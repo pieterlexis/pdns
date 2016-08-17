@@ -124,6 +124,21 @@ class AuthZones(ApiTestCase, AuthZonesHelperMixin):
         self.assertGreater(soa_serial, payload['serial'])
         self.assertEquals(soa_serial, data['serial'])
 
+    def test_create_zone_serial_in_list(self):
+        name, payload, data = self.create_zone()
+
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones"))
+        self.assert_success_json(r)
+        domains = r.json()
+        myzone = [domain for domain in domains if domain['name'] == name]
+        self.assertEquals(len(myzone), 1)
+        myzone = myzone[0]
+        self.assertGreater(myzone['serial'], 0)
+        self.assertEqual(data['serial'], myzone['serial'])
+        print "data:", data
+        print "myzone:", myzone
+        self.assertFalse(True)
+
     def test_create_zone_with_account(self):
         # soa_edit_api wins over serial
         name, payload, data = self.create_zone(account='anaccount', serial=10)
