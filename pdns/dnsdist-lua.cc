@@ -581,6 +581,24 @@ vector<std::function<void(void)>> setupLua(bool client, const std::string& confi
 	g_outputBuffer="Error: "+string(e.what())+"\n";
       }
     });
+#ifdef HAVE_DNS_OVER_TLS
+  g_lua.writeFunction("addTLSLocal", [client](const std::string& addr, boost::optional<bool> reusePort, boost::optional<int> tcpFastOpenQueueSize) {
+      setLuaSideEffect();
+      if(client)
+	return;
+      if (g_configurationDone) {
+        g_outputBuffer="addTLSLocal cannot be used at runtime!\n";
+        return;
+      }
+      try {
+	ComboAddress loc(addr, 853);
+	g_tlslocals.push_back(std::make_tuple(loc, reusePort ? *reusePort : false, tcpFastOpenQueueSize ? *tcpFastOpenQueueSize : 0)); /// only works pre-startup, so no sync necessary
+      }
+      catch(std::exception& e) {
+	g_outputBuffer="Error: "+string(e.what())+"\n";
+      }
+    });
+#endif
   g_lua.writeFunction("setACL", [](boost::variant<string,vector<pair<int, string>>> inp) {
       setLuaSideEffect();
       NetmaskGroup nmg;

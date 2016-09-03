@@ -44,6 +44,11 @@
 #include <boost/uuid/uuid_generators.hpp>
 #endif
 
+#ifdef HAVE_DNS_OVER_TLS
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#endif
+
 void* carbonDumpThread();
 uint64_t uptimeOfProcess(const std::string& str);
 
@@ -315,6 +320,9 @@ struct ClientState
   ComboAddress local;
 #ifdef HAVE_DNSCRYPT
   DnsCryptContext* dnscryptCtx{0};
+#endif
+#ifdef HAVE_DNS_OVER_TLS
+  SSL_CTX* tlsCtx{nullptr};
 #endif
   std::atomic<uint64_t> queries{0};
   int udpFD{-1};
@@ -661,6 +669,9 @@ extern GlobalStateHolder<NetmaskGroup> g_ACL;
 extern ComboAddress g_serverControl; // not changed during runtime
 
 extern std::vector<std::tuple<ComboAddress, bool, bool, int>> g_locals; // not changed at runtime (we hope XXX)
+#ifdef HAVE_DNS_OVER_TLS
+extern std::vector<std::tuple<ComboAddress, bool, int>> g_tlslocals;
+#endif
 extern vector<ClientState*> g_frontends;
 extern std::string g_key; // in theory needs locking
 extern bool g_truncateTC;
@@ -719,6 +730,7 @@ void dnsdistWebserverThread(int sock, const ComboAddress& local, const string& p
 bool getMsgLen32(int fd, uint32_t* len);
 bool putMsgLen32(int fd, uint32_t len);
 void* tcpAcceptorThread(void* p);
+void* tlsAcceptorThread(void* p);
 
 void moreLua(bool client);
 void doClient(ComboAddress server, const std::string& command);

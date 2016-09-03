@@ -174,6 +174,11 @@ void* tcpClientThread(int pipefd)
   map<ComboAddress,int> sockets;
   for(;;) {
     ConnectionInfo* citmp, ci;
+    cerr<<"in"<<endl;
+#ifdef HAVE_DNS_OVER_TLS
+    cerr<<"we do have tls support"<<endl;
+    SSL *tls = nullptr;
+#endif
 
     try {
       readn2(pipefd, &citmp, sizeof(citmp));
@@ -194,6 +199,64 @@ void* tcpClientThread(int pipefd)
       goto drop;
 
     try {
+#ifdef HAVE_DNS_OVER_TLS
+    if (ci.cs->tlsCtx) {
+      cerr<<"we do have a TLS context!"<<endl;
+      tls = SSL_new(ci.cs->tlsCtx);
+      if (!tls) {
+        vinfolog("Error creating TLS object on %s", ci.cs->local.toStringWithPort());
+        if (g_verbose) {          
+          ERR_print_errors_fp(stderr);
+        }
+        goto drop;
+      }
+      if (!SSL_set_fd(tls, ci.fd)) {
+        goto drop;
+      }
+      int res = SSL_accept(tls);
+      cerr<<"SSL_accept() returned "<<res<<endl;
+      if (res == 0) {
+        goto drop;
+      }
+      else if (res < 0) {
+        int error = SSL_get_error(tls, res);
+        while (error == SSL_ERROR_WANT_READ) {
+          res = waitForData(ci.fd, g_tcpRecvTimeout);
+          if (res > 0) {
+              res = SSL_read(tls, &qlen, sizeof(qlen));
+              if (res == sizeof(qlen)) {
+                cerr<<"Got query len of "<<std::to_string(qlen)<<endl;
+              }
+              else if (res == 0) {
+                cerr<<"connection closed during handshake "<<endl;
+                goto drop;
+              }
+              else {
+                error = SSL_get_error(tls, res);
+                if (error != SSL_ERROR_WANT_READ) {
+                  cerr<<"SSL_read() returned "<<res<<" and failed with "<<error<<endl;
+                  cerr<<"available to read "<<SSL_pending(tls)<<endl;
+                  goto drop;
+                }
+              }
+          }
+          else if (res == 0) {
+            throw runtime_error("Timeout while waiting for data to read");
+          } else {
+            throw runtime_error("Error while waiting for data to read");
+          }
+        }
+        if (error != SSL_ERROR_WANT_READ) {
+          cerr<<"SSL_get_error returned "<<error<<endl;
+          ERR_print_errors_fp(stderr);
+          goto drop;
+        }
+      }
+    } else {
+      cerr<<"oh no, no TLS context!"<<endl;
+    }
+#endif
+
       for(;;) {
         ds = nullptr;
         outstanding = false;
@@ -484,6 +547,12 @@ void* tcpClientThread(int pipefd)
   drop:;
     
     vinfolog("Closing TCP client connection with %s", ci.remote.toStringWithPort());
+#ifdef HAVE_DNS_OVER_TLS
+    if (tls) {
+      SSL_free(tls);
+      tls = nullptr;
+    }
+#endif
     close(ci.fd); 
     ci.fd=-1;
     if (ds && outstanding) {

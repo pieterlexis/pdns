@@ -79,6 +79,9 @@ bool g_syslog{true};
 GlobalStateHolder<NetmaskGroup> g_ACL;
 string g_outputBuffer;
 vector<std::tuple<ComboAddress, bool, bool, int>> g_locals;
+#ifdef HAVE_DNS_OVER_TLS
+std::vector<std::tuple<ComboAddress, bool, int>> g_tlslocals;
+#endif
 #ifdef HAVE_DNSCRYPT
 std::vector<std::tuple<ComboAddress,DnsCryptContext,bool, int>> g_dnsCryptLocals;
 #endif
@@ -1701,6 +1704,11 @@ try
 
   g_configurationDone = true;
 
+#ifdef HAVE_DNS_OVER_TLS
+  SSL_load_error_strings();
+  OpenSSL_add_ssl_algorithms();
+#endif
+
   vector<ClientState*> toLaunch;
   for(const auto& local : g_locals) {
     ClientState* cs = new ClientState;
@@ -1861,6 +1869,59 @@ try
     SBind(cs->tcpFD, cs->local);
     SListen(cs->tcpFD, 64);
     warnlog("Listening on %s", cs->local.toStringWithPort());
+    toLaunch.push_back(cs);
+    g_frontends.push_back(cs);
+    tcpBindsCount++;
+  }
+#endif
+
+#ifdef HAVE_DNS_OVER_TLS
+  for(auto& local : g_tlslocals) {
+    ClientState* cs = new ClientState;
+    cs->local = std::get<0>(local);
+    cs->tcpFD = SSocket(cs->local.sin4.sin_family, SOCK_STREAM, 0);
+    SSetsockopt(cs->tcpFD, SOL_SOCKET, SO_REUSEADDR, 1);
+#ifdef TCP_DEFER_ACCEPT
+    SSetsockopt(cs->tcpFD, SOL_TCP,TCP_DEFER_ACCEPT, 1);
+#endif
+    if (std::get<2>(local) > 0) {
+#ifdef TCP_FASTOPEN
+      SSetsockopt(cs->tcpFD, SOL_TCP, TCP_FASTOPEN, std::get<2>(local));
+#else
+      warnlog("TCP Fast Open has been configured on local address '%s' but is not supported", std::get<0>(local).toStringWithPort());
+#endif
+    }
+    if (std::get<1>(local)) {
+#ifdef SO_REUSEPORT
+      SSetsockopt(cs->tcpFD, SOL_SOCKET, SO_REUSEPORT, 1);
+#else
+      warnlog("SO_REUSEPORT has been configured on local address '%s' but is not supported", std::get<0>(local).toStringWithPort());
+#endif
+    }
+    if(cs->local.sin4.sin_family == AF_INET6) {
+      SSetsockopt(cs->tcpFD, IPPROTO_IPV6, IPV6_V6ONLY, 1);
+    }
+#ifdef HAVE_EBPF
+    if (g_defaultBPFFilter) {
+      g_defaultBPFFilter->addSocket(cs->tcpFD);
+      vinfolog("Attaching default BPF Filter to TCP TLS frontend %s", cs->local.toStringWithPort());
+    }
+#endif /* HAVE_EBPF */
+    bindAny(cs->local.sin4.sin_family, cs->tcpFD);
+    cs->tlsCtx = SSL_CTX_new(SSLv23_server_method());
+    if (cs->tlsCtx) {
+      vinfolog("TLS CTX created for cs");
+      SSL_CTX_set_ecdh_auto(cs->tlsCtx, 1);
+      SSL_CTX_use_certificate_file(cs->tlsCtx, "cert.pem", SSL_FILETYPE_PEM);
+      SSL_CTX_use_PrivateKey_file(cs->tlsCtx, "key.pem", SSL_FILETYPE_PEM);
+    }
+    else {
+      errlog("Error creating TLS context on %s", cs->local.toStringWithPort());
+      ERR_print_errors_fp(stderr);
+    }
+    SBind(cs->tcpFD, cs->local);
+    SListen(cs->tcpFD, 64);
+    warnlog("Listening on %s for TLS", cs->local.toStringWithPort());
     toLaunch.push_back(cs);
     g_frontends.push_back(cs);
     tcpBindsCount++;
