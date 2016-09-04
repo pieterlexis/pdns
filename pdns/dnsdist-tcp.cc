@@ -32,9 +32,9 @@
 using std::thread;
 using std::atomic;
 
-/* TCP: the grand design. 
-   We forward 'messages' between clients and downstream servers. Messages are 65k bytes large, tops. 
-   An answer might theoretically consist of multiple messages (for example, in the case of AXFR), initially 
+/* TCP: the grand design.
+   We forward 'messages' between clients and downstream servers. Messages are 65k bytes large, tops.
+   An answer might theoretically consist of multiple messages (for example, in the case of AXFR), initially
    we will not go there.
 
    In a sense there is a strong symmetry between UDP and TCP, once a connection to a downstream has been setup.
@@ -48,7 +48,7 @@ using std::atomic;
 */
 
 static int setupTCPDownstream(shared_ptr<DownstreamState> ds)
-{  
+{
   vinfolog("TCP connecting to downstream %s", ds->remote.toStringWithPort());
   int sock = SSocket(ds->remote.sin4.sin_family, SOCK_STREAM, 0);
   if (!IsAnyAddress(ds->sourceAddr)) {
@@ -96,11 +96,176 @@ void TCPClientCollection::addTCPClientThread()
   t1.detach();
 }
 
+class TCPIOHandler
+{
+public:
+  TCPIOHandler(int socket, unsigned int idleTimeout, unsigned int readTimeout, unsigned int writeTimeout): d_socket(socket), d_idleTimeout(idleTimeout), d_readTimeout(readTimeout), d_writeTimeout(writeTimeout)
+  {
+  }
+  virtual ~TCPIOHandler()
+  {
+  }
+  virtual bool setup()
+  {
+    return true;
+  }
+  virtual size_t read(void* buffer, size_t bufferSize)
+  {
+    return readn2WithTimeout(d_socket, buffer, bufferSize, d_readTimeout);
+  }
+  virtual size_t write(const void* buffer, size_t bufferSize)
+  {
+    return writen2WithTimeout(d_socket, buffer, bufferSize, d_writeTimeout);
+  }
+protected:
+  int d_socket{-1};
+  unsigned int d_idleTimeout;
+  unsigned int d_readTimeout;
+  unsigned int d_writeTimeout;
+};
+
+#ifdef HAVE_DNS_OVER_TLS
+class TLSIOHandler: public TCPIOHandler
+{
+public:
+  TLSIOHandler(int socket, SSL_CTX* tlsCtx, unsigned int idleTimeout, unsigned int readTimeout, unsigned int writeTimeout): TCPIOHandler(socket, idleTimeout, readTimeout, writeTimeout), d_tlsCtx(tlsCtx)
+  {
+  }
+  virtual ~TLSIOHandler() override
+  {
+    if (d_tls) {
+      SSL_free(d_tls);
+    }
+  }
+  virtual bool setup() override
+  {
+    d_tls = SSL_new(d_tlsCtx);
+    if (!d_tls) {
+      vinfolog("Error creating TLS object");
+      if (g_verbose) {
+        ERR_print_errors_fp(stderr);
+      }
+      throw std::runtime_error("Error creating TLS object");
+    }
+    if (!SSL_set_fd(d_tls, d_socket)) {
+      throw std::runtime_error("Error assigning socket");
+    }
+    int res = SSL_accept(d_tls);
+    while (res < 0) {
+      cerr<<"SSL_accept() returned "<<res<<endl;
+      int error = SSL_get_error(d_tls, res);
+      if(error == SSL_ERROR_WANT_READ) {
+        res = waitForData(d_socket, d_readTimeout);
+        if (res <= 0) {
+          cerr<<"Error reading from TLS connection"<<endl;
+          throw std::runtime_error("Error reading from TLS connection");
+        }
+      }
+      else if (error == SSL_ERROR_WANT_WRITE) {
+        res = waitForRWData(d_socket, false, d_writeTimeout, 0);
+        if (res <= 0) {
+          cerr<<"Error writing to TLS connection"<<endl;
+          throw std::runtime_error("Error writing to TLS connection");
+        }
+      }
+      else {
+        cerr<<"SSL_get_error returned "<<error<<endl;
+        ERR_print_errors_fp(stderr);
+        throw std::runtime_error("Error accepting TLS connection");
+      }
+    }
+
+    if (res == 0) {
+      throw std::runtime_error("Error accepting TLS connection");
+    }
+    cerr<<"SSL_accept() returned "<<res<<endl;
+    return true;
+  }
+  virtual size_t read(void* buffer, size_t bufferSize) override
+  {
+    cerr<<"in "<<__func__<<" for a read of "<<bufferSize<<endl;
+    size_t got = 0;
+    do {
+      int res = SSL_read(d_tls, ((char *)buffer) + got, (int) (bufferSize - got));
+      if (res == 0) {
+        throw std::runtime_error("Error reading from TLS connection");
+      }
+      else if (res < 0) {
+        int error = SSL_get_error(d_tls, res);
+        if (error == SSL_ERROR_WANT_READ) {
+          res = waitForData(d_socket, d_readTimeout);
+          if (res <= 0) {
+            cerr<<"Error waiting to read from TLS connection"<<endl;
+            throw std::runtime_error("Error waitint to read from TLS connection");
+          }
+        }
+        else {
+          cerr<<"Error reading from TLS connection"<<endl;
+          throw std::runtime_error("Error reading from TLS connection");
+        }
+      }
+      else {
+        got += (size_t) res;
+      }
+    }
+    while (got < bufferSize);
+    return got;
+  }
+  virtual size_t write(const void* buffer, size_t bufferSize) override
+  {
+    cerr<<"in "<<__func__<<" for a write of "<<bufferSize<<endl;
+    size_t got = 0;
+    do {
+      int res = SSL_write(d_tls, ((char *)buffer) + got, (int) (bufferSize - got));
+      if (res == 0) {
+        throw std::runtime_error("Error writing to TLS connection");
+      }
+      else if (res < 0) {
+        int error = SSL_get_error(d_tls, res);
+        if (error == SSL_ERROR_WANT_WRITE) {
+          res = waitForRWData(d_socket, false, d_readTimeout, 0);
+          if (res <= 0) {
+            cerr<<"Error waiting to write to TLS connection"<<endl;
+            throw std::runtime_error("Error waiting to write to TLS connection");
+          }
+        }
+        else {
+          cerr<<"Error writing to TLS connection"<<endl;
+          throw std::runtime_error("Error writing to TLS connection");
+        }
+      }
+      else {
+        got += (size_t) res;
+      }
+    }
+    while (got < bufferSize);
+    return got;
+  }
+private:
+  SSL_CTX* d_tlsCtx;
+  SSL* d_tls;
+};
+#endif
+
 static bool getNonBlockingMsgLen(int fd, uint16_t* len, int timeout)
 try
 {
   uint16_t raw;
   size_t ret = readn2WithTimeout(fd, &raw, sizeof raw, timeout);
+  if(ret != sizeof raw)
+    return false;
+  *len = ntohs(raw);
+  return true;
+}
+catch(...) {
+  return false;
+}
+
+static bool getNonBlockingMsgLenFromClient(TCPIOHandler& handler, uint16_t* len)
+try
+{
+  uint16_t raw;
+  size_t ret = handler.read(&raw, sizeof raw);
   if(ret != sizeof raw)
     return false;
   *len = ntohs(raw);
@@ -121,6 +286,17 @@ catch(...) {
   return false;
 }
 
+static bool putNonBlockingMsgLenToClient(TCPIOHandler& handler, uint16_t len)
+try
+{
+  uint16_t raw = htons(len);
+  size_t ret = handler.write(&raw, sizeof raw);
+  return ret == sizeof raw;
+}
+catch(...) {
+  return false;
+}
+
 static bool sendNonBlockingMsgLen(int fd, uint16_t len, int timeout, ComboAddress& dest, ComboAddress& local, unsigned int localItf)
 try
 {
@@ -135,12 +311,12 @@ catch(...) {
   return false;
 }
 
-static bool sendResponseToClient(int fd, const char* response, uint16_t responseLen)
+static bool sendResponseToClient(TCPIOHandler& handler, const char* response, uint16_t responseLen)
 {
-  if (!putNonBlockingMsgLen(fd, responseLen, g_tcpSendTimeout))
+  if (!putNonBlockingMsgLenToClient(handler, responseLen))
     return false;
 
-  writen2WithTimeout(fd, response, responseLen, g_tcpSendTimeout);
+  handler.write(response, responseLen);
   return true;
 }
 
@@ -150,17 +326,17 @@ void* tcpClientThread(int pipefd)
 {
   /* we get launched with a pipe on which we receive file descriptors from clients that we own
      from that point on */
-     
+
   bool outstanding = false;
   blockfilter_t blockFilter = 0;
-  
+
   {
     std::lock_guard<std::mutex> lock(g_luamutex);
     auto candidate = g_lua.readVariable<boost::optional<blockfilter_t> >("blockFilter");
     if(candidate)
       blockFilter = *candidate;
-  }     
-     
+  }
+
   auto localPolicy = g_policy.getLocal();
   auto localRulactions = g_rulactions.getLocal();
   auto localRespRulactions = g_resprulactions.getLocal();
@@ -174,11 +350,6 @@ void* tcpClientThread(int pipefd)
   map<ComboAddress,int> sockets;
   for(;;) {
     ConnectionInfo* citmp, ci;
-    cerr<<"in"<<endl;
-#ifdef HAVE_DNS_OVER_TLS
-    cerr<<"we do have tls support"<<endl;
-    SSL *tls = nullptr;
-#endif
 
     try {
       readn2(pipefd, &citmp, sizeof(citmp));
@@ -189,7 +360,7 @@ void* tcpClientThread(int pipefd)
 
     --g_tcpclientthreads->d_queued;
     ci=*citmp;
-    delete citmp;    
+    delete citmp;
 
     uint16_t qlen, rlen;
     string largerQuery;
@@ -199,69 +370,21 @@ void* tcpClientThread(int pipefd)
       goto drop;
 
     try {
+      TCPIOHandler tcphandler(ci.fd, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
+      TCPIOHandler * handler = &tcphandler;
 #ifdef HAVE_DNS_OVER_TLS
-    if (ci.cs->tlsCtx) {
-      cerr<<"we do have a TLS context!"<<endl;
-      tls = SSL_new(ci.cs->tlsCtx);
-      if (!tls) {
-        vinfolog("Error creating TLS object on %s", ci.cs->local.toStringWithPort());
-        if (g_verbose) {          
-          ERR_print_errors_fp(stderr);
-        }
-        goto drop;
+      TLSIOHandler tlshandler(ci.fd, ci.cs->tlsCtx, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
+      if (ci.cs->tlsCtx) {
+        handler = &tlshandler;
       }
-      if (!SSL_set_fd(tls, ci.fd)) {
-        goto drop;
-      }
-      int res = SSL_accept(tls);
-      cerr<<"SSL_accept() returned "<<res<<endl;
-      if (res == 0) {
-        goto drop;
-      }
-      else if (res < 0) {
-        int error = SSL_get_error(tls, res);
-        while (error == SSL_ERROR_WANT_READ) {
-          res = waitForData(ci.fd, g_tcpRecvTimeout);
-          if (res > 0) {
-              res = SSL_read(tls, &qlen, sizeof(qlen));
-              if (res == sizeof(qlen)) {
-                cerr<<"Got query len of "<<std::to_string(qlen)<<endl;
-              }
-              else if (res == 0) {
-                cerr<<"connection closed during handshake "<<endl;
-                goto drop;
-              }
-              else {
-                error = SSL_get_error(tls, res);
-                if (error != SSL_ERROR_WANT_READ) {
-                  cerr<<"SSL_read() returned "<<res<<" and failed with "<<error<<endl;
-                  cerr<<"available to read "<<SSL_pending(tls)<<endl;
-                  goto drop;
-                }
-              }
-          }
-          else if (res == 0) {
-            throw runtime_error("Timeout while waiting for data to read");
-          } else {
-            throw runtime_error("Error while waiting for data to read");
-          }
-        }
-        if (error != SSL_ERROR_WANT_READ) {
-          cerr<<"SSL_get_error returned "<<error<<endl;
-          ERR_print_errors_fp(stderr);
-          goto drop;
-        }
-      }
-    } else {
-      cerr<<"oh no, no TLS context!"<<endl;
-    }
 #endif
+      handler->setup();
 
       for(;;) {
         ds = nullptr;
         outstanding = false;
 
-        if(!getNonBlockingMsgLen(ci.fd, &qlen, g_tcpRecvTimeout))
+        if(!getNonBlockingMsgLenFromClient(*handler, &qlen))
           break;
 
         ci.cs->queries++;
@@ -280,8 +403,9 @@ void* tcpClientThread(int pipefd)
         size_t querySize = qlen <= 4096 ? qlen + 512 : qlen;
         char queryBuffer[querySize];
         const char* query = queryBuffer;
-        readn2WithTimeout(ci.fd, queryBuffer, qlen, g_tcpRecvTimeout);
-
+        cerr<<"reading query"<<endl;
+        handler->read(queryBuffer, qlen);
+        cerr<<"got query"<<endl;
 #ifdef HAVE_DNSCRYPT
         std::shared_ptr<DnsCryptQuery> dnsCryptQuery = 0;
 
@@ -293,7 +417,7 @@ void* tcpClientThread(int pipefd)
 
           if (!decrypted) {
             if (response.size() > 0) {
-              sendResponseToClient(ci.fd, reinterpret_cast<char*>(response.data()), (uint16_t) response.size());
+              sendResponseToClient(*handler, reinterpret_cast<char*>(response.data()), (uint16_t) response.size());
             }
             break;
           }
@@ -330,10 +454,11 @@ void* tcpClientThread(int pipefd)
 	int delayMsec=0;
 	struct timespec now;
 	gettime(&now, true);
-
+        cerr<<"processing query"<<endl;
 	if (!processQuery(localDynBlockNMG, localDynBlockSMT, localRulactions, blockFilter, dq, poolname, &delayMsec, now)) {
 	  goto drop;
 	}
+        cerr<<"processed query"<<endl;
 
 	if(dq.dh->qr) { // something turned it into a response
           restoreFlags(dh, origFlags);
@@ -342,7 +467,7 @@ void* tcpClientThread(int pipefd)
             goto drop;
           }
 #endif
-          sendResponseToClient(ci.fd, query, dq.len);
+          sendResponseToClient(*handler, query, dq.len);
 	  g_stats.selfAnswered++;
 	  goto drop;
 	}
@@ -378,7 +503,7 @@ void* tcpClientThread(int pipefd)
               goto drop;
             }
 #endif
-            sendResponseToClient(ci.fd, cachedResponse, cachedResponseSize);
+            sendResponseToClient(*handler, cachedResponse, cachedResponseSize);
             g_stats.cacheHits++;
             goto drop;
           }
@@ -402,7 +527,7 @@ void* tcpClientThread(int pipefd)
         outstanding = true;
 
         uint16_t downstream_failures=0;
-      retry:; 
+      retry:;
         if (dsock < 0) {
           sockets.erase(ds->remote);
           break;
@@ -513,10 +638,11 @@ void* tcpClientThread(int pipefd)
           goto drop;
         }
 #endif
-        if (!sendResponseToClient(ci.fd, response, responseLen)) {
+        cerr<<"sending response"<<endl;
+        if (!sendResponseToClient(*handler, response, responseLen)) {
           break;
         }
-
+        cerr<<"sent response"<<endl;
         if (isXFR && dh->rcode == 0 && dh->ancount != 0) {
           if (xfrStarted == false) {
             xfrStarted = true;
@@ -545,15 +671,9 @@ void* tcpClientThread(int pipefd)
     catch(...){}
 
   drop:;
-    
+
     vinfolog("Closing TCP client connection with %s", ci.remote.toStringWithPort());
-#ifdef HAVE_DNS_OVER_TLS
-    if (tls) {
-      SSL_free(tls);
-      tls = nullptr;
-    }
-#endif
-    close(ci.fd); 
+    close(ci.fd);
     ci.fd=-1;
     if (ds && outstanding) {
       outstanding = false;
@@ -564,7 +684,7 @@ void* tcpClientThread(int pipefd)
 }
 
 
-/* spawn as many of these as required, they call Accept on a socket on which they will accept queries, and 
+/* spawn as many of these as required, they call Accept on a socket on which they will accept queries, and
    they will hand off to worker threads & spawn more of them if required
 */
 void* tcpAcceptorThread(void* p)
@@ -573,7 +693,7 @@ void* tcpAcceptorThread(void* p)
 
   ComboAddress remote;
   remote.sin4.sin_family = cs->local.sin4.sin_family;
-  
+
   g_tcpclientthreads->addTCPClientThread();
 
   auto acl = g_ACL.getLocal();
@@ -604,7 +724,7 @@ void* tcpAcceptorThread(void* p)
       }
 
       vinfolog("Got TCP connection from %s", remote.toStringWithPort());
-      
+
       ci->remote = remote;
       int pipe = g_tcpclientthreads->getThread();
       if (pipe >= 0) {
@@ -619,7 +739,7 @@ void* tcpAcceptorThread(void* p)
     }
     catch(std::exception& e) {
       errlog("While reading a TCP question: %s", e.what());
-      if(ci && ci->fd >= 0) 
+      if(ci && ci->fd >= 0)
 	close(ci->fd);
       delete ci;
     }
