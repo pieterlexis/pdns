@@ -315,6 +315,30 @@ struct QueryCount {
 
 extern QueryCount g_qcount;
 
+#ifdef HAVE_DNS_OVER_TLS
+class TLSFrontend
+{
+public:
+  bool setupTLS();
+  ~TLSFrontend()
+  {
+    if (d_tlsCtx) {
+      SSL_CTX_free(d_tlsCtx);
+    }
+  }
+
+  ComboAddress d_addr;
+  std::string d_certFile;
+  std::string d_keyFile;
+  std::string d_caFile;
+  std::string d_ciphers;
+  SSL_CTX* d_tlsCtx{nullptr};
+
+  unsigned int d_tcpFastOpenQueueSize{0};
+  bool d_reusePort{false};
+};
+#endif /* HAVE_DNS_OVER_TLS */
+
 struct ClientState
 {
   ComboAddress local;
@@ -322,7 +346,7 @@ struct ClientState
   DnsCryptContext* dnscryptCtx{0};
 #endif
 #ifdef HAVE_DNS_OVER_TLS
-  SSL_CTX* tlsCtx{nullptr};
+  TLSFrontend tlsFrontend;
 #endif
   std::atomic<uint64_t> queries{0};
   int udpFD{-1};
@@ -670,8 +694,8 @@ extern ComboAddress g_serverControl; // not changed during runtime
 
 extern std::vector<std::tuple<ComboAddress, bool, bool, int>> g_locals; // not changed at runtime (we hope XXX)
 #ifdef HAVE_DNS_OVER_TLS
-extern std::vector<std::tuple<ComboAddress, bool, int>> g_tlslocals;
-#endif
+extern std::vector<TLSFrontend> g_tlslocals;
+#endif /* HAVE_DNS_OVER_TLS */
 extern vector<ClientState*> g_frontends;
 extern std::string g_key; // in theory needs locking
 extern bool g_truncateTC;

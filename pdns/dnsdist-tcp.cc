@@ -125,6 +125,66 @@ protected:
 };
 
 #ifdef HAVE_DNS_OVER_TLS
+bool TLSFrontend::setupTLS()
+{
+  static const int sslOptions =
+    SSL_OP_NO_SSLv2 |
+    SSL_OP_NO_SSLv3 |
+    SSL_OP_NO_COMPRESSION |
+    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION |
+    SSL_OP_SINGLE_DH_USE |
+    SSL_OP_SINGLE_ECDH_USE |
+    SSL_OP_CIPHER_SERVER_PREFERENCE;
+
+  d_tlsCtx = SSL_CTX_new(SSLv23_server_method());
+  if (!d_tlsCtx) {
+    errlog("Error creating TLS context on %s!", d_addr.toStringWithPort());
+    ERR_print_errors_fp(stderr);
+    return false;
+  }
+
+  vinfolog("TLS CTX created for cs");
+  SSL_CTX_set_options(d_tlsCtx, sslOptions);
+  SSL_CTX_set_ecdh_auto(d_tlsCtx, 1);
+  SSL_CTX_use_certificate_file(d_tlsCtx, d_certFile.c_str(), SSL_FILETYPE_PEM);
+  SSL_CTX_use_PrivateKey_file(d_tlsCtx, d_keyFile.c_str(), SSL_FILETYPE_PEM);
+
+  if (!d_ciphers.empty()) {
+    SSL_CTX_set_cipher_list(d_tlsCtx, d_ciphers.c_str());
+  }
+
+  if (!d_caFile.empty()) {
+    BIO *bio = BIO_new(BIO_s_file_internal());
+    if (!bio) {
+      errlog("Error creating TLS BIO for %s!", d_addr.toStringWithPort());
+      ERR_print_errors_fp(stderr);
+      return false;
+    }
+
+    if (BIO_read_filename(bio, d_caFile.c_str()) <= 0) {
+      errlog("Error reading TLS chain from file %s for %s!", d_caFile, d_addr.toStringWithPort());
+      ERR_print_errors_fp(stderr);
+      BIO_free(bio);
+      return false;
+    }
+
+    X509* x509 = nullptr;
+    while ((x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL)) != nullptr) {
+      if (!SSL_CTX_add_extra_chain_cert(d_tlsCtx, x509)) {
+        errlog("Error reading certificate from chain %s for %s!", d_caFile, d_addr.toStringWithPort());
+        ERR_print_errors_fp(stderr);
+        BIO_free(bio);
+        X509_free(x509);
+        BIO_free(bio);
+        return false;
+      }
+    }
+    BIO_free(bio);
+  }
+
+  return true;
+}
+
 class TLSIOHandler: public TCPIOHandler
 {
 public:
@@ -137,6 +197,29 @@ public:
       SSL_free(d_tls);
     }
   }
+  void handleIORequest(int res)
+  {
+    int error = SSL_get_error(d_tls, res);
+    if (error == SSL_ERROR_WANT_READ) {
+      res = waitForData(d_socket, d_readTimeout);
+      if (res <= 0) {
+        cerr<<"Error reading from TLS connection"<<endl;
+        throw std::runtime_error("Error reading from TLS connection");
+      }
+    }
+    else if (error == SSL_ERROR_WANT_WRITE) {
+      res = waitForRWData(d_socket, false, d_readTimeout, 0);
+      if (res <= 0) {
+        cerr<<"Error waiting to write to TLS connection"<<endl;
+        throw std::runtime_error("Error waiting to write to TLS connection");
+      }
+    }
+    else {
+      cerr<<"Error writing to TLS connection"<<endl;
+      throw std::runtime_error("Error writing to TLS connection");
+    }
+  }
+
   virtual bool setup() override
   {
     d_tls = SSL_new(d_tlsCtx);
@@ -150,40 +233,23 @@ public:
     if (!SSL_set_fd(d_tls, d_socket)) {
       throw std::runtime_error("Error assigning socket");
     }
-    int res = SSL_accept(d_tls);
-    while (res < 0) {
-      cerr<<"SSL_accept() returned "<<res<<endl;
-      int error = SSL_get_error(d_tls, res);
-      if(error == SSL_ERROR_WANT_READ) {
-        res = waitForData(d_socket, d_readTimeout);
-        if (res <= 0) {
-          cerr<<"Error reading from TLS connection"<<endl;
-          throw std::runtime_error("Error reading from TLS connection");
-        }
-      }
-      else if (error == SSL_ERROR_WANT_WRITE) {
-        res = waitForRWData(d_socket, false, d_writeTimeout, 0);
-        if (res <= 0) {
-          cerr<<"Error writing to TLS connection"<<endl;
-          throw std::runtime_error("Error writing to TLS connection");
-        }
-      }
-      else {
-        cerr<<"SSL_get_error returned "<<error<<endl;
-        ERR_print_errors_fp(stderr);
-        throw std::runtime_error("Error accepting TLS connection");
+    int res = 0;
+    do {
+      res = SSL_accept(d_tls);
+      if (res < 0) {
+        handleIORequest(res);
       }
     }
+    while (res < 0);
 
     if (res == 0) {
       throw std::runtime_error("Error accepting TLS connection");
     }
-    cerr<<"SSL_accept() returned "<<res<<endl;
     return true;
   }
+
   virtual size_t read(void* buffer, size_t bufferSize) override
   {
-    cerr<<"in "<<__func__<<" for a read of "<<bufferSize<<endl;
     size_t got = 0;
     do {
       int res = SSL_read(d_tls, ((char *)buffer) + got, (int) (bufferSize - got));
@@ -191,29 +257,19 @@ public:
         throw std::runtime_error("Error reading from TLS connection");
       }
       else if (res < 0) {
-        int error = SSL_get_error(d_tls, res);
-        if (error == SSL_ERROR_WANT_READ) {
-          res = waitForData(d_socket, d_readTimeout);
-          if (res <= 0) {
-            cerr<<"Error waiting to read from TLS connection"<<endl;
-            throw std::runtime_error("Error waitint to read from TLS connection");
-          }
-        }
-        else {
-          cerr<<"Error reading from TLS connection"<<endl;
-          throw std::runtime_error("Error reading from TLS connection");
-        }
+        handleIORequest(res);
       }
       else {
         got += (size_t) res;
       }
     }
     while (got < bufferSize);
+
     return got;
   }
+
   virtual size_t write(const void* buffer, size_t bufferSize) override
   {
-    cerr<<"in "<<__func__<<" for a write of "<<bufferSize<<endl;
     size_t got = 0;
     do {
       int res = SSL_write(d_tls, ((char *)buffer) + got, (int) (bufferSize - got));
@@ -221,24 +277,14 @@ public:
         throw std::runtime_error("Error writing to TLS connection");
       }
       else if (res < 0) {
-        int error = SSL_get_error(d_tls, res);
-        if (error == SSL_ERROR_WANT_WRITE) {
-          res = waitForRWData(d_socket, false, d_readTimeout, 0);
-          if (res <= 0) {
-            cerr<<"Error waiting to write to TLS connection"<<endl;
-            throw std::runtime_error("Error waiting to write to TLS connection");
-          }
-        }
-        else {
-          cerr<<"Error writing to TLS connection"<<endl;
-          throw std::runtime_error("Error writing to TLS connection");
-        }
+        handleIORequest(res);
       }
       else {
         got += (size_t) res;
       }
     }
     while (got < bufferSize);
+
     return got;
   }
 private:
@@ -373,8 +419,8 @@ void* tcpClientThread(int pipefd)
       TCPIOHandler tcphandler(ci.fd, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
       TCPIOHandler * handler = &tcphandler;
 #ifdef HAVE_DNS_OVER_TLS
-      TLSIOHandler tlshandler(ci.fd, ci.cs->tlsCtx, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
-      if (ci.cs->tlsCtx) {
+      TLSIOHandler tlshandler(ci.fd, ci.cs->tlsFrontend.d_tlsCtx, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
+      if (ci.cs->tlsFrontend.d_tlsCtx) {
         handler = &tlshandler;
       }
 #endif

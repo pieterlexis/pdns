@@ -1012,4 +1012,39 @@ void moreLua(bool client)
       });
 
 #endif /* HAVE_EBPF */
+#ifdef HAVE_DNS_OVER_TLS
+    g_lua.writeFunction("addTLSLocal", [client](const std::string& addr, const std::string& certFile, const std::string& keyFile, std::unordered_map<std::string, boost::variant<bool, std::string, unsigned int> > vars) {
+        setLuaSideEffect();
+        if (client)
+          return;
+        if (g_configurationDone) {
+          g_outputBuffer="addTLSLocal cannot be used at runtime!\n";
+          return;
+        }
+        TLSFrontend frontend;
+        frontend.d_certFile = certFile;
+        frontend.d_keyFile = keyFile;
+
+        if (vars.count("caFile")) {
+          frontend.d_caFile = boost::get<const string>(vars["caFile"]);
+        }
+        if (vars.count("ciphers")) {
+          frontend.d_ciphers = boost::get<const string>(vars["ciphers"]);
+        }
+        if (vars.count("reusePort")) {
+          frontend.d_reusePort = boost::get<bool>(vars["reusePort"]);
+        }
+        if (vars.count("tcpFastOpenQueueSize")) {
+          frontend.d_tcpFastOpenQueueSize = boost::get<unsigned int>(vars["tcpFastOpenQueueSize"]);
+        }
+
+        try {
+          frontend.d_addr = ComboAddress(addr, 853);
+          g_tlslocals.push_back(frontend); /// only works pre-startup, so no sync necessary
+        }
+        catch(std::exception& e) {
+          g_outputBuffer="Error: "+string(e.what())+"\n";
+        }
+      });
+#endif
 }
