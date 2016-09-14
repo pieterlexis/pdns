@@ -68,6 +68,11 @@ private:
     SMySQL *pdns_db;
     vector<DNSResourceRecord> *rrs;
 
+    // sql statements
+    SSqlStatement *region_stmt;
+    SSqlStatement *cc_stmt;
+    SSqlStatement *cc_stmt_any;
+
     // cache related
     boost::mutex cache_mutex;
     bool enable_cache;

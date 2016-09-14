@@ -56,21 +56,30 @@ GeoSqlBackend::GeoSqlBackend ( const string &suffix )
                                mustDo ( "pdns-innodb-read-committed" ),
                                getArgAsNum ( "pdns-timeout" ) );
 
-        geosqlenabled_stmt = pdns_db->prepare ( getArg ( "sql-pdns-lookup-geosqlenabled" ), 0 );
-
-        enable_cache = true;
-        cacheThread = new boost::thread ( &GeoSqlBackend::refresh_cache, this );
-
     } catch ( SSqlException &e ) {
         L << Logger::Debug << "geosql " << "DB Connection failed: " << e.txtReason() << endl;
+        throw PDNSException ( "geosql DB Connection failed: " + e.txtReason() );
     }
+
+    geosqlenabled_stmt = pdns_db->prepare ( getArg ( "sql-pdns-lookup-geosqlenabled" ), 1 );
+    geosqlenabled_stmt->bind ( "like", string ( "%" + getArg ( "domain-suffix" ) ) );
+
+    region_stmt = geoip_db->prepare ( getArg ( "sql-geo-lookup-region" ), 1 );
+    cc_stmt_any = pdns_db->prepare ( getArg ( "sql-pdns-lookuptype-any" ), 3 );
+    cc_stmt = pdns_db->prepare ( getArg ( "sql-pdns-lookuptype" ), 4 );
+
+    enable_cache = true;
+    cacheThread = new boost::thread ( &GeoSqlBackend::refresh_cache, this );
+
+
 }
 
 void GeoSqlBackend::refresh_cache ()
 {
-    while ( enable_cache ) {
 
-        boost::regex re ( "^(.*)\\..*\\." + getArg ( "domain-suffix" ) + "$" );
+    boost::regex re ( "^(.*)\\..*\\." + getArg ( "domain-suffix" ) + "$" );
+
+    while ( enable_cache ) {
 
         try {
 
@@ -79,8 +88,7 @@ void GeoSqlBackend::refresh_cache ()
             SSqlStatement::result_t result;
 
             geosqlenabled_stmt->execute()
-            ->getResult ( result )
-            ->reset();
+            ->getResult ( result );
 
             // re-populate cache
             if ( !result.empty() ) {
@@ -127,33 +135,37 @@ void GeoSqlBackend::lookup ( const QType &qtype, const DNSName &qdomain, DNSPack
 
     cache_mutex.lock();
 
-    //check if qdomain is a registered geosql enabled record, if not skip the whole backend
-    if ( geosqlRrs->find ( qdomain.toStringNoDot() ) != geosqlRrs->end() ) {
-        cache_mutex.unlock();
+    try {
+        //check if qdomain is a registered geosql enabled record, if not skip the whole backend
+        if ( geosqlRrs->find ( qdomain.toStringNoDot() ) != geosqlRrs->end() ) {
+            cache_mutex.unlock();
 
-        L << Logger::Debug << "geosql " << "Handling Query Request: '" << qdomain.toStringNoDot() << ":" << qtype.getName() << "'" << endl;
+            L << Logger::Debug << "geosql " << "Handling Query Request: '" << qdomain.toStringNoDot() << ":" << qtype.getName() << "'" << endl;
 
-        //check for ECS data and use it if found
-        if ( pkt_p->hasEDNSSubnet() ) {
-            L << Logger::Debug << "geosql " << "EDNS0 Client-Subnet Field Found!" << endl;
-            remoteIp = pkt_p->getRealRemote().getNetwork();
+            //check for ECS data and use it if found
+            if ( pkt_p->hasEDNSSubnet() ) {
+                remoteIp = pkt_p->getRealRemote().getNetwork();
+
+            } else {
+                remoteIp = pkt_p->getRemote();
+            }
+
+            // get region and dns records for that region
+            sqlregion region;
+
+            if ( getRegionForIP ( remoteIp, region ) ) {
+                getGeoDnsRecords ( qtype, qdomain.toStringNoDot(), region );
+            }
 
         } else {
-            remoteIp = pkt_p->getRemote();
+            cache_mutex.unlock();
+            L << Logger::Debug << "geosql " << "Skipping Query request: '" << qdomain.toStringNoDot() << "' not a geosql enabled record" << endl;
         }
 
-        // get region and dns records for that region
-        sqlregion region;
-
-        if ( getRegionForIP ( remoteIp, region ) ) {
-            getGeoDnsRecords ( qtype, qdomain.toStringNoDot(), region );
-        }
-
-    } else {
-        L << Logger::Debug << "geosql " << "Skipping Query request: '" << qdomain.toStringNoDot() << "' not a geosql enabled record" << endl;
+    } catch ( SSqlException &e ) {
         cache_mutex.unlock();
+        throw PDNSException ( "geosql lookup failed " + e.txtReason() );
     }
-
 }
 
 /**
@@ -183,10 +195,9 @@ bool GeoSqlBackend::getRegionForIP ( ComboAddress &ip, sqlregion &returned_regio
     bool foundCountry = false;
 
     try {
-        string sqlstmt = getArg ( "sql-geo-lookup-region" );
-        boost::replace_all ( sqlstmt, "{{S-IP}}", ip.toString() );
         std::vector<boost::any> sqlResponseData;
-        SSqlStatement *region_stmt = geoip_db->prepare ( sqlstmt, 0 );
+
+        region_stmt->bind ( "ip", ip.toString() );
 
         if ( getSqlData ( region_stmt, sqlResponseData, SQL_RESP_TYPE_REGION ) ) {
             sqlregion region = boost::any_cast<sqlregion> ( sqlResponseData.at ( 0 ) );
@@ -196,11 +207,8 @@ bool GeoSqlBackend::getRegionForIP ( ComboAddress &ip, sqlregion &returned_regio
             foundCountry = true;
         }
 
-        delete region_stmt;
-        region_stmt = NULL;
-
     } catch ( std::exception &e ) {
-        L << Logger::Critical << "geosql " << "Error while parsing SQL response data for GeoIP region! " << e.what() << endl;
+        throw PDNSException ( "geosql Error while parsing SQL response data for GeoIP region! " );
     }
 
     if ( foundCountry ) {
@@ -232,36 +240,56 @@ bool GeoSqlBackend::getRegionForIP ( ComboAddress &ip, sqlregion &returned_regio
 bool GeoSqlBackend::getGeoDnsRecords ( const QType &type, const string &qdomain, const sqlregion &region )
 {
     bool foundRecords = false;
-    string sqlstmt;
+    std::vector<boost::any> sqlResponseData;
+
+    bool typeAny = false;
 
     if ( type.getCode() == QType::ANY || type.getCode() == QType::SOA ) {
-        sqlstmt = getArg ( "sql-pdns-lookuptype-any" );
-
-    } else {
-        sqlstmt = getArg ( "sql-pdns-lookuptype" );
+        typeAny = true;
     }
-
-    boost::replace_all ( sqlstmt, "{{DOMAIN-SUFFIX}}", getArg ( "domain-suffix" ) );
-    boost::replace_all ( sqlstmt, "{{QDOMAIN}}", qdomain );
-    boost::replace_all ( sqlstmt, "{{QTYPE}}", type.getName() );
-
-    std::vector<boost::any> sqlResponseData;
 
     // get country specific records
     if ( !region.countrycode.empty() ) {
-        SSqlStatement *cc_stmt = pdns_db->prepare ( boost::replace_all_copy ( sqlstmt, "{{REGION}}", region.countrycode ), 0 );
-        foundRecords = getSqlData ( cc_stmt, sqlResponseData, SQL_RESP_TYPE_DNSRR );
-        delete cc_stmt;
-        cc_stmt = NULL;
+        string removeString =  string ( "." + region.countrycode + "." + getArg ( "domain-suffix" ) );
+
+        if ( typeAny ) {
+            cc_stmt_any->bind ( "removeString1" , removeString )
+            ->bind ( "removeString2" , removeString )
+            ->bind ( "name" , string ( qdomain + removeString ) );
+
+            foundRecords = getSqlData ( cc_stmt_any, sqlResponseData, SQL_RESP_TYPE_DNSRR );
+
+        } else {
+            cc_stmt->bind ( "removeString1" , removeString )
+            ->bind ( "removeString2" , removeString )
+            ->bind ( "name" , string ( qdomain + removeString ) )
+            ->bind ( "type" , type.getName() );
+
+            foundRecords = getSqlData ( cc_stmt, sqlResponseData, SQL_RESP_TYPE_DNSRR );
+
+        }
     }
 
     // if no country records found, get region specific records (last resort)
     if ( !foundRecords && !region.regionname.empty() ) {
-        boost::replace_all ( sqlstmt, "{{REGION}}", region.regionname );
-        SSqlStatement *region_stmt = pdns_db->prepare ( sqlstmt, 0 );
-        foundRecords = getSqlData ( region_stmt, sqlResponseData, SQL_RESP_TYPE_DNSRR );
-        delete region_stmt;
-        region_stmt = NULL;
+        string removeString =  string ( "." + region.regionname + "." + getArg ( "domain-suffix" ) );
+
+        if ( typeAny ) {
+            cc_stmt_any->bind ( "removeString1" , removeString )
+            ->bind ( "removeString2" , removeString )
+            ->bind ( "name" , string ( qdomain + removeString ) );
+
+            foundRecords = getSqlData ( cc_stmt_any, sqlResponseData, SQL_RESP_TYPE_DNSRR );
+
+        } else {
+            cc_stmt->bind ( "removeString1" , removeString )
+            ->bind ( "removeString2" , removeString )
+            ->bind ( "name" , string ( qdomain + removeString ) )
+            ->bind ( "type" , type.getName() );
+
+            foundRecords = getSqlData ( cc_stmt, sqlResponseData, SQL_RESP_TYPE_DNSRR );
+
+        }
     }
 
     if ( foundRecords ) {
@@ -275,7 +303,7 @@ bool GeoSqlBackend::getGeoDnsRecords ( const QType &type, const string &qdomain,
             }
 
         } catch ( std::exception &e ) {
-            L << Logger::Alert << "geosql " << "Error while parsing SQL response data for DNS Records: " << e.what() << endl;
+            throw PDNSException ( "geosql Error while parsing SQL response data for GeoIP region! " );
         }
     }
 
@@ -295,7 +323,6 @@ bool GeoSqlBackend::getSqlData ( SSqlStatement *sqlStatement, std::vector<boost:
 
     bool dataAvailable = false;
     sqlResponseData.clear();
-    L << Logger::Debug << "geosql " << "Preparing SQL Statement: " << sqlStatement->getQuery() << endl;
 
     switch ( sqlResponseType ) {
         case SQL_RESP_TYPE_DNSRR: {
@@ -309,6 +336,7 @@ bool GeoSqlBackend::getSqlData ( SSqlStatement *sqlStatement, std::vector<boost:
                     sqlStatement->execute()
                     ->getResult ( result )
                     ->reset();
+
                     cache_mutex.unlock();
 
                     if ( !result.empty() ) {
@@ -327,14 +355,17 @@ bool GeoSqlBackend::getSqlData ( SSqlStatement *sqlStatement, std::vector<boost:
                             row.ttl = pdns_stou ( result[i][3] );
 
                             sqlResponseData.push_back ( row );
+
+                            L << Logger::Debug << "Result: " << result[i][0] << " : " << string ( result[i][1] ) << " : " << string ( result[i][2] ) << " : "  << result[i][4] << endl;
                         }
+
 
                         dataAvailable = true;
 
                     }
 
                 } catch ( std::exception &e ) {
-                    L << Logger::Debug << "geosql Error while retrieving DNS RR records from the database" << endl;
+                    throw PDNSException ( "geosql Error while retrieving DNS RR records from the database: " );
                 }
 
                 break;
@@ -350,9 +381,11 @@ bool GeoSqlBackend::getSqlData ( SSqlStatement *sqlStatement, std::vector<boost:
 
                     SSqlStatement::result_t result;
                     cache_mutex.lock();
+
                     sqlStatement->execute()
                     ->getResult ( result )
                     ->reset();
+
                     cache_mutex.unlock();
 
                     if ( !result.empty() ) {
@@ -364,13 +397,15 @@ bool GeoSqlBackend::getSqlData ( SSqlStatement *sqlStatement, std::vector<boost:
                     }
 
                 } catch ( std::exception &e ) {
-                    L << Logger::Debug << "geosql Error while retrieving region records from the database" << endl;
+                    cache_mutex.unlock();
+                    throw PDNSException ( "geosql Error while retrieving region records from the database: " );
                 }
 
                 break;
             }
     }
 
+    \
     return dataAvailable;
 }
 
@@ -405,6 +440,8 @@ GeoSqlBackend::~GeoSqlBackend()
     L << Logger::Debug << "Destroying Backend geosql" << endl;
 
     // cleanup cache
+    geosqlenabled_stmt->reset();
+
     cache_mutex.unlock();
 
     cacheThread->interrupt();
@@ -415,6 +452,15 @@ GeoSqlBackend::~GeoSqlBackend()
 
     cacheThread = NULL;
     geosqlenabled_stmt = NULL;
+
+    delete region_stmt;
+    region_stmt = NULL;
+
+    delete cc_stmt;
+    cc_stmt = NULL;
+
+    delete cc_stmt_any;
+    cc_stmt_any = NULL;
 
     // general cleanup
     delete geoip_db;
@@ -474,10 +520,10 @@ class GeoSqlFactory : public BackendFactory
             declare ( suffix, "pdns-innodb-read-committed", "Use InnoDB READ-COMMITTED transaction isolation level for the PowerDNS Database", "true" );
 
             // SQL Statements
-            declare ( suffix, "sql-pdns-lookuptype", "SQL Statement to retrieve RR types such as A,CNAME,TXT or MX records", "select replace(name, '.{{REGION}}.{{DOMAIN-SUFFIX}}',''), type , replace(content,'.{{REGION}}.{{DOMAIN-SUFFIX}}',''), ttl, prio from records where name='{{QDOMAIN}}.{{REGION}}.{{DOMAIN-SUFFIX}}' and type='{{QTYPE}}' and disabled=0;" );
-            declare ( suffix, "sql-pdns-lookuptype-any", "SQL Statement to retrieve the ANY RR type requests", "select replace(name, '.{{REGION}}.{{DOMAIN-SUFFIX}}',''), type, replace(content,'.{{REGION}}.{{DOMAIN-SUFFIX}}',''), ttl, prio from records where name='{{QDOMAIN}}.{{REGION}}.{{DOMAIN-SUFFIX}}' and type != 'SOA' and disabled=0;" );
-            declare ( suffix, "sql-geo-lookup-region", "SQL Statement to lookup the REGION and Country Code by source IP address", "select cc,regionname from lookup where MBRCONTAINS(ip_poly, POINTFROMWKB(POINT(INET_ATON('{{S-IP}}'), 0)));" );
-            declare ( suffix, "sql-pdns-lookup-geosqlenabled", "SQL Statement to lookup domains, which are enabled for geosql.", "select distinct name from records where name like '%geosql';" );
+            declare ( suffix, "sql-pdns-lookuptype", "SQL Statement to retrieve RR types such as A,CNAME,TXT or MX records", "select replace(name, ?,''), type , replace(content,?,''), ttl, prio from records where name=? and type=? and disabled=0;" );
+            declare ( suffix, "sql-pdns-lookuptype-any", "SQL Statement to retrieve the ANY RR type requests", "select replace(name, ?,''), type, replace(content,?,''), ttl, prio from records where name=? and type != 'SOA' and disabled=0;" );
+            declare ( suffix, "sql-geo-lookup-region", "SQL Statement to lookup the REGION and Country Code by source IP address", "select cc,regionname from lookup where MBRCONTAINS(ip_poly, POINTFROMWKB(POINT(INET_ATON( ? ), 0)));" );
+            declare ( suffix, "sql-pdns-lookup-geosqlenabled", "SQL Statement to lookup domains, which are enabled for geosql.", "select distinct name from records where name like ?;" );
         }
 
         /**
