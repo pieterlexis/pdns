@@ -62,15 +62,12 @@ GeoSqlBackend::GeoSqlBackend ( const string &suffix )
     }
 
     geosqlenabled_stmt = pdns_db->prepare ( getArg ( "sql-pdns-lookup-geosqlenabled" ), 1 );
-    geosqlenabled_stmt->bind ( "like", string ( "%" + getArg ( "domain-suffix" ) ) );
-
     region_stmt = geoip_db->prepare ( getArg ( "sql-geo-lookup-region" ), 1 );
     cc_stmt_any = pdns_db->prepare ( getArg ( "sql-pdns-lookuptype-any" ), 3 );
     cc_stmt = pdns_db->prepare ( getArg ( "sql-pdns-lookuptype" ), 4 );
 
     enable_cache = true;
     cacheThread = new boost::thread ( &GeoSqlBackend::refresh_cache, this );
-
 
 }
 
@@ -82,16 +79,14 @@ void GeoSqlBackend::refresh_cache ()
     while ( enable_cache ) {
 
         try {
-
+            SSqlStatement::result_t result;
             cache_mutex.lock();
 
-            SSqlStatement::result_t result;
-
-            geosqlenabled_stmt->execute()
-            ->getResult ( result );
+            geosqlenabled_stmt->bind ( "like", string ( "%" + getArg ( "domain-suffix" ) ) );
+            geosqlenabled_stmt->execute()->getResult ( result )->reset();
 
             // re-populate cache
-            if ( !result.empty() ) {
+            if ( result.size() > 0 ) {
 
                 // clear cache
                 geosqlRrs->clear();
@@ -113,6 +108,7 @@ void GeoSqlBackend::refresh_cache ()
             L << Logger::Debug << "geosql " << "Cache updated with " << geosqlRrs->size() << " enabled records" << endl;
 
         } catch ( SSqlException &e ) {
+            cache_mutex.unlock();
             L << Logger::Error << "geosql " << "DB Connection failed: " << e.txtReason() << endl;
         }
 
@@ -194,21 +190,16 @@ bool GeoSqlBackend::getRegionForIP ( ComboAddress &ip, sqlregion &returned_regio
 {
     bool foundCountry = false;
 
-    try {
-        std::vector<boost::any> sqlResponseData;
+    std::vector<boost::any> sqlResponseData;
 
-        region_stmt->bind ( "ip", ip.toString() );
+    region_stmt->bind ( "ip", ip.toString() );
 
-        if ( getSqlData ( region_stmt, sqlResponseData, SQL_RESP_TYPE_REGION ) ) {
-            sqlregion region = boost::any_cast<sqlregion> ( sqlResponseData.at ( 0 ) );
-            boost::to_lower ( region.regionname );
-            boost::to_lower ( region.countrycode );
-            returned_region = region;
-            foundCountry = true;
-        }
-
-    } catch ( std::exception &e ) {
-        throw PDNSException ( "geosql Error while parsing SQL response data for GeoIP region! " );
+    if ( getSqlData ( region_stmt, sqlResponseData, SQL_RESP_TYPE_REGION ) ) {
+        sqlregion region = boost::any_cast<sqlregion> ( sqlResponseData.at ( 0 ) );
+        boost::to_lower ( region.regionname );
+        boost::to_lower ( region.countrycode );
+        returned_region = region;
+        foundCountry = true;
     }
 
     if ( foundCountry ) {
@@ -296,15 +287,11 @@ bool GeoSqlBackend::getGeoDnsRecords ( const QType &type, const string &qdomain,
         DNSResourceRecord record;
         record.auth = 1;
 
-        try {
-            for ( int i = 0; i < sqlResponseData.size(); i++ ) {
-                record = boost::any_cast<DNSResourceRecord> ( sqlResponseData.at ( i ) );
-                rrs->push_back ( record );
-            }
-
-        } catch ( std::exception &e ) {
-            throw PDNSException ( "geosql Error while parsing SQL response data for GeoIP region! " );
+        for ( int i = 0; i < sqlResponseData.size(); i++ ) {
+            record = boost::any_cast<DNSResourceRecord> ( sqlResponseData.at ( i ) );
+            rrs->push_back ( record );
         }
+
     }
 
     return foundRecords;
@@ -365,6 +352,7 @@ bool GeoSqlBackend::getSqlData ( SSqlStatement *sqlStatement, std::vector<boost:
                     }
 
                 } catch ( std::exception &e ) {
+                    cache_mutex.unlock();
                     throw PDNSException ( "geosql Error while retrieving DNS RR records from the database: " );
                 }
 
@@ -440,38 +428,32 @@ GeoSqlBackend::~GeoSqlBackend()
     L << Logger::Debug << "Destroying Backend geosql" << endl;
 
     // cleanup cache
-    geosqlenabled_stmt->reset();
-
     cache_mutex.unlock();
 
-    cacheThread->interrupt();
-    cacheThread->join();
+    // cacheThread->interrupt();
+    // cacheThread->join();
 
     delete cacheThread;
-    delete geosqlenabled_stmt;
-
     cacheThread = NULL;
-    geosqlenabled_stmt = NULL;
-
-    delete region_stmt;
-    region_stmt = NULL;
-
-    delete cc_stmt;
-    cc_stmt = NULL;
-
-    delete cc_stmt_any;
-    cc_stmt_any = NULL;
 
     // general cleanup
     delete geoip_db;
     delete pdns_db;
     delete rrs;
     delete geosqlRrs;
+    delete region_stmt;
+    delete cc_stmt_any;
+    delete cc_stmt;
+    delete geosqlenabled_stmt;
 
     geoip_db = NULL;
     pdns_db = NULL;
     rrs = NULL;
     geosqlRrs = NULL;
+    cc_stmt = NULL;
+    cc_stmt_any = NULL;
+    region_stmt = NULL;
+    geosqlenabled_stmt = NULL;
 }
 
 /**
