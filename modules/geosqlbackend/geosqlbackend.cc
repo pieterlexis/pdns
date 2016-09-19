@@ -427,11 +427,8 @@ GeoSqlBackend::~GeoSqlBackend()
 {
     L << Logger::Debug << "Destroying Backend geosql" << endl;
 
-    // cleanup cache
-    cache_mutex.unlock();
-
-    // cacheThread->interrupt();
-    // cacheThread->join();
+    cacheThread->interrupt();
+    cacheThread->join();
 
     delete cacheThread;
     cacheThread = NULL;
