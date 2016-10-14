@@ -125,6 +125,25 @@ protected:
 };
 
 #ifdef HAVE_DNS_OVER_TLS
+#ifdef HAVE_S2N
+bool TLSFrontend::setupTLS()
+{
+  d_tlsCtx = s2n_config_new();
+  if (!d_tlsCtx) {
+    errlog("Error creating TLS context on %s!", d_addr.toStringWithPort());
+    return false;
+  }
+
+  vinfolog("TLS CTX created for cs");
+  s2n_config_add_cert_chain_and_key(d_tlsCtx, d_cert, d_key);
+
+  if (!d_ciphers.empty()) {
+    // ignored for now
+  }
+
+  return true;
+}
+#elif HAVE_OPENSSL
 bool TLSFrontend::setupTLS()
 {
   static const int sslOptions =
@@ -184,7 +203,115 @@ bool TLSFrontend::setupTLS()
 
   return true;
 }
+#endif
 
+
+#if HAVE_S2N
+class TLSIOHandler: public TCPIOHandler
+{
+public:
+  TLSIOHandler(int socket, SSL_CTX* tlsCtx, unsigned int idleTimeout, unsigned int readTimeout, unsigned int writeTimeout): TCPIOHandler(socket, idleTimeout, readTimeout, writeTimeout), d_tlsCtx(tlsCtx)
+  {
+  }
+  virtual ~TLSIOHandler() override
+  {
+    if (d_tls) {
+      s2n_connection_wipe(d_tls);
+    }
+  }
+  void handleIORequest(s2n_blocked_status status)
+  {
+    if (status == S2N_BLOCKED_ON_READ) {
+      res = waitForData(d_socket, d_readTimeout);
+      if (res <= 0) {
+        cerr<<"Error reading from TLS connection"<<endl;
+        throw std::runtime_error("Error reading from TLS connection");
+      }
+    }
+    else if (status == S2N_BLOCKED_ON_WRITE) {
+      res = waitForRWData(d_socket, false, d_readTimeout, 0);
+      if (res <= 0) {
+        cerr<<"Error waiting to write to TLS connection"<<endl;
+        throw std::runtime_error("Error waiting to write to TLS connection");
+      }
+    }
+    else {
+      cerr<<"Error writing to TLS connection"<<endl;
+      throw std::runtime_error("Error writing to TLS connection");
+    }
+  }
+
+  virtual bool setup() override
+  {
+    d_tls = s2n_connection_new(S2N_SERVER);
+    if (!d_tls) {
+      vinfolog("Error creating TLS object");
+      throw std::runtime_error("Error creating TLS object");
+    }
+    if (s2n_connection_set_config(d_tls, d_tlsCtx) < 0) {
+      throw std::runtime_error("Error assigning configuration");
+    }
+    if (s2n_connection_set_fd(d_tls, d_socket) < 0) {
+      throw std::runtime_error("Error assigning socket");
+    }
+    s2n_blocked_status status;
+    int res = 0;
+    do {
+      res = s2n_negotiate(d_tls, &status);
+      if (res < 0) {
+        throw std::runtime_error("Error accepting TLS connection");
+      }
+      if (status) {
+        handleIORequest(status);
+      }
+    }
+    while (status);
+
+    return true;
+  }
+
+  virtual size_t read(void* buffer, size_t bufferSize) override
+  {
+    size_t got = 0;
+    s2n_blocked_status status;
+    do {
+      ssize_t res = s2n_recv(d_tls, ((char *)buffer) + got, bufferSize - got, &status);
+      if (res <= 0) {
+        throw std::runtime_error("Error reading from TLS connection");
+      }
+      got += (size_t) res;
+      if (status) {
+        handeIORequest(status);
+      }
+    }
+    while (got < bufferSize);
+
+    return got;
+  }
+
+  virtual size_t write(const void* buffer, size_t bufferSize) override
+  {
+    size_t got = 0;
+    s2n_blocked_status status;
+    do {
+      ssize_t res = s2n_send(d_tls, ((char *)buffer) + got, bufferSize - got, &status);
+      if (res <= 0) {
+        throw std::runtime_error("Error writing to TLS connection");
+      }
+      got += (size_t) res;
+      if (status) {
+        handleIORequest(status);
+      }
+    }
+    while (got < bufferSize);
+
+    return got;
+  }
+private:
+  struct s2n_config *d_tlsCtx{nullptr};
+  struct s2n_connection *d_tls{nullptr}; 
+};
+#elif HAVE_OPENSSL
 class TLSIOHandler: public TCPIOHandler
 {
 public:
@@ -288,8 +415,8 @@ public:
     return got;
   }
 private:
-  SSL_CTX* d_tlsCtx;
-  SSL* d_tls;
+  SSL_CTX* d_tlsCtx{nullptr};
+  SSL* d_tls{nullptr};
 };
 #endif
 
