@@ -96,7 +96,11 @@ uint32_t calculateEditSOA(const DNSZoneRecord& rr, const string& kind)
     uint32_t inception = getStartOfWeek();
     if (src->d_st.serial < inception)
       return inception;
-  } else if(!kind.empty()) {
+  }
+  else if(pdns_iequals(kind,"NONE")) {
+      return src->d_st.serial;
+  }
+  else if(!kind.empty()) {
     L<<Logger::Warning<<"SOA-EDIT type '"<<kind<<"' for zone "<<rr.dr.d_name<<" is unknown."<<endl;
   }
   return src->d_st.serial;
