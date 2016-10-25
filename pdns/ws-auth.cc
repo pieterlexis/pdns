@@ -301,7 +301,7 @@ static inline string makeBackendRecordContent(const QType& qtype, const string& 
   return makeRecordContent(qtype, content, true);
 }
 
-static Json::object getZoneInfo(const DomainInfo& di, DNSSECKeeper *dk) {
+static Json::object getZoneInfo(const DomainInfo& di) {
   string zoneId = apiZoneNameToId(di.zone);
   return Json::object {
     // id is the canonical lookup key, which doesn't actually match the name (in some cases)
@@ -309,7 +309,6 @@ static Json::object getZoneInfo(const DomainInfo& di, DNSSECKeeper *dk) {
     { "url", "/api/v1/servers/localhost/zones/" + zoneId },
     { "name", di.zone.toString() },
     { "kind", di.getKindString() },
-    { "dnssec", dk->isSecuredZone(di.zone) },
     { "account", di.account },
     { "masters", di.masters },
     { "serial", (double)di.serial },
@@ -321,11 +320,12 @@ static Json::object getZoneInfo(const DomainInfo& di, DNSSECKeeper *dk) {
 static void fillZone(const DNSName& zonename, HttpResponse* resp) {
   UeberBackend B;
   DomainInfo di;
+  DNSSECKeeper dk;
   if(!B.getDomainInfo(zonename, di))
     throw ApiException("Could not find domain '"+zonename.toString()+"'");
 
   DNSSECKeeper dk(&B);
-  Json::object doc = getZoneInfo(di, &dk);
+  Json::object doc = getZoneInfo(di);
   // extra stuff getZoneInfo doesn't do for us (more expensive)
   string soa_edit_api;
   di.backend->getDomainMetadataOne(zonename, "SOA-EDIT-API", soa_edit_api);
@@ -333,6 +333,7 @@ static void fillZone(const DNSName& zonename, HttpResponse* resp) {
   string soa_edit;
   di.backend->getDomainMetadataOne(zonename, "SOA-EDIT", soa_edit);
   doc["soa_edit"] = soa_edit;
+  doc["dnssec"] = dk.isSecuredZone(zonename);
 
   vector<DNSResourceRecord> records;
   vector<Comment> comments;
@@ -1154,7 +1155,7 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
 
   Json::array doc;
   for(const DomainInfo& di : domains) {
-    doc.push_back(getZoneInfo(di, &dk));
+    doc.push_back(getZoneInfo(di));
   }
   resp->setBody(doc);
 }

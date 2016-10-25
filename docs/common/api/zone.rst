@@ -23,6 +23,8 @@ Comments are per-RRset.
 
   .. include:: ../../http-api/zone-properties.rst
 
+Note: when listing all zones, only a reduced set of information is returned.
+
 RRSet
 -----
 
