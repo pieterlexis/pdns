@@ -1358,11 +1358,12 @@ DNSPacket *PacketHandler::questionOrRecurse(DNSPacket *p, bool *shouldRecurse)
         if(rec->d_type != p->qtype.getCode())
           continue;
         
-        auto recvec=luaSynth(rec->d_code, target, p->getRemote(), p->qtype.getCode());
+        auto recvec=luaSynth(rec->getCode(), target, p->getRemote(), p->qtype.getCode());
         if(!recvec.empty()) {
           for(const auto& r : recvec) {
             rr.dr.d_type = p->qtype.getCode();
             rr.dr.d_content = r;
+            rr.scopeMask = 32;
             rrset.push_back(rr);
           }
           weDone = 1;

@@ -172,6 +172,7 @@ pdns_server_SOURCES = \
 	lua-auth.cc lua-auth.hh \
 	lua-auth4.cc lua-auth4.hh \
 	lua-pdns.cc lua-pdns.hh lua-iputils.cc \
+	minicurl.cc minicurl.hh \
 	mastercommunicator.cc \
 	md5.hh \
 	misc.cc misc.hh \
@@ -221,7 +222,7 @@ pdns_server_LDADD = \
 	$(YAHTTP_LIBS) \
 	$(JSON11_LIBS) \
 	$(LIBCRYPTO_LIBS) \
-	$(SYSTEMD_LIBS)
+	$(SYSTEMD_LIBS) -lcurl
 
 if BOTAN110
 pdns_server_SOURCES += botan110signers.cc
