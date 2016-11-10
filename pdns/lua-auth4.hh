@@ -38,4 +38,5 @@ private:
 
   luacall_update_policy_t d_update_policy;
 };
-std::vector<shared_ptr<DNSRecordContent>> luaSynth(const std::string& code, const DNSName& qname, const ComboAddress& who, uint16_t qtype);
+std::vector<shared_ptr<DNSRecordContent>> luaSynth(const std::string& code, const DNSName& qname,
+                                                   const DNSName& zone, int zoneid, const ComboAddress& who, uint16_t qtype);
