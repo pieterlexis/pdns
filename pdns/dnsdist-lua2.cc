@@ -1012,11 +1012,12 @@ void moreLua(bool client)
       });
 
 #endif /* HAVE_EBPF */
-#ifdef HAVE_DNS_OVER_TLS
+
     g_lua.writeFunction("addTLSLocal", [client](const std::string& addr, const std::string& certFile, const std::string& keyFile, std::unordered_map<std::string, boost::variant<bool, std::string, unsigned int> > vars) {
-        setLuaSideEffect();
         if (client)
           return;
+#ifdef HAVE_DNS_OVER_TLS
+        setLuaSideEffect();
         if (g_configurationDone) {
           g_outputBuffer="addTLSLocal cannot be used at runtime!\n";
           return;
@@ -1025,6 +1026,9 @@ void moreLua(bool client)
         frontend.d_certFile = certFile;
         frontend.d_keyFile = keyFile;
 
+        if (vars.count("provider")) {
+          frontend.d_provider = boost::get<bool>(vars["provider"]);
+        }
         if (vars.count("caFile")) {
           frontend.d_caFile = boost::get<const string>(vars["caFile"]);
         }
@@ -1045,6 +1049,8 @@ void moreLua(bool client)
         catch(std::exception& e) {
           g_outputBuffer="Error: "+string(e.what())+"\n";
         }
-      });
+#else
+        g_outputBuffer="DNS over TLS support is not present!\n";
 #endif
+      });
 }

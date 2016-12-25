@@ -38,15 +38,11 @@
 #include "gettime.hh"
 #include "dnsdist-dynbpf.hh"
 #include "bpf-filter.hh"
+#include "tcpiohandler.hh"
 
 #ifdef HAVE_PROTOBUF
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
-#endif
-
-#ifdef HAVE_DNS_OVER_TLS
-#include <openssl/ssl.h>
-#include <openssl/err.h>
 #endif
 
 void* carbonDumpThread();
@@ -315,16 +311,12 @@ struct QueryCount {
 
 extern QueryCount g_qcount;
 
-#ifdef HAVE_DNS_OVER_TLS
 class TLSFrontend
 {
 public:
   bool setupTLS();
   ~TLSFrontend()
   {
-    if (d_tlsCtx) {
-      SSL_CTX_free(d_tlsCtx);
-    }
   }
 
   ComboAddress d_addr;
@@ -332,12 +324,12 @@ public:
   std::string d_keyFile;
   std::string d_caFile;
   std::string d_ciphers;
-  SSL_CTX* d_tlsCtx{nullptr};
+  std::string d_provider;
+  std::shared_ptr<TLSCtx> d_ctx{nullptr};
 
   unsigned int d_tcpFastOpenQueueSize{0};
   bool d_reusePort{false};
 };
-#endif /* HAVE_DNS_OVER_TLS */
 
 struct ClientState
 {
@@ -345,9 +337,7 @@ struct ClientState
 #ifdef HAVE_DNSCRYPT
   DnsCryptContext* dnscryptCtx{0};
 #endif
-#ifdef HAVE_DNS_OVER_TLS
   TLSFrontend tlsFrontend;
-#endif
   std::atomic<uint64_t> queries{0};
   int udpFD{-1};
   int tcpFD{-1};
@@ -693,9 +683,7 @@ extern GlobalStateHolder<NetmaskGroup> g_ACL;
 extern ComboAddress g_serverControl; // not changed during runtime
 
 extern std::vector<std::tuple<ComboAddress, bool, bool, int>> g_locals; // not changed at runtime (we hope XXX)
-#ifdef HAVE_DNS_OVER_TLS
 extern std::vector<TLSFrontend> g_tlslocals;
-#endif /* HAVE_DNS_OVER_TLS */
 extern vector<ClientState*> g_frontends;
 extern std::string g_key; // in theory needs locking
 extern bool g_truncateTC;

@@ -26,6 +26,7 @@
 #include "dolog.hh"
 #include "lock.hh"
 #include "gettime.hh"
+#include "tcpiohandler.hh"
 #include <thread>
 #include <atomic>
 
@@ -96,330 +97,6 @@ void TCPClientCollection::addTCPClientThread()
   t1.detach();
 }
 
-class TCPIOHandler
-{
-public:
-  TCPIOHandler(int socket, unsigned int idleTimeout, unsigned int readTimeout, unsigned int writeTimeout): d_socket(socket), d_idleTimeout(idleTimeout), d_readTimeout(readTimeout), d_writeTimeout(writeTimeout)
-  {
-  }
-  virtual ~TCPIOHandler()
-  {
-  }
-  virtual bool setup()
-  {
-    return true;
-  }
-  virtual size_t read(void* buffer, size_t bufferSize)
-  {
-    return readn2WithTimeout(d_socket, buffer, bufferSize, d_readTimeout);
-  }
-  virtual size_t write(const void* buffer, size_t bufferSize)
-  {
-    return writen2WithTimeout(d_socket, buffer, bufferSize, d_writeTimeout);
-  }
-protected:
-  int d_socket{-1};
-  unsigned int d_idleTimeout;
-  unsigned int d_readTimeout;
-  unsigned int d_writeTimeout;
-};
-
-#ifdef HAVE_DNS_OVER_TLS
-#ifdef HAVE_S2N
-bool TLSFrontend::setupTLS()
-{
-  d_tlsCtx = s2n_config_new();
-  if (!d_tlsCtx) {
-    errlog("Error creating TLS context on %s!", d_addr.toStringWithPort());
-    return false;
-  }
-
-  vinfolog("TLS CTX created for cs");
-  s2n_config_add_cert_chain_and_key(d_tlsCtx, d_cert, d_key);
-
-  if (!d_ciphers.empty()) {
-    // ignored for now
-  }
-
-  return true;
-}
-#elif HAVE_OPENSSL
-bool TLSFrontend::setupTLS()
-{
-  static const int sslOptions =
-    SSL_OP_NO_SSLv2 |
-    SSL_OP_NO_SSLv3 |
-    SSL_OP_NO_COMPRESSION |
-    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION |
-    SSL_OP_SINGLE_DH_USE |
-    SSL_OP_SINGLE_ECDH_USE |
-    SSL_OP_CIPHER_SERVER_PREFERENCE;
-
-  d_tlsCtx = SSL_CTX_new(SSLv23_server_method());
-  if (!d_tlsCtx) {
-    errlog("Error creating TLS context on %s!", d_addr.toStringWithPort());
-    ERR_print_errors_fp(stderr);
-    return false;
-  }
-
-  vinfolog("TLS CTX created for cs");
-  SSL_CTX_set_options(d_tlsCtx, sslOptions);
-  SSL_CTX_set_ecdh_auto(d_tlsCtx, 1);
-  SSL_CTX_use_certificate_file(d_tlsCtx, d_certFile.c_str(), SSL_FILETYPE_PEM);
-  SSL_CTX_use_PrivateKey_file(d_tlsCtx, d_keyFile.c_str(), SSL_FILETYPE_PEM);
-
-  if (!d_ciphers.empty()) {
-    SSL_CTX_set_cipher_list(d_tlsCtx, d_ciphers.c_str());
-  }
-
-  if (!d_caFile.empty()) {
-    BIO *bio = BIO_new(BIO_s_file_internal());
-    if (!bio) {
-      errlog("Error creating TLS BIO for %s!", d_addr.toStringWithPort());
-      ERR_print_errors_fp(stderr);
-      return false;
-    }
-
-    if (BIO_read_filename(bio, d_caFile.c_str()) <= 0) {
-      errlog("Error reading TLS chain from file %s for %s!", d_caFile, d_addr.toStringWithPort());
-      ERR_print_errors_fp(stderr);
-      BIO_free(bio);
-      return false;
-    }
-
-    X509* x509 = nullptr;
-    while ((x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL)) != nullptr) {
-      if (!SSL_CTX_add_extra_chain_cert(d_tlsCtx, x509)) {
-        errlog("Error reading certificate from chain %s for %s!", d_caFile, d_addr.toStringWithPort());
-        ERR_print_errors_fp(stderr);
-        BIO_free(bio);
-        X509_free(x509);
-        BIO_free(bio);
-        return false;
-      }
-    }
-    BIO_free(bio);
-  }
-
-  return true;
-}
-#endif
-
-
-#if HAVE_S2N
-class TLSIOHandler: public TCPIOHandler
-{
-public:
-  TLSIOHandler(int socket, SSL_CTX* tlsCtx, unsigned int idleTimeout, unsigned int readTimeout, unsigned int writeTimeout): TCPIOHandler(socket, idleTimeout, readTimeout, writeTimeout), d_tlsCtx(tlsCtx)
-  {
-  }
-  virtual ~TLSIOHandler() override
-  {
-    if (d_tls) {
-      s2n_connection_wipe(d_tls);
-    }
-  }
-  void handleIORequest(s2n_blocked_status status)
-  {
-    if (status == S2N_BLOCKED_ON_READ) {
-      res = waitForData(d_socket, d_readTimeout);
-      if (res <= 0) {
-        cerr<<"Error reading from TLS connection"<<endl;
-        throw std::runtime_error("Error reading from TLS connection");
-      }
-    }
-    else if (status == S2N_BLOCKED_ON_WRITE) {
-      res = waitForRWData(d_socket, false, d_readTimeout, 0);
-      if (res <= 0) {
-        cerr<<"Error waiting to write to TLS connection"<<endl;
-        throw std::runtime_error("Error waiting to write to TLS connection");
-      }
-    }
-    else {
-      cerr<<"Error writing to TLS connection"<<endl;
-      throw std::runtime_error("Error writing to TLS connection");
-    }
-  }
-
-  virtual bool setup() override
-  {
-    d_tls = s2n_connection_new(S2N_SERVER);
-    if (!d_tls) {
-      vinfolog("Error creating TLS object");
-      throw std::runtime_error("Error creating TLS object");
-    }
-    if (s2n_connection_set_config(d_tls, d_tlsCtx) < 0) {
-      throw std::runtime_error("Error assigning configuration");
-    }
-    if (s2n_connection_set_fd(d_tls, d_socket) < 0) {
-      throw std::runtime_error("Error assigning socket");
-    }
-    s2n_blocked_status status;
-    int res = 0;
-    do {
-      res = s2n_negotiate(d_tls, &status);
-      if (res < 0) {
-        throw std::runtime_error("Error accepting TLS connection");
-      }
-      if (status) {
-        handleIORequest(status);
-      }
-    }
-    while (status);
-
-    return true;
-  }
-
-  virtual size_t read(void* buffer, size_t bufferSize) override
-  {
-    size_t got = 0;
-    s2n_blocked_status status;
-    do {
-      ssize_t res = s2n_recv(d_tls, ((char *)buffer) + got, bufferSize - got, &status);
-      if (res <= 0) {
-        throw std::runtime_error("Error reading from TLS connection");
-      }
-      got += (size_t) res;
-      if (status) {
-        handeIORequest(status);
-      }
-    }
-    while (got < bufferSize);
-
-    return got;
-  }
-
-  virtual size_t write(const void* buffer, size_t bufferSize) override
-  {
-    size_t got = 0;
-    s2n_blocked_status status;
-    do {
-      ssize_t res = s2n_send(d_tls, ((char *)buffer) + got, bufferSize - got, &status);
-      if (res <= 0) {
-        throw std::runtime_error("Error writing to TLS connection");
-      }
-      got += (size_t) res;
-      if (status) {
-        handleIORequest(status);
-      }
-    }
-    while (got < bufferSize);
-
-    return got;
-  }
-private:
-  struct s2n_config *d_tlsCtx{nullptr};
-  struct s2n_connection *d_tls{nullptr}; 
-};
-#elif HAVE_OPENSSL
-class TLSIOHandler: public TCPIOHandler
-{
-public:
-  TLSIOHandler(int socket, SSL_CTX* tlsCtx, unsigned int idleTimeout, unsigned int readTimeout, unsigned int writeTimeout): TCPIOHandler(socket, idleTimeout, readTimeout, writeTimeout), d_tlsCtx(tlsCtx)
-  {
-  }
-  virtual ~TLSIOHandler() override
-  {
-    if (d_tls) {
-      SSL_free(d_tls);
-    }
-  }
-  void handleIORequest(int res)
-  {
-    int error = SSL_get_error(d_tls, res);
-    if (error == SSL_ERROR_WANT_READ) {
-      res = waitForData(d_socket, d_readTimeout);
-      if (res <= 0) {
-        cerr<<"Error reading from TLS connection"<<endl;
-        throw std::runtime_error("Error reading from TLS connection");
-      }
-    }
-    else if (error == SSL_ERROR_WANT_WRITE) {
-      res = waitForRWData(d_socket, false, d_readTimeout, 0);
-      if (res <= 0) {
-        cerr<<"Error waiting to write to TLS connection"<<endl;
-        throw std::runtime_error("Error waiting to write to TLS connection");
-      }
-    }
-    else {
-      cerr<<"Error writing to TLS connection"<<endl;
-      throw std::runtime_error("Error writing to TLS connection");
-    }
-  }
-
-  virtual bool setup() override
-  {
-    d_tls = SSL_new(d_tlsCtx);
-    if (!d_tls) {
-      vinfolog("Error creating TLS object");
-      if (g_verbose) {
-        ERR_print_errors_fp(stderr);
-      }
-      throw std::runtime_error("Error creating TLS object");
-    }
-    if (!SSL_set_fd(d_tls, d_socket)) {
-      throw std::runtime_error("Error assigning socket");
-    }
-    int res = 0;
-    do {
-      res = SSL_accept(d_tls);
-      if (res < 0) {
-        handleIORequest(res);
-      }
-    }
-    while (res < 0);
-
-    if (res == 0) {
-      throw std::runtime_error("Error accepting TLS connection");
-    }
-    return true;
-  }
-
-  virtual size_t read(void* buffer, size_t bufferSize) override
-  {
-    size_t got = 0;
-    do {
-      int res = SSL_read(d_tls, ((char *)buffer) + got, (int) (bufferSize - got));
-      if (res == 0) {
-        throw std::runtime_error("Error reading from TLS connection");
-      }
-      else if (res < 0) {
-        handleIORequest(res);
-      }
-      else {
-        got += (size_t) res;
-      }
-    }
-    while (got < bufferSize);
-
-    return got;
-  }
-
-  virtual size_t write(const void* buffer, size_t bufferSize) override
-  {
-    size_t got = 0;
-    do {
-      int res = SSL_write(d_tls, ((char *)buffer) + got, (int) (bufferSize - got));
-      if (res == 0) {
-        throw std::runtime_error("Error writing to TLS connection");
-      }
-      else if (res < 0) {
-        handleIORequest(res);
-      }
-      else {
-        got += (size_t) res;
-      }
-    }
-    while (got < bufferSize);
-
-    return got;
-  }
-private:
-  SSL_CTX* d_tlsCtx{nullptr};
-  SSL* d_tls{nullptr};
-};
-#endif
-
 static bool getNonBlockingMsgLen(int fd, uint16_t* len, int timeout)
 try
 {
@@ -463,7 +140,7 @@ static bool putNonBlockingMsgLenToClient(TCPIOHandler& handler, uint16_t len)
 try
 {
   uint16_t raw = htons(len);
-  size_t ret = handler.write(&raw, sizeof raw);
+  size_t ret = handler.write(&raw, sizeof raw, g_tcpSendTimeout);
   return ret == sizeof raw;
 }
 catch(...) {
@@ -489,7 +166,7 @@ static bool sendResponseToClient(TCPIOHandler& handler, const char* response, ui
   if (!putNonBlockingMsgLenToClient(handler, responseLen))
     return false;
 
-  handler.write(response, responseLen);
+  handler.write(response, responseLen, g_tcpSendTimeout);
   return true;
 }
 
@@ -500,6 +177,7 @@ void* tcpClientThread(int pipefd)
   /* we get launched with a pipe on which we receive file descriptors from clients that we own
      from that point on */
 
+  TCPIOHandler tcphandler;
   bool outstanding = false;
   blockfilter_t blockFilter = 0;
 
@@ -543,21 +221,20 @@ void* tcpClientThread(int pipefd)
       goto drop;
 
     try {
-      TCPIOHandler tcphandler(ci.fd, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
-      TCPIOHandler * handler = &tcphandler;
-#ifdef HAVE_DNS_OVER_TLS
-      TLSIOHandler tlshandler(ci.fd, ci.cs->tlsFrontend.d_tlsCtx, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
-      if (ci.cs->tlsFrontend.d_tlsCtx) {
-        handler = &tlshandler;
+      TCPIOHandler handler(ci.fd, ci.cs->tlsFrontend.d_tlsCtx);
+/*
+      TCPIOHandler* tlsHandler = nullptr;
+//      TLSIOHandler tlshandler(ci.fd, ci.cs->tlsFrontend.d_tlsCtx, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
+      if () {
+        handler = ci.cs->tlsFronted.d_tlsCtx->getHandler();
+        tlsHandler = handler;
       }
-#endif
-      handler->setup();
-
+*/
       for(;;) {
         ds = nullptr;
         outstanding = false;
 
-        if(!getNonBlockingMsgLenFromClient(*handler, &qlen))
+        if(!getNonBlockingMsgLenFromClient(handler, &qlen))
           break;
 
         ci.cs->queries++;
@@ -577,7 +254,7 @@ void* tcpClientThread(int pipefd)
         char queryBuffer[querySize];
         const char* query = queryBuffer;
         cerr<<"reading query"<<endl;
-        handler->read(queryBuffer, qlen);
+        handler.read(queryBuffer, qlen, g_tcpRecvTimeout);
         cerr<<"got query"<<endl;
 #ifdef HAVE_DNSCRYPT
         std::shared_ptr<DnsCryptQuery> dnsCryptQuery = 0;
@@ -590,7 +267,7 @@ void* tcpClientThread(int pipefd)
 
           if (!decrypted) {
             if (response.size() > 0) {
-              sendResponseToClient(*handler, reinterpret_cast<char*>(response.data()), (uint16_t) response.size());
+              sendResponseToClient(handler, reinterpret_cast<char*>(response.data()), (uint16_t) response.size());
             }
             break;
           }
@@ -640,7 +317,7 @@ void* tcpClientThread(int pipefd)
             goto drop;
           }
 #endif
-          sendResponseToClient(*handler, query, dq.len);
+          sendResponseToClient(handler, query, dq.len);
 	  g_stats.selfAnswered++;
 	  goto drop;
 	}
@@ -676,7 +353,7 @@ void* tcpClientThread(int pipefd)
               goto drop;
             }
 #endif
-            sendResponseToClient(*handler, cachedResponse, cachedResponseSize);
+            sendResponseToClient(handler, cachedResponse, cachedResponseSize);
             g_stats.cacheHits++;
             goto drop;
           }
@@ -812,7 +489,7 @@ void* tcpClientThread(int pipefd)
         }
 #endif
         cerr<<"sending response"<<endl;
-        if (!sendResponseToClient(*handler, response, responseLen)) {
+        if (!sendResponseToClient(handler, response, responseLen)) {
           break;
         }
         cerr<<"sent response"<<endl;

@@ -79,9 +79,7 @@ bool g_syslog{true};
 GlobalStateHolder<NetmaskGroup> g_ACL;
 string g_outputBuffer;
 vector<std::tuple<ComboAddress, bool, bool, int>> g_locals;
-#ifdef HAVE_DNS_OVER_TLS
 std::vector<TLSFrontend> g_tlslocals;
-#endif
 #ifdef HAVE_DNSCRYPT
 std::vector<std::tuple<ComboAddress,DnsCryptContext,bool, int>> g_dnsCryptLocals;
 #endif
@@ -1705,6 +1703,7 @@ try
   g_configurationDone = true;
 
 #ifdef HAVE_DNS_OVER_TLS
+  #warning FIXME
   SSL_load_error_strings();
   OpenSSL_add_ssl_algorithms();
 #endif
@@ -1875,7 +1874,6 @@ try
   }
 #endif
 
-#ifdef HAVE_DNS_OVER_TLS
   for(auto& frontend : g_tlslocals) {
     ClientState* cs = new ClientState;
     cs->local = frontend.d_addr;
@@ -1921,7 +1919,6 @@ try
       delete cs;
     }
   }
-#endif
 
   if(g_cmdLine.beDaemon) {
     g_console=false;
