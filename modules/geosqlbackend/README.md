@@ -1,7 +1,7 @@
-GeoSQL Backend for PowerDNS is copyright Ⓒ 2013-2015 Shin Sterneck
+GeoSQL Backend for PowerDNS is copyright Ⓒ 2013-2017 Shin Sterneck
 
 This README is written in MarkDown format and is currently under
-work-in-progress. Last Update: Aug. 2015
+work-in-progress. Last Update: Jan. 2017
 
 
 Table of Contents
@@ -255,8 +255,6 @@ GeoSQL depends on two data sources:
 ### Requirements
 
 GeoSQL currently requires the following libraries:
-
-+ OpenDBX Library (build with MySQL support at this moment)
 
 + MySQL and database with PowerDNS gmysql schema
 

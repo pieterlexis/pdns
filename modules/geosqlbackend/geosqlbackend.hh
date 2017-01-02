@@ -3,7 +3,7 @@
  *
  * Description: This file is part of the GeoSQL backend for PowerDNS
  *
- * Copyright (C) Shin Sterneck 2013-2015 (email: shin at sterneck dot asia)
+ * Copyright (C) Shin Sterneck 2013-2017 (email: shin at sterneck dot asia)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
