@@ -201,6 +201,15 @@ run() {
   travis_cmd "$1" --echo --assert
 }
 
+prepare_bits() {
+  if [ "$PDNS_BUILD_BITS" = "32" ]; then
+    run "sudo dpkg --add-architecture i386"
+    run "sudo apt-get update"
+    run "sudo apt-get install gcc-multilib g++-multilib libc6:i386"
+    export PDNS_CONF_EXTRAS="--host=i386-linux"
+  fi
+}
+
 install_auth() {
   # pkcs11 build requirements
   run "sudo apt-get -qq --no-install-recommends install \
@@ -374,7 +383,7 @@ build_auth() {
     --enable-unit-tests \
     --enable-backend-unit-tests \
     --disable-dependency-tracking \
-    --disable-silent-rules"
+    --disable-silent-rules $PDNS_CONF_EXTRAS"
   run "make -k dist"
   run "make -k -j3"
   run "make -k install DESTDIR=/tmp/pdns-install-dir"
@@ -588,6 +597,8 @@ run "wget http://ppa.launchpad.net/kalon33/gamesgiroll/ubuntu/pool/main/libs/lib
 run "wget http://ppa.launchpad.net/kalon33/gamesgiroll/ubuntu/pool/main/libs/libsodium/libsodium13_1.0.3-1~ppa14.04+1_amd64.deb"
 run "sudo dpkg -i libsodium-dev_1.0.3-1~ppa14.04+1_amd64.deb libsodium13_1.0.3-1~ppa14.04+1_amd64.deb"
 run "cd pdns"
+
+prepare_bits
 
 install_$PDNS_BUILD_PRODUCT
 
