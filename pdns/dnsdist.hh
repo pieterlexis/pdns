@@ -311,26 +311,6 @@ struct QueryCount {
 
 extern QueryCount g_qcount;
 
-class TLSFrontend
-{
-public:
-  bool setupTLS();
-  ~TLSFrontend()
-  {
-  }
-
-  ComboAddress d_addr;
-  std::string d_certFile;
-  std::string d_keyFile;
-  std::string d_caFile;
-  std::string d_ciphers;
-  std::string d_provider;
-  std::shared_ptr<TLSCtx> d_ctx{nullptr};
-
-  unsigned int d_tcpFastOpenQueueSize{0};
-  bool d_reusePort{false};
-};
-
 struct ClientState
 {
   ComboAddress local;

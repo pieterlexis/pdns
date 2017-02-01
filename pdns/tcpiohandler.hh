@@ -1,34 +1,55 @@
 
 #pragma once
+#include <memory>
+
+#include "misc.hh"
+
+class TLSConnection
+{
+public:
+  virtual ~TLSConnection() { }
+  virtual size_t read(void* buffer, size_t bufferSize, unsigned int readTimeout) = 0;
+  virtual size_t write(const void* buffer, size_t bufferSize, unsigned int writeTimeout) = 0;
+protected:
+  int d_socket{-1};
+};
+
+class TLSCtx;
+
+class TLSFrontend
+{
+public:
+  bool setupTLS();
+  ~TLSFrontend()
+  {
+  }
+
+  ComboAddress d_addr;
+  std::string d_certFile;
+  std::string d_keyFile;
+  std::string d_caFile;
+  std::string d_ciphers;
+  std::string d_provider;
+  std::shared_ptr<TLSCtx> d_ctx{nullptr};
+
+  unsigned int d_tcpFastOpenQueueSize{0};
+  bool d_reusePort{false};
+};
 
 class TLSCtx
 {
 public:
-  TLSCtx(const TLSFrontend& fe);
-  virtual ~TLSCtx();
-  virtual TLSConnection* getConnection(int socket);
+  virtual ~TLSCtx() {}
+  virtual std::unique_ptr<TLSConnection> getConnection(int socket, unsigned int timeout) = 0;
 };
 
-class TLSConnection
-{
-  TLSConnection(int socket, std::shared_ptr<TLSCtx>): d_socket(socket)
-  {
-  }
-#warning FIXME: deleted?
-  virtual ~TLSConnection() = 0;
-  virtual size_t read(void* buffer, size_t bufferSize, unsigned int readTimeout) = 0;
-  virtual size_t write(const void* buffer, size_t bufferSize, unsigned int writeTimeout) = 0;
-private:
-  int d_socket{-1};
-};
-  
 class TCPIOHandler
 {
 public:
-  TCPIOHandler(int socket, std::shared_ptr<TLSCtx> ctx): d_socket(socket)
+  TCPIOHandler(int socket, unsigned int timeout, std::shared_ptr<TLSCtx> ctx): d_socket(socket)
   {
     if (ctx) {
-      d_conn = ctx->getConnection(socket);
+      d_conn = ctx->getConnection(d_socket, timeout);
     }
   }
   size_t read(void* buffer, size_t bufferSize, unsigned int readTimeout)

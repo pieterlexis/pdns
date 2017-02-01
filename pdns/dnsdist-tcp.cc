@@ -111,11 +111,11 @@ catch(...) {
   return false;
 }
 
-static bool getNonBlockingMsgLenFromClient(TCPIOHandler& handler, uint16_t* len)
+static bool getNonBlockingMsgLenFromClient(TCPIOHandler& handler, uint16_t* len, unsigned int timeout)
 try
 {
   uint16_t raw;
-  size_t ret = handler.read(&raw, sizeof raw);
+  size_t ret = handler.read(&raw, sizeof raw, timeout);
   if(ret != sizeof raw)
     return false;
   *len = ntohs(raw);
@@ -177,7 +177,6 @@ void* tcpClientThread(int pipefd)
   /* we get launched with a pipe on which we receive file descriptors from clients that we own
      from that point on */
 
-  TCPIOHandler tcphandler;
   bool outstanding = false;
   blockfilter_t blockFilter = 0;
 
@@ -221,7 +220,7 @@ void* tcpClientThread(int pipefd)
       goto drop;
 
     try {
-      TCPIOHandler handler(ci.fd, ci.cs->tlsFrontend.d_tlsCtx);
+      TCPIOHandler handler(ci.fd, g_tcpRecvTimeout, ci.cs->tlsFrontend.d_ctx);
 /*
       TCPIOHandler* tlsHandler = nullptr;
 //      TLSIOHandler tlshandler(ci.fd, ci.cs->tlsFrontend.d_tlsCtx, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
@@ -234,7 +233,7 @@ void* tcpClientThread(int pipefd)
         ds = nullptr;
         outstanding = false;
 
-        if(!getNonBlockingMsgLenFromClient(handler, &qlen))
+        if(!getNonBlockingMsgLenFromClient(handler, &qlen, g_tcpRecvTimeout))
           break;
 
         ci.cs->queries++;

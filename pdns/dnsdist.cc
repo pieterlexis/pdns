@@ -1702,12 +1702,6 @@ try
 
   g_configurationDone = true;
 
-#ifdef HAVE_DNS_OVER_TLS
-  #warning FIXME
-  SSL_load_error_strings();
-  OpenSSL_add_ssl_algorithms();
-#endif
-
   vector<ClientState*> toLaunch;
   for(const auto& local : g_locals) {
     ClientState* cs = new ClientState;

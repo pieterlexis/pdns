@@ -1,15 +1,21 @@
 
 #include "config.h"
+#include "iputils.hh"
 #include "tcpiohandler.hh"
+#include "dolog.hh"
 
 #ifdef HAVE_DNS_OVER_TLS
+#ifdef HAVE_OPENSSL
+#warning with openssl!
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
-#if HAVE_OPENSSL
 class OpenSSLTLSConnection: public TLSConnection
 {
 public:
-  OpenSSLTLSConnection(int socket, std::shared_ptr<OpenSSLTLSIOCtx> tlsCtx): d_socket(socket)
+  OpenSSLTLSConnection(int socket, unsigned int timeout, SSL_CTX* tlsCtx)
   {
+    d_socket = socket;
     d_conn = SSL_new(tlsCtx);
     if (!d_conn) {
       vinfolog("Error creating TLS object");
@@ -25,7 +31,7 @@ public:
     do {
       res = SSL_accept(d_conn);
       if (res < 0) {
-        handleIORequest(res);
+        handleIORequest(res, timeout);
       }
     }
     while (res < 0);
@@ -35,7 +41,7 @@ public:
     }
   }
 
-  ~TLSIOHandler() override
+  virtual ~OpenSSLTLSConnection() override
   {
     if (d_conn) {
       SSL_free(d_conn);
@@ -110,7 +116,8 @@ private:
 
 class OpenSSLTLSIOCtx: public TLSCtx
 {
-  OpenSSLTLSIOCtx(const TLSFrontend& fe) 
+public:
+  OpenSSLTLSIOCtx(const TLSFrontend& fe)
   {
     static const int sslOptions =
       SSL_OP_NO_SSLv2 |
@@ -121,10 +128,14 @@ class OpenSSLTLSIOCtx: public TLSCtx
       SSL_OP_SINGLE_ECDH_USE |
       SSL_OP_CIPHER_SERVER_PREFERENCE;
 
+#warning FIXME
+  SSL_load_error_strings();
+  OpenSSL_add_ssl_algorithms();
+
     d_tlsCtx = SSL_CTX_new(SSLv23_server_method());
     if (!d_tlsCtx) {
       ERR_print_errors_fp(stderr);
-      throw std::runtime_exception("Error creating TLS context on %s!", fe.d_addr.toStringWithPort());
+      throw std::runtime_error("Error creating TLS context on " + fe.d_addr.toStringWithPort());
     }
 
     vinfolog("TLS CTX created for cs");
@@ -141,13 +152,13 @@ class OpenSSLTLSIOCtx: public TLSCtx
       BIO *bio = BIO_new(BIO_s_file_internal());
       if (!bio) {
         ERR_print_errors_fp(stderr);
-        throw std::runtime_error("Error creating TLS BIO for %s!", fe.d_addr.toStringWithPort());
+        throw std::runtime_error("Error creating TLS BIO for " + fe.d_addr.toStringWithPort());
       }
 
       if (BIO_read_filename(bio, fe.d_caFile.c_str()) <= 0) {
         BIO_free(bio);
         ERR_print_errors_fp(stderr);
-        throw std::runtime_error("Error reading TLS chain from file %s for %s!", fe.d_caFile, fe.d_addr.toStringWithPort());
+        throw std::runtime_error("Error reading TLS chain from file " + fe.d_caFile + " for " + fe.d_addr.toStringWithPort());
       }
 
       X509* x509 = nullptr;
@@ -157,37 +168,40 @@ class OpenSSLTLSIOCtx: public TLSCtx
           BIO_free(bio);
           X509_free(x509);
           BIO_free(bio);
-          throw std::runtime_error("Error reading certificate from chain %s for %s!", fe.d_caFile, fe.d_addr.toStringWithPort());
+          throw std::runtime_error("Error reading certificate from chain " + fe.d_caFile + " for " + fe.d_addr.toStringWithPort());
         }
       }
       BIO_free(bio);
     }
   }
 
-  ~OpenSSLTLSCtx() 
+  virtual ~OpenSSLTLSIOCtx() override
   {
     if (d_tlsCtx) {
       SSL_CTX_free(d_tlsCtx);
     }
   }
 
-  TCPIOHandler* getConnection() override
+  std::unique_ptr<TLSConnection> getConnection(int socket, unsigned int timeout) override
   {
-    return new OpenSSLTLSConnection(d_tlsCtx);    
+    return std::unique_ptr<OpenSSLTLSConnection>(new OpenSSLTLSConnection(socket, timeout, d_tlsCtx));
   }
 private:
   SSL_CTX* d_tlsCtx{nullptr};
 };
-  
-#endif
 
+#endif /* HAVE_OPENSSL */
 
 #ifdef HAVE_S2N
+#warning with s2n!
+#include <s2n.h>
+
 class S2NTLSConnection: public TLSConnection
 {
 public:
-  S2NTLSConnection(int socket, std::shared_ptr<S2NTLSIOCtx> tlsCtx): d_socket(socket)
+  S2NTLSConnection(int socket, unsigned int timeout, struct s2n_config* tlsCtx)
   {
+    d_socket = socket;
     d_conn = s2n_connection_new(S2N_SERVER);
     if (!d_conn) {
       vinfolog("Error creating TLS object");
@@ -207,13 +221,13 @@ public:
         throw std::runtime_error("Error accepting TLS connection");
       }
       if (status) {
-        handleIORequest(status);
+        handleIORequest(status, timeout);
       }
     }
     while (status);
   }
 
-  ~TLSIOHandler() override
+  virtual ~S2NTLSConnection() override
   {
     if (d_conn) {
       s2n_connection_wipe(d_conn);
@@ -222,6 +236,7 @@ public:
 
   void handleIORequest(s2n_blocked_status status, unsigned int timeout)
   {
+    int res = 0;
     if (status == S2N_BLOCKED_ON_READ) {
       res = waitForData(d_socket, timeout);
       if (res <= 0) {
@@ -253,7 +268,7 @@ public:
       }
       got += (size_t) res;
       if (status) {
-        handeIORequest(status, readtimeout);
+        handleIORequest(status, readTimeout);
       }
     }
     while (got < bufferSize);
@@ -280,66 +295,72 @@ public:
     return got;
   }
 private:
-  struct s2n_connection *d_tls{nullptr}; 
+  struct s2n_connection *d_conn{nullptr};
 };
 
 class S2NTLSIOCtx: public TLSCtx
 {
-  S2NSSLTLSIOCtx(const TLSFrontend& fe) 
+public:
+  S2NTLSIOCtx(const TLSFrontend& fe)
   {
     d_tlsCtx = s2n_config_new();
     if (!d_tlsCtx) {
       throw std::runtime_error("Error creating TLS context on " + fe.d_addr.toStringWithPort());
-    return false;
+    }
+    
+    vinfolog("TLS CTX created for cs");
+    s2n_config_add_cert_chain_and_key(d_tlsCtx, fe.d_certFile.c_str(), fe.d_keyFile.c_str());
+
+    if (!fe.d_ciphers.empty()) {
+      // ignored for now
+    }
   }
 
-  vinfolog("TLS CTX created for cs");
-  s2n_config_add_cert_chain_and_key(d_tlsCtx, fe.d_cert, fe.d_key);
-
-  if (!fe.d_ciphers.empty()) {
-    // ignored for now
-  }
-
-  ~S2NTLSCtx()
+  virtual ~S2NTLSIOCtx() override
   {
     if (d_tlsCtx) {
       #warning FIXME
     }
   }
 
-  TCPIOHandler* getConnection() override
+  std::unique_ptr<TLSConnection> getConnection(int socket, unsigned int timeout) override
   {
-    return new S2NTLSConnection(d_tlsCtx);    
+    return std::unique_ptr<S2NTLSConnection>(new S2NTLSConnection(socket, timeout, d_tlsCtx));
   }
+
 private:
    struct s2n_config* d_tlsCtx{nullptr};
 };
+#endif /* HAVE_S2N */
+
+#endif /* HAVE_DNS_OVER_TLS */
 
 bool TLSFrontend::setupTLS()
 {
+#ifdef HAVE_DNS_OVER_TLS
   /* get the "best" available provider */
   if (!d_provider.empty()) {
 #ifdef HAVE_S2N
     if (d_provider == "s2n") {
-      d_ctx = S2NTLSIOCtx(this);
+      d_ctx = std::make_shared<S2NTLSIOCtx>(*this);
       return true;
     }
-#endif
+#endif /* HAVE_S2N */
 #ifdef HAVE_OPENSSL
     if (d_provider == "openssl") {
-      d_ctx = OpenSSLTLSIOCtx(this);
+      d_ctx = std::make_shared<OpenSSLTLSIOCtx>(*this);
       return true;
     }
-#endif
+#endif /* HAVE_OPENSSL */
   }
 #ifdef HAVE_S2N
-  d_ctx = S2NTLSIOCtx(this);
-#else
+  d_ctx = std::make_shared<S2NTLSIOCtx>(*this);
+#else /* HAVE_S2N */
 #ifdef HAVE_OPENSSL
-  d_ctx = OpenSSLTLSIOCtx(this);
-#endif
-#endif
-  return true;
-}
+  d_ctx = std::make_shared<OpenSSLTLSIOCtx>(*this);
+#endif /* HAVE_OPENSSL */
+#endif /* HAVE_S2N */
 
 #endif /* HAVE_DNS_OVER_TLS */
+  return true;
+}
