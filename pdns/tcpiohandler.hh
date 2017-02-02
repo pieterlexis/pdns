@@ -10,6 +10,7 @@ public:
   virtual ~TLSConnection() { }
   virtual size_t read(void* buffer, size_t bufferSize, unsigned int readTimeout) = 0;
   virtual size_t write(const void* buffer, size_t bufferSize, unsigned int writeTimeout) = 0;
+  virtual void close() = 0;
 protected:
   int d_socket{-1};
 };
@@ -20,8 +21,10 @@ class TLSFrontend
 {
 public:
   bool setupTLS();
-  ~TLSFrontend()
+  void cleanup() 
   {
+    cerr<<"settting ctx to null"<<endl;
+    d_ctx = nullptr;
   }
 
   ComboAddress d_addr;
@@ -52,6 +55,15 @@ public:
       d_conn = ctx->getConnection(d_socket, timeout);
     }
   }
+  ~TCPIOHandler()
+  {
+    if (d_conn) {
+      d_conn->close();
+    }
+    else if (d_socket != -1) {
+      shutdown(d_socket, SHUT_RDWR);
+    }
+  }
   size_t read(void* buffer, size_t bufferSize, unsigned int readTimeout)
   {
     if (d_conn) {
@@ -69,6 +81,7 @@ public:
       return writen2WithTimeout(d_socket, buffer, bufferSize, writeTimeout);
     }
   }
+
 private:
   std::unique_ptr<TLSConnection> d_conn{nullptr};
   int d_socket{-1};

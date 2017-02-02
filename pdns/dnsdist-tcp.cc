@@ -220,15 +220,8 @@ void* tcpClientThread(int pipefd)
       goto drop;
 
     try {
-      TCPIOHandler handler(ci.fd, g_tcpRecvTimeout, ci.cs->tlsFrontend.d_ctx);
-/*
-      TCPIOHandler* tlsHandler = nullptr;
-//      TLSIOHandler tlshandler(ci.fd, ci.cs->tlsFrontend.d_tlsCtx, 2, g_tcpRecvTimeout, g_tcpSendTimeout);
-      if () {
-        handler = ci.cs->tlsFronted.d_tlsCtx->getHandler();
-        tlsHandler = handler;
-      }
-*/
+      TCPIOHandler handler(ci.fd, g_tcpRecvTimeout, ci.cs->tlsFrontend ? ci.cs->tlsFrontend->d_ctx : nullptr);
+
       for(;;) {
         ds = nullptr;
         outstanding = false;
@@ -252,9 +245,7 @@ void* tcpClientThread(int pipefd)
         size_t querySize = qlen <= 4096 ? qlen + 512 : qlen;
         char queryBuffer[querySize];
         const char* query = queryBuffer;
-        cerr<<"reading query"<<endl;
         handler.read(queryBuffer, qlen, g_tcpRecvTimeout);
-        cerr<<"got query"<<endl;
 #ifdef HAVE_DNSCRYPT
         std::shared_ptr<DnsCryptQuery> dnsCryptQuery = 0;
 
@@ -303,11 +294,9 @@ void* tcpClientThread(int pipefd)
 	int delayMsec=0;
 	struct timespec now;
 	gettime(&now, true);
-        cerr<<"processing query"<<endl;
 	if (!processQuery(localDynBlockNMG, localDynBlockSMT, localRulactions, blockFilter, dq, poolname, &delayMsec, now)) {
 	  goto drop;
 	}
-        cerr<<"processed query"<<endl;
 
 	if(dq.dh->qr) { // something turned it into a response
           restoreFlags(dh, origFlags);
@@ -487,11 +476,10 @@ void* tcpClientThread(int pipefd)
           goto drop;
         }
 #endif
-        cerr<<"sending response"<<endl;
         if (!sendResponseToClient(handler, response, responseLen)) {
           break;
         }
-        cerr<<"sent response"<<endl;
+
         if (isXFR && dh->rcode == 0 && dh->ancount != 0) {
           if (xfrStarted == false) {
             xfrStarted = true;

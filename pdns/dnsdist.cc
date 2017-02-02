@@ -79,7 +79,7 @@ bool g_syslog{true};
 GlobalStateHolder<NetmaskGroup> g_ACL;
 string g_outputBuffer;
 vector<std::tuple<ComboAddress, bool, bool, int>> g_locals;
-std::vector<TLSFrontend> g_tlslocals;
+std::vector<std::shared_ptr<TLSFrontend>> g_tlslocals;
 #ifdef HAVE_DNSCRYPT
 std::vector<std::tuple<ComboAddress,DnsCryptContext,bool, int>> g_dnsCryptLocals;
 #endif
@@ -1870,20 +1870,20 @@ try
 
   for(auto& frontend : g_tlslocals) {
     ClientState* cs = new ClientState;
-    cs->local = frontend.d_addr;
+    cs->local = frontend->d_addr;
     cs->tcpFD = SSocket(cs->local.sin4.sin_family, SOCK_STREAM, 0);
     SSetsockopt(cs->tcpFD, SOL_SOCKET, SO_REUSEADDR, 1);
 #ifdef TCP_DEFER_ACCEPT
     SSetsockopt(cs->tcpFD, SOL_TCP,TCP_DEFER_ACCEPT, 1);
 #endif
-    if (frontend.d_tcpFastOpenQueueSize > 0) {
+    if (frontend->d_tcpFastOpenQueueSize > 0) {
 #ifdef TCP_FASTOPEN
-      SSetsockopt(cs->tcpFD, SOL_TCP, TCP_FASTOPEN, frontend.d_tcpFastOpenQueueSize);
+      SSetsockopt(cs->tcpFD, SOL_TCP, TCP_FASTOPEN, frontend->d_tcpFastOpenQueueSize);
 #else
       warnlog("TCP Fast Open has been configured on local address '%s' but is not supported", cs->local.toStringWithPort());
 #endif
     }
-    if (frontend.d_reusePort) {
+    if (frontend->d_reusePort) {
 #ifdef SO_REUSEPORT
       SSetsockopt(cs->tcpFD, SOL_SOCKET, SO_REUSEPORT, 1);
 #else
@@ -1900,7 +1900,7 @@ try
     }
 #endif /* HAVE_EBPF */
     bindAny(cs->local.sin4.sin_family, cs->tcpFD);
-    if (frontend.setupTLS()) {
+    if (frontend->setupTLS()) {
       cs->tlsFrontend = frontend;
       SBind(cs->tcpFD, cs->local);
       SListen(cs->tcpFD, 64);

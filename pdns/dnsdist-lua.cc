@@ -605,8 +605,15 @@ vector<std::function<void(void)>> setupLua(bool client, const std::string& confi
   g_lua.writeFunction("shutdown", []() {
 #ifdef HAVE_SYSTEMD
       sd_notify(0, "STOPPING=1");
-#endif
-      _exit(0);
+#endif /* HAVE_SYSTEMD */
+      for(auto& frontend : g_tlslocals) {
+        frontend->cleanup();
+      }
+      g_tlslocals.clear();
+#ifdef HAVE_PROTOBUF
+      google::protobuf::ShutdownProtobufLibrary();
+#endif /* HAVE_PROTOBUF */
+      exit(0);
   } );
 
 

@@ -1013,7 +1013,7 @@ void moreLua(bool client)
 
 #endif /* HAVE_EBPF */
 
-    g_lua.writeFunction("addTLSLocal", [client](const std::string& addr, const std::string& certFile, const std::string& keyFile, std::unordered_map<std::string, boost::variant<bool, std::string, unsigned int> > vars) {
+    g_lua.writeFunction("addTLSLocal", [client](const std::string& addr, const std::string& certFile, const std::string& keyFile, boost::optional<std::unordered_map<std::string, boost::variant<bool, std::string, unsigned int> > > vars) {
         if (client)
           return;
 #ifdef HAVE_DNS_OVER_TLS
@@ -1022,28 +1022,31 @@ void moreLua(bool client)
           g_outputBuffer="addTLSLocal cannot be used at runtime!\n";
           return;
         }
-        TLSFrontend frontend;
-        frontend.d_certFile = certFile;
-        frontend.d_keyFile = keyFile;
+        shared_ptr<TLSFrontend> frontend = std::make_shared<TLSFrontend>();
+        frontend->d_certFile = certFile;
+        frontend->d_keyFile = keyFile;
 
-        if (vars.count("provider")) {
-          frontend.d_provider = boost::get<bool>(vars["provider"]);
-        }
-        if (vars.count("caFile")) {
-          frontend.d_caFile = boost::get<const string>(vars["caFile"]);
-        }
-        if (vars.count("ciphers")) {
-          frontend.d_ciphers = boost::get<const string>(vars["ciphers"]);
-        }
-        if (vars.count("reusePort")) {
-          frontend.d_reusePort = boost::get<bool>(vars["reusePort"]);
-        }
-        if (vars.count("tcpFastOpenQueueSize")) {
-          frontend.d_tcpFastOpenQueueSize = boost::get<unsigned int>(vars["tcpFastOpenQueueSize"]);
+        if (vars) {
+          if (vars->count("provider")) {
+            frontend->d_provider = boost::get<const string>((*vars)["provider"]);
+          }
+          if (vars->count("caFile")) {
+          frontend->d_caFile = boost::get<const string>((*vars)["caFile"]);
+          }
+          if (vars->count("ciphers")) {
+            frontend->d_ciphers = boost::get<const string>((*vars)["ciphers"]);
+          }
+          if (vars->count("reusePort")) {
+            frontend->d_reusePort = boost::get<bool>((*vars)["reusePort"]);
+          }
+          if (vars->count("tcpFastOpenQueueSize")) {
+            frontend->d_tcpFastOpenQueueSize = boost::get<unsigned int>((*vars)["tcpFastOpenQueueSize"]);
+          }
         }
 
         try {
-          frontend.d_addr = ComboAddress(addr, 853);
+          frontend->d_addr = ComboAddress(addr, 853);
+          vinfolog("Loading TLS provider %s", frontend->d_provider);
           g_tlslocals.push_back(frontend); /// only works pre-startup, so no sync necessary
         }
         catch(std::exception& e) {
