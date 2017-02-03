@@ -5,11 +5,64 @@
 #include "dolog.hh"
 
 #ifdef HAVE_DNS_OVER_TLS
-#ifdef HAVE_OPENSSL
+#ifdef HAVE_LIBSSL
 #warning with openssl!
 #include <openssl/conf.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
+
+#if (OPENSSL_VERSION_NUMBER < 0x1010000fL || defined LIBRESSL_VERSION_NUMBER)
+/* OpenSSL < 1.1.0 needs support for threading/locking in the calling application. */
+static pthread_mutex_t *openssllocks;
+
+extern "C" {
+static void openssl_pthreads_locking_callback(int mode, int type, const char *file, int line)
+{
+  if (mode & CRYPTO_LOCK) {
+    pthread_mutex_lock(&(openssllocks[type]));
+
+  }else {
+    pthread_mutex_unlock(&(openssllocks[type]));
+  }
+}
+
+static unsigned long openssl_pthreads_id_callback()
+{
+  return (unsigned long)pthread_self();
+}
+}
+
+static void openssl_thread_setup()
+{
+  openssllocks = (pthread_mutex_t*)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
+
+  for (int i = 0; i < CRYPTO_num_locks(); i++)
+    pthread_mutex_init(&(openssllocks[i]), NULL);
+
+  CRYPTO_set_id_callback(openssl_pthreads_id_callback);
+  CRYPTO_set_locking_callback(openssl_pthreads_locking_callback);
+}
+
+static void openssl_thread_cleanup()
+{
+  CRYPTO_set_locking_callback(NULL);
+
+  for (int i=0; i<CRYPTO_num_locks(); i++) {
+    pthread_mutex_destroy(&(openssllocks[i]));
+  }
+
+  OPENSSL_free(openssllocks);
+}
+
+#else
+static void openssl_thread_setup()
+{
+}
+
+static void openssl_thread_cleanup()
+{
+}
+#endif /* (OPENSSL_VERSION_NUMBER < 0x1010000fL || defined LIBRESSL_VERSION_NUMBER) */
 
 class OpenSSLTLSConnection: public TLSConnection
 {
@@ -136,6 +189,7 @@ public:
       OPENSSL_config(NULL);
       ERR_load_crypto_strings();
       OpenSSL_add_ssl_algorithms();
+      openssl_thread_setup();
     }
 
     d_tlsCtx = SSL_CTX_new(SSLv23_server_method());
@@ -144,6 +198,8 @@ public:
       throw std::runtime_error("Error creating TLS context on " + fe.d_addr.toStringWithPort());
     }
 
+    /* use the internal built-in cache to store sessions */
+    SSL_CTX_set_session_cache_mode(d_tlsCtx, SSL_SESS_CACHE_SERVER);
     SSL_CTX_set_options(d_tlsCtx, sslOptions);
     SSL_CTX_set_ecdh_auto(d_tlsCtx, 1);
     SSL_CTX_use_certificate_file(d_tlsCtx, fe.d_certFile.c_str(), SSL_FILETYPE_PEM);
@@ -182,13 +238,11 @@ public:
 
   virtual ~OpenSSLTLSIOCtx() override
   {
-    cerr<<"in "<<__func__<<endl;
     if (d_tlsCtx) {
       SSL_CTX_free(d_tlsCtx);
     }
 
     if (s_users.fetch_sub(1) == 1) {
-      cerr<<"in "<<__func__<<", DESTROY"<<endl;
       ERR_remove_thread_state(0);
       ERR_free_strings();
 
@@ -199,8 +253,7 @@ public:
       CONF_modules_unload(1);
 
       CRYPTO_cleanup_all_ex_data();
-    } else {
-      cerr<<"in "<<__func__<<", remaining.."<<endl;
+      openssl_thread_cleanup();
     }
   }
 
@@ -215,7 +268,7 @@ private:
 
 std::atomic<uint64_t> OpenSSLTLSIOCtx::s_users(0);
 
-#endif /* HAVE_OPENSSL */
+#endif /* HAVE_LIBSSL */
 
 #ifdef HAVE_S2N
 #warning with s2n!
@@ -376,8 +429,21 @@ public:
     keyContent.clear();
 
     if (!fe.d_ciphers.empty()) {
-      // ignored for now
+      if (s2n_config_set_cipher_preferences(d_tlsCtx, fe.d_ciphers.c_str()) < 0) {
+        warnlog("Error setting up TLS cipher preferences to %s, skipping.", fe.d_ciphers.c_str());
+      }
     }
+
+    /* apparently s2n doesn't support TLS tickets:
+       https://github.com/awslabs/s2n/issues/4
+       https://github.com/awslabs/s2n/issues/262
+    */
+
+    /* we should implemente TLS sessions by providing the following callbacks:
+       s2n_config_set_cache_store_callback(struct s2n_config *config, int (*cache_store)(void *, uint64_t ttl_in_seconds, const void *key, uint64_t key_size, const void *value, uint64_t value_size), void *data);
+       s2n_config_set_cache_retrieve_callback(struct s2n_config *config, int (*cache_retrieve)(void *, const void *key, uint64_t key_size, void *value, uint64_t *value_size), void *data):
+       s2n_config_set_cache_delete_callback(struct s2n_config *config, int (*cache_delete))(void *, const void *key, uint64_t key_size), void *data);
+    */
   }
 
   virtual ~S2NTLSIOCtx() override
@@ -417,19 +483,19 @@ bool TLSFrontend::setupTLS()
       return true;
     }
 #endif /* HAVE_S2N */
-#ifdef HAVE_OPENSSL
+#ifdef HAVE_LIBSSL
     if (d_provider == "openssl") {
       d_ctx = std::make_shared<OpenSSLTLSIOCtx>(*this);
       return true;
     }
-#endif /* HAVE_OPENSSL */
+#endif /* HAVE_LIBSSL */
   }
 #ifdef HAVE_S2N
   d_ctx = std::make_shared<S2NTLSIOCtx>(*this);
 #else /* HAVE_S2N */
-#ifdef HAVE_OPENSSL
+#ifdef HAVE_LIBSSL
   d_ctx = std::make_shared<OpenSSLTLSIOCtx>(*this);
-#endif /* HAVE_OPENSSL */
+#endif /* HAVE_LIBSSL */
 #endif /* HAVE_S2N */
 
 #endif /* HAVE_DNS_OVER_TLS */
