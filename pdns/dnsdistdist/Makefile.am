@@ -118,9 +118,9 @@ dnsdist_LDADD = \
 	$(RT_LIBS) \
 	$(YAHTTP_LIBS) \
 	$(LIBSODIUM_LIBS) \
-	$(LIBSSL_LIBS) \
 	$(SANITIZER_FLAGS) \
-	$(SYSTEMD_LIBS)
+	$(SYSTEMD_LIBS) \
+	-lcrypto -lssl
 
 if HAVE_RE2
 dnsdist_LDADD += $(RE2_LIBS)
@@ -128,6 +128,10 @@ endif
 
 if HAVE_S2N
 dnsdist_LDADD += -ls2n
+endif
+
+if HAVE_LIBSSL
+dnsdist_LDADD += $(LIBSSL_LIBS) $(LIBCRYPTO_LIBS)
 endif
 
 if !HAVE_LUA_HPP

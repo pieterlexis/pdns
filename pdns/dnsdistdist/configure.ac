@@ -58,7 +58,7 @@ AS_IF([test "x$enable_dns_over_tls" != "xno"], [
   AS_IF([test "$HAVE_LIBSSL" = "1"], [
     # we need libcrypto if libssl is enabled
     PDNS_CHECK_LIBCRYPTO
-  ]
+  ])
   AS_IF([test "x$s2n_headers" = "x" -a "$HAVE_LIBSSL" = "0"], [
     AC_MSG_ERROR([DNS over TLS support requested but neither OpenSSL nor s2n are available])
   ])
