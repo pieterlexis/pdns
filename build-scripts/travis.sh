@@ -372,7 +372,7 @@ build_auth() {
   run "./bootstrap"
   # Build without --enable-botan1.10 option, Botan/SoftHSM conflict #2496
   run "CFLAGS='-O1' CXXFLAGS='-O1' ./configure \
-    --with-dynmodules='bind gmysql geoip gpgsql gsqlite3 ldap lua mydns opendbx pipe random remote tinydns godbc' \
+    --with-dynmodules='bind dlso gmysql geoip gpgsql gsqlite3 ldap lua mydns opendbx pipe random remote tinydns godbc' \
     --with-modules='' \
     --with-sqlite3 \
     --enable-libsodium \
@@ -488,6 +488,12 @@ test_auth() {
   run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-both"
   run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-optout-both"
   run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-narrow"
+
+  run "./timestamp ./start-test-stop 5300 dlso-nodnssec-both"
+  run "./timestamp ./start-test-stop 5300 dlso-both"
+  run "./timestamp ./start-test-stop 5300 dlso-nsec3-both"
+  run "./timestamp ./start-test-stop 5300 dlso-nsec3-optout-both"
+  run "./timestamp ./start-test-stop 5300 dlso-nsec3-narrow"
 
   run "./timestamp ./start-test-stop 5300 mydns"
 
