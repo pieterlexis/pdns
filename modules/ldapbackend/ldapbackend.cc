@@ -111,7 +111,7 @@ LdapBackend::LdapBackend( const string &suffix )
   }
 
   if( m_pldap != NULL ) { delete( m_pldap ); }
-  throw( PDNSException( "Unable to connect to ldap server" ) );
+  throw PDNSException( "Unable to connect to ldap server" );
 }
 
 
@@ -158,7 +158,7 @@ bool LdapBackend::list( const DNSName& target, int domain_id, bool include_disab
   catch( LDAPTimeout &lt )
   {
     L << Logger::Warning << m_myname << " Unable to get zone " << target << " from LDAP directory: " << lt.what() << endl;
-    throw( DBException( "LDAP server timeout" ) );
+    throw DBException( "LDAP server timeout" );
   }
   catch( LDAPNoConnection &lnc )
   {
@@ -171,12 +171,12 @@ bool LdapBackend::list( const DNSName& target, int domain_id, bool include_disab
   catch( LDAPException &le )
   {
     L << Logger::Error << m_myname << " Unable to get zone " << target << " from LDAP directory: " << le.what() << endl;
-    throw( PDNSException( "LDAP server unreachable" ) );   // try to reconnect to another server
+    throw PDNSException( "LDAP server unreachable" );   // try to reconnect to another server
   }
   catch( std::exception &e )
   {
     L << Logger::Error << m_myname << " Caught STL exception for target " << target << ": " << e.what() << endl;
-    throw( DBException( "STL exception" ) );
+    throw DBException( "STL exception" );
   }
 
   return false;
@@ -246,7 +246,7 @@ void LdapBackend::lookup( const QType &qtype, const DNSName &qname, DNSPacket *d
   catch( LDAPTimeout &lt )
   {
     L << Logger::Warning << m_myname << " Unable to search LDAP directory: " << lt.what() << endl;
-    throw( DBException( "LDAP server timeout" ) );
+    throw DBException( "LDAP server timeout" );
   }
   catch( LDAPNoConnection &lnc )
   {
@@ -259,12 +259,12 @@ void LdapBackend::lookup( const QType &qtype, const DNSName &qname, DNSPacket *d
   catch( LDAPException &le )
   {
     L << Logger::Error << m_myname << " Unable to search LDAP directory: " << le.what() << endl;
-    throw( PDNSException( "LDAP server unreachable" ) );   // try to reconnect to another server
+    throw PDNSException( "LDAP server unreachable" );   // try to reconnect to another server
   }
   catch( std::exception &e )
   {
     L << Logger::Error << m_myname << " Caught STL exception for qname " << qname << ": " << e.what() << endl;
-    throw( DBException( "STL exception" ) );
+    throw DBException( "STL exception" );
   }
 }
 
@@ -520,17 +520,17 @@ bool LdapBackend::get( DNSResourceRecord &rr )
   catch( LDAPTimeout &lt )
   {
     L << Logger::Warning << m_myname << " Search failed: " << lt.what() << endl;
-    throw( DBException( "LDAP server timeout" ) );
+    throw DBException( "LDAP server timeout" );
   }
   catch( LDAPException &le )
   {
     L << Logger::Error << m_myname << " Search failed: " << le.what() << endl;
-    throw( PDNSException( "LDAP server unreachable" ) );   // try to reconnect to another server
+    throw PDNSException( "LDAP server unreachable" );   // try to reconnect to another server
   }
   catch( std::exception &e )
   {
     L << Logger::Error << m_myname << " Caught STL exception for " << m_qname << ": " << e.what() << endl;
-    throw( DBException( "STL exception" ) );
+    throw DBException( "STL exception" );
   }
 
   return false;
@@ -557,7 +557,7 @@ void LdapBackend::getUpdatedMasters( vector<DomainInfo>* domains )
   catch( LDAPTimeout &lt )
   {
     L << Logger::Warning << m_myname << " Unable to search LDAP directory: " << lt.what() << endl;
-    throw( DBException( "LDAP server timeout" ) );
+    throw DBException( "LDAP server timeout" );
   }
   catch( LDAPNoConnection &lnc )
   {
@@ -570,11 +570,11 @@ void LdapBackend::getUpdatedMasters( vector<DomainInfo>* domains )
   catch( LDAPException &le )
   {
     L << Logger::Error << m_myname << " Unable to search LDAP directory: " << le.what() << endl;
-    throw( PDNSException( "LDAP server unreachable" ) );   // try to reconnect to another server
+    throw PDNSException( "LDAP server unreachable" );   // try to reconnect to another server
   }
   catch( std::exception &e )
   {
-    throw( DBException( "STL exception" ) );
+    throw DBException( "STL exception" );
   }
 
   while( m_pldap->getSearchEntry( msgid, result ) ) {
@@ -612,7 +612,7 @@ void LdapBackend::setNotified( uint32_t id, uint32_t serial )
   catch( LDAPTimeout &lt )
   {
     L << Logger::Warning << m_myname << " Unable to search LDAP directory: " << lt.what() << endl;
-    throw( DBException( "LDAP server timeout" ) );
+    throw DBException( "LDAP server timeout" );
   }
   catch( LDAPNoConnection &lnc )
   {
@@ -625,11 +625,11 @@ void LdapBackend::setNotified( uint32_t id, uint32_t serial )
   catch( LDAPException &le )
   {
     L << Logger::Error << m_myname << " Unable to search LDAP directory: " << le.what() << endl;
-    throw( PDNSException( "LDAP server unreachable" ) );   // try to reconnect to another server
+    throw PDNSException( "LDAP server unreachable" );   // try to reconnect to another server
   }
   catch( std::exception &e )
   {
-    throw( DBException( "STL exception" ) );
+    throw DBException( "STL exception" );
   }
 
   if ( results.empty() )
@@ -666,11 +666,11 @@ void LdapBackend::setNotified( uint32_t id, uint32_t serial )
   catch( LDAPException &le )
   {
     L << Logger::Error << m_myname << " Unable to search LDAP directory: " << le.what() << endl;
-    throw( PDNSException( "LDAP server unreachable" ) );   // try to reconnect to another server
+    throw PDNSException( "LDAP server unreachable" );   // try to reconnect to another server
   }
   catch( std::exception &e )
   {
-    throw( DBException( "STL exception" ) );
+    throw DBException( "STL exception" );
   }
 }
 
@@ -702,7 +702,7 @@ bool LdapBackend::getDomainInfo( const DNSName& domain, DomainInfo& di )
   catch( LDAPTimeout &lt )
   {
     L << Logger::Warning << m_myname << " Unable to search LDAP directory: " << lt.what() << endl;
-    throw( DBException( "LDAP server timeout" ) );
+    throw DBException( "LDAP server timeout" );
   }
   catch( LDAPNoConnection &lnc )
   {
@@ -715,11 +715,11 @@ bool LdapBackend::getDomainInfo( const DNSName& domain, DomainInfo& di )
   catch( LDAPException &le )
   {
     L << Logger::Error << m_myname << " Unable to search LDAP directory: " << le.what() << endl;
-    throw( PDNSException( "LDAP server unreachable" ) );   // try to reconnect to another server
+    throw PDNSException( "LDAP server unreachable" );   // try to reconnect to another server
   }
   catch( std::exception &e )
   {
-    throw( DBException( "STL exception" ) );
+    throw DBException( "STL exception" );
   }
 
   if( result.count( "sOARecord" ) && !result["sOARecord"].empty() )
