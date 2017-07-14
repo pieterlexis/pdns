@@ -60,7 +60,7 @@ Changelogs for 4.1.x
     :tags: Internals, Bug Fixes
     :pullreq: 4424
 
-    Fix compilation on systems with boost < 1.54
+    Fix compilation on systems with Boost < 1.54
 
   .. change::
     :tags: Internals, Improvements, Bug Fixes
@@ -120,7 +120,7 @@ Changelogs for 4.1.x
     :tags: Tools, Bug Fixes
     :pullreq: 4740
 
-    Avoid undefined behaviour in clang vs. gcc when printing DS records in pdnsutil.
+    Avoid undefined behaviour in Clang vs. GCC when printing DS records in pdnsutil.
 
   .. change::
     :tags: API, Improvements
@@ -157,7 +157,7 @@ Changelogs for 4.1.x
     :tags: Internals, Improvements
     :pullreq: 4829
 
-    Make sure AXFR only deletes records from a SLAVE domain in a multi backend setups (Kees Monshouwer).
+    Make sure AXFR only deletes records from a SLAVE domain in a multi backend setup (Kees Monshouwer).
 
   .. change::
     :tags: Tools, Improvements
@@ -197,7 +197,7 @@ Changelogs for 4.1.x
     Fix two problems with remotebackend (Aki Tuomi):
 
     * list method used domain-id json parameter, when it was supposed to use domain_id
-    * NULL ordername was not passed as empty string in POST parameters builder, instead it threw exception
+    * NULL ordername was not passed as empty string in POST parameters builder, instead it threw an exception
 
   .. change::
     :tags: Internals, Improvements
@@ -207,7 +207,7 @@ Changelogs for 4.1.x
     Incremental backoff for failed slave checks.
 
     When a SOA record for a slave domain can't be retrieved, use an increasing interval between checking the domain again.
-    This prevents hammering down or already busy servers.
+    This prevents hammering down on already busy servers.
 
   .. change::
     :tags: LDAP, Bug Fixes
@@ -293,7 +293,7 @@ Changelogs for 4.1.x
     :pullreq: 5121, 5221
     :tickets: 2358, 5193
 
-    Use pkg-config to detect Postgresql libraries.
+    Use pkg-config to detect PostgreSQL libraries.
 
   .. change::
     :tags: Internals, New Features
@@ -307,7 +307,7 @@ Changelogs for 4.1.x
     :pullreq: 5182
     :tickets: 5119
 
-    Disable ALIAS expension by default.
+    Disable ALIAS expansion by default.
 
   .. change::
     :tags: Internals, Improvements
@@ -408,7 +408,7 @@ Changelogs for 4.1.x
     :pullreq: 5340
     :tickets: 5091
 
-    Fix and erroneous '.' in ".ip6.arpa" (@shantikulkarni).
+    Fix an erroneous '.' in ".ip6.arpa" (@shantikulkarni).
 
   .. change::
     :tags: Internals, New Features
@@ -464,7 +464,7 @@ Changelogs for 4.1.x
     :tags: Internals, Removed Features
     :pullreq: 5468
 
-    Remove the experimental Lua Polocy Engine (Aki Tuomi).
+    Remove the experimental Lua Policy Engine (Aki Tuomi).
 
   .. change::
     :tags: Internals, Bug Fixes
