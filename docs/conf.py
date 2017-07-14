@@ -168,8 +168,8 @@ latex_logo = 'common/powerdns-logo-500px.png'
 # (source start file, name, description, authors, manual section).
 man_pages = []
 for f in glob.glob('manpages/*.1.rst'):
-    srcname = '.'.join(f.split('.')[:-2])
-    destname = '/'.join(srcname.split('/')[-1])
+    srcname = '.'.join(f.split('.')[:-1])
+    destname = srcname.split('/')[-1][:-2]
     man_pages.append((srcname, destname, '', [author], 1))
 
 # -- Options for Texinfo output -------------------------------------------
