@@ -1,11 +1,12 @@
-MANPAGES_DIST = pdns_server.1 \
+MAIN_MANS = pdns_server.1 \
 	pdns_control.1 \
 	pdnsutil.1 \
 	zone2json.1 \
 	zone2ldap.1 \
 	zone2sql.1
 
-MANPAGES_INSTALL = $(MANPAGES_DIST)
+MANPAGES_INSTALL = $(MAIN_MANS)
+MANPAGES_DIST = $(MAIN_MANS)
 
 MANPAGES_TARGET_TOOLS = calidns.1 \
 	dnsgram.1 \
