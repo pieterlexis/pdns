@@ -28,21 +28,21 @@ The :func:`newServer` function is used to add a backend server to the configurat
 
 Now run dnsdist again, reading this configuration::
 
-  $ dnsdist -c dnsdist.conf --local=0.0.0.0:5300
+  $ dnsdist -C dnsdist.conf --local=0.0.0.0:5300
   Marking downstream [2001:4860:4860::8888]:53 as 'up'
   Marking downstream [2001:4860:4860::8844]:53 as 'up'
   Marking downstream [2620:0:ccc::2]:53 as 'up'
   Marking downstream [2620:0:ccd::2]:53 as 'up'
   Marking downstream 192.168.1.2:53 as 'up'
-  Listening on 0.0.0.0:5200
+  Listening on 0.0.0.0:5300
   >
 
 You can now send queries to port 5300, and get answers::
 
-  $ dig -t aaaa powerdns.com @127.0.0.1 -p 5200 +short
+  $ dig -t aaaa powerdns.com @127.0.0.1 -p 5300 +short
   2001:888:2000:1d::2
 
-Note that dnsdist dropped us in a prompt above, and on it we can get some statistics::
+Note that dnsdist dropped us in a prompt above, where we can get some statistics::
 
   > showServers()
   #   Address                   State     Qps    Qlim Ord Wt    Queries   Drops Drate   Lat Pools
@@ -53,13 +53,13 @@ Note that dnsdist dropped us in a prompt above, and on it we can get some statis
   4   192.168.1.2:53               up     0.0       0   1  1          0       0   0.0   0.0
   All                                     0.0                         1       0
 
-:func:`showServers()` is usually one of the first commands you will use when logging into the :doc:`guides/console`.
+:func:`showServers()` is usually one of the first commands you will use when logging into the console. More advanced topics are covered in :doc:`guides/console`.
 
 Here we also see our configuration. 5 downstream servers have been configured, of which the first 4 have a QPS limit (of 1, 1, 10 and 10 queries per second, respectively).
 
 The final server has no limit, which we can easily test::
 
-  $ for a in {0..1000}; do dig powerdns.com @127.0.0.1 -p 5200 +noall > /dev/null; done
+  $ for a in {0..1000}; do dig powerdns.com @127.0.0.1 -p 5300 +noall > /dev/null; done
 
 ::
 

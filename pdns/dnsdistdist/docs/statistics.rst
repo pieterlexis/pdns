@@ -7,9 +7,6 @@ acl-drops
 ---------
 The number of packets dropped bacause of the :doc:`ACL <advanced/acl>`.
 
-block-filter
-------------
-
 cache-hits
 ----------
 Number of times an answer was retrieved from :doc:`cache <guides/cache>`.

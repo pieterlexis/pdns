@@ -9,7 +9,7 @@ The first step is to define a cache, then to assign that cache to the chosen poo
   getPool(""):setCache(pc)
 
 The first parameter (10000) is the maximum number of entries stored in the cache, and is the only one required.
-All the other parameter are optional and in seconds. 
+All the other parameters are optional and in seconds.
 The second one (86400) is the maximum lifetime of an entry in the cache, the third one (0) is the minimum TTL an entry should have to be considered for insertion in the cache, the fourth one (60) is the TTL used for a Server Failure or a Refused response.
 The last one (60) is the TTL that will be used when a stale cache entry is returned.
 

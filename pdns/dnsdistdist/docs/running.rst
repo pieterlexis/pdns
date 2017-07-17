@@ -9,7 +9,7 @@ The default path to this file is determined by the ``SYSCONFDIR`` variable durin
 Most likely this path is ``/etc/dnsdist``,  ``/etc`` or ``/usr/local/etc/``, dnsdist will tell you on startup which file it reads.
 
 dnsdist is designed to (re)start almost instantly.
-But to prevent downtime when changing configuration, the :ref:`Console` can be used for live configuration.
+But to prevent downtime when changing configuration, the console (see :ref:`Console`) can be used for live configuration.
 
 Issueing :func:`delta` on the console will print the changes to the configuration that have been made since startup::
 

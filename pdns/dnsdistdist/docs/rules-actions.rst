@@ -3,7 +3,7 @@ Packet Policies
 
 dnsdist works in essence like any other loadbalancer:
 
-It receives packets on one or several addresses it listens on, it then determines whether it will process this packet based on the :doc:`advanced/acl`, should be packet be processed, dnsdist attempts to match any of the configured rules in order and when one matches, the associated action is performed.
+It receives packets on one or several addresses it listens on, and determines whether it will process this packet based on the :doc:`advanced/acl`. Should the packet be processed, dnsdist attempts to match any of the configured rules in order and when one matches, the associated action is performed.
 
 These rule and action combinations are considered policies.
 
@@ -18,7 +18,7 @@ Each packet can be:
 - Modified and forwarded to a downstream and be modified back
 - Be delayed
 
-This decision can be taken at different times during the forwarding process
+This decision can be taken at different times during the forwarding process.
 
 Examples
 ~~~~~~~~
@@ -322,7 +322,7 @@ These ``DNSRule``\ s be one of the following items:
   * A (compounded) ``Rule``
 
 .. versionadded:: 1.2.0
-   A DNSRule can also be a :class:`DNSName` or list of them
+   A DNSRule can also be a :class:`DNSName` or a list of these
 
 .. function:: AllRule()
 
@@ -349,7 +349,7 @@ These ``DNSRule``\ s be one of the following items:
 
 .. function:: NetmaskGroupRule(nmg[, src])
 
-  Matches traffic from the network range specified in ``nmg``.
+  Matches traffic from/to the network range specified in ``nmg``.
 
   Set the ``src`` parameter to false to match ``nmg`` against destination address instead of source address.
   This can be used to differentiate between clients 
