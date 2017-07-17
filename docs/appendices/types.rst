@@ -5,14 +5,16 @@ This chapter lists all record types PowerDNS supports, and how they are
 stored in backends. The list is mostly alphabetical but some types are
 grouped.
 
-**Warning**: Host names and the MNAME of a SOA records are NEVER
-terminated with a '.' in PowerDNS storage! If a trailing '.' is present
-it will inevitably cause problems, problems that may be hard to debug.
-Use ``pdnsutil check-zone`` to validate your zone data.
+.. warning::
+  Host names and the MNAME of a SOA records are NEVER
+  terminated with a '.' in PowerDNS storage! If a trailing '.' is present
+  it will inevitably cause problems, problems that may be hard to debug.
+  Use ``pdnsutil check-zone`` to validate your zone data.
 
-**Note**: Whenever the storage format is mentioned, this relates only to
-the way the record should be stored in one of the :doc:`../backends-generic-sql>` backends. The other
-backends should use their *native* format.
+..note::
+  Whenever the storage format is mentioned, this relates only to
+  the way the record should be stored in one of the :doc:`generic SQL <../backends/generic-sql>` backends. The other
+  backends should use their *native* format.
 
 The PowerDNS Recursor can serve and store all record types, regardless
 of whether these are explicitly supported.
@@ -47,6 +49,7 @@ ALIAS
 -----
 
 .. versionadded:: 4.0.0
+
 The ALIAS pseudo-record type is supported to provide
 CNAME-like mechanisms on a zone's apex. See the :doc:`howto <../guides/alias>` for information
 on how to configure PowerDNS to serve records synthesized from ALIAS

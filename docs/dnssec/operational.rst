@@ -89,7 +89,7 @@ zone never serves old signatures.
 
 If your DNS setup uses non-PowerDNS slaves, the slaves need to know when
 the signatures have been updated. This can be accomplished by setting
-the :ref:`metadata-soa-edit>` metadata for DNSSEC signed
+the :ref:`metadata-soa-edit` metadata for DNSSEC signed
 zones. This value controls how the value of the SOA serial is modified
 by PowerDNS.
 

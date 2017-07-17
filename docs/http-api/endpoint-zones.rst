@@ -4,13 +4,13 @@ Zones endpoint
 
   Get all zones from the server.
 
-  :query server_id: The name of the server
+  :param server_id: The name of the server
 
 .. http:post:: /api/v1/servers/:server_id/zones
 
   Creates a new domain.
 
-  :query server_id: The name of the server
+  :param server_id: The name of the server
 
   -  ``dnssec``, ``nsec3narrow``, ``presigned``, ``nsec3param``, ``active-keys`` are OPTIONAL.
   -  ``dnssec``, ``nsec3narrow``, ``presigned`` default to ``false``.
@@ -26,22 +26,22 @@ Zones endpoint
 
   Returns zone information.
 
-  :query server_id: The name of the server
-  :query zone_id: The id number of the :json:object:`Zone`
+  :param server_id: The name of the server
+  :param zone_id: The id number of the :json:object:`Zone`
 
 .. http:delete:: /api/v1/servers/:server_id/zones/:zone_id
 
   Deletes this zone, all attached metadata and rrsets.
 
-  :query server_id: The name of the server
-  :query zone_id: The id number of the :json:object:`Zone`
+  :param server_id: The name of the server
+  :param zone_id: The id number of the :json:object:`Zone`
 
 .. http:patch:: /api/v1/servers/:server_id/zones/:zone_id
 
   Modifies present RRsets and comments. Returns ``204 No Content`` on success.
 
-  :query server_id: The name of the server
-  :query zone_id: The id number of the :json:object:`Zone`
+  :param server_id: The name of the server
+  :param zone_id: The id number of the :json:object:`Zone`
 
   Example client body for PATCH:
 
@@ -66,13 +66,12 @@ Zones endpoint
       ]
     }
 
-
 .. http:put:: /api/v1/servers/:server_id/zones/:zone_id
 
   Modifies basic zone data (metadata).
 
-  :query server_id: The name of the server
-  :query zone_id: The id number of the :json:object:`Zone`
+  :param server_id: The name of the server
+  :param zone_id: The id number of the :json:object:`Zone`
 
   Allowed fields in client body: all except ``id`` and ``url``.
   Returns ``204 No Content`` on success.
@@ -83,8 +82,8 @@ Zones endpoint
 
   Send a DNS NOTIFY to all slaves.
 
-  :query server_id: The name of the server
-  :query zone_id: The id number of the :json:object:`Zone`
+  :param server_id: The name of the server
+  :param zone_id: The id number of the :json:object:`Zone`
 
   Fails when zone kind is not ``Master`` or ``Slave``, or ``master`` and ``slave`` are disabled in the configuration.
   Only works for ``Slave`` if renotify is on.
@@ -95,8 +94,8 @@ Zones endpoint
 
   Retrieves the zone from the master.
 
-  :query server_id: The name of the server
-  :query zone_id: The id number of the :json:object:`Zone`
+  :param server_id: The name of the server
+  :param zone_id: The id number of the :json:object:`Zone`
 
   Fails when zone kind is not ``Slave``, or ``slave`` is disabled in PowerDNS configuration.
 
@@ -105,8 +104,8 @@ Zones endpoint
 
   Returns the zone in AXFR format.
 
-  :query server_id: The name of the server
-  :query zone_id: The id number of the :json:object:`Zone`
+  :param server_id: The name of the server
+  :param zone_id: The id number of the :json:object:`Zone`
 
 .. http:get:: /api/v1/servers/:server_id/zones/:zone_id/check
 
@@ -122,3 +121,5 @@ Zones endpoint
       "warnings": ["warning message1"]
     }
 
+  :param server_id: The name of the server
+  :param zone_id: The id number of the :json:object:`Zone`

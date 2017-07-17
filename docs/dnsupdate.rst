@@ -15,7 +15,7 @@ support DNS update:
 
 - :doc:`gmysql <backends/generic-mysql>`
 - :doc:`gpgsql <backends/generic-postgresql>`
-- :doc:`gsqlite3 <backends/generic-sqlite>`
+- :doc:`gsqlite3 <backends/generic-sqlite3>`
 - :doc:`goracle <backends/generic-oracle>`
 - :doc:`godbc <backends/generic-odbc>`
 

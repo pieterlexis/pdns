@@ -57,3 +57,6 @@ In fact, in benchmarks it has been discovered that having a separate database ma
 
 Separation will enhance your database security highly. Recommended.
 
+.. _securitypolling:
+
+.. include:: common/secpoll.rst

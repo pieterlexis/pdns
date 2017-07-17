@@ -14,6 +14,8 @@ PowerDNS supports serving pre-signed zones, as well as online ('live')
 signed operations. In the last case, Signature Rollover and Key
 Maintenance are fully managed by PowerDNS.
 
+.. _dnssec-supported-algos:
+
 Supported Algorithms
 --------------------
 
@@ -26,6 +28,8 @@ for more information):
 -  RSASHA512 (algorithm 10)
 -  ECC-GOST (algorithm 12)
 -  ECDSA (algorithm 13 and 14)
+-  ed25519 (algorithm 15)
+-  ed448 (algorithm 16)
 
 For the DS records, these `digest
 types <http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml#ds-rr-types-1>`__

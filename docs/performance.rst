@@ -52,7 +52,7 @@ aware that if any TTL in the answer is shorter than this setting, the
 packet cache will respect the answer's shortest TTL.
 
 Some PowerDNS operators set cache-ttl to many hours or even days, and
-use :ref:`pdns_control purge <running-pdns_control>`  to
+use :ref:`pdns_control purge <running-pdnscontrol>`  to
 selectively or globally notify PowerDNS of changes made in the backend.
 Also look at the :ref:`query-cache` described in this
 chapter. It may materially improve your performance.
@@ -127,6 +127,7 @@ A number of counters and variables are set during PowerDNS Authoritative
 Server operation.
 
 .. _counters:
+.. _metricnames:
 
 Counters
 ~~~~~~~~
@@ -288,7 +289,7 @@ Number of packets we sent to our recursor, but did not get a timely answer for.
 
 security-status
 ^^^^^^^^^^^^^^^
-Security status based on :ref:`secpoll`.
+Security status based on :ref:`securitypolling`.
 
 .. _stat-servfail-packets:
 
@@ -450,7 +451,7 @@ Total number of answer bytes sent over UDPv6
 .. _stat-udp6-answers:
 
 udp6-answers
-^^^^^^^^^^^
+^^^^^^^^^^^^
 Number of answers sent out over UDPv6
 
 .. _stat-udp6-queries:

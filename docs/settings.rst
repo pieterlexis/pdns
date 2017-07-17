@@ -129,7 +129,7 @@ the remote server to TCP. Useful for mitigating reflection attacks.
 -  Boolean
 -  Default: no
 
-Enable/disable the :doc:`httpapi/index`.
+Enable/disable the :doc:`http-api/index`.
 
 .. _setting-api-key:
 
@@ -252,7 +252,7 @@ compile-time.
 -  String
 
 Name of this virtual configuration - will rename the binary image. See
-:doc:`guides/virtual-instances>`.
+:doc:`guides/virtual-instances`.
 
 .. _setting-control-console:
 

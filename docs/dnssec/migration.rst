@@ -14,7 +14,7 @@ To migrate an existing database-backed PowerDNS installation, ensure you
 are running at least PowerDNS 3.3.3 and preferably 3.4 or newer.
 
 If you run an older version of PowerDNS, please upgrade to 3.4 and apply
-all the changes in database schemas as shown in the :doc:`upgrade documentation <../upgrade>`.
+all the changes in database schemas as shown in the :doc:`upgrade documentation <../upgrading>`.
 
 .. warning::
   Once the relevant ``backend-dnssec`` switch has been set,

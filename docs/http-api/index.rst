@@ -4,19 +4,6 @@ Built-in Webserver and HTTP API
 The PowerDNS Authoritative Server features a built-in built-in webserver that exposes a JSON/REST API.
 This API allows for controlling several functions and reading statistics.
 
-The following documents contain the information for the PowerDNS API:
-
-.. toctree::
-    :maxdepth: 1
-
-    ../common/api/dataformat
-    ../common/api/server
-    ../common/api/zone
-    ../common/api/configsetting
-    ../common/api/statisticitem
-    cryptokeyitem
-
-
 Webserver
 ---------
 
@@ -48,6 +35,22 @@ And restart, the following examples should start working::
     curl -v -H 'X-API-Key: changeme' http://127.0.0.1:8082/api/v1/servers/localhost | jq .
     curl -v -H 'X-API-Key: changeme' http://127.0.0.1:8082/api/v1/servers/localhost/zones | jq .
 
+JSON Objects
+------------
+
+The following documents describe the JSON objects available in the API:
+
+.. toctree::
+    :maxdepth: 1
+
+    ../common/api/dataformat
+    ../common/api/server
+    ../common/api/zone
+    ../common/api/configsetting
+    ../common/api/statisticitem
+    cryptokeyitem
+    zonemetadata
+
 URL Endpoints
 -------------
 
@@ -60,6 +63,8 @@ All API endpoints for the PowerDNS Recursor are documented here:
   ../common/api/endpoint-servers
   ../common/api/endpoint-servers-config
   ../common/api/endpoint-statistics
-  endpoint-zones
-  zonemetadata
   ../common/api/endpoint-logging
+  endpoint-search
+  endpoint-zones
+  endpoint-zone-metadata
+  endpoint-cryptokeys

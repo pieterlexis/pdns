@@ -75,8 +75,7 @@ language = None
 # This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store',
                     '.venv',
-                    'http-api/override.rst',
-                    'common/zonemetadata.rst',
+                    'security-advisories/security-policy.rst',
                     'common/secpoll.rst']
 
 # The name of the Pygments (syntax highlighting) style to use.

@@ -156,7 +156,7 @@ numbers <http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml#ds-rr-typ
 This metadata can also be set using the
 :doc:`pdnsutil <dnssec/pdnsutil>` commands ``set-publish-cdnskey``
 and ``set-publish-cds``. For an example for an :rfc:`7344` key rollover,
-see the :doc:`guides/kskrollcdnskey.rst`.
+see the :doc:`guides/kskrollcdnskey`.
 
 .. _metadata-soa-edit:
 

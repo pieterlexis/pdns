@@ -209,7 +209,7 @@ without anything else. The answer format (for abi-version 1 and 2):
 
 Again, all fields are tab-separated.
 
-``content`` is as specified in :doc:`../appendices/types>`. For MX and SRV,
+``content`` is as specified in :doc:`../appendices/types`. For MX and SRV,
 content consists of the priority, followed by a tab, followed by the
 actual content.
 
