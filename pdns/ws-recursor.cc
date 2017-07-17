@@ -79,10 +79,11 @@ static void apiServerConfigAllowFrom(HttpRequest* req, HttpResponse* resp)
       throw ApiException("'value' must be an array");
     }
 
+    NetmaskGroup nmg;
     for (SizeType i = 0; i < jlist.Size(); ++i) {
       try {
-        Netmask(jlist[i].GetString());
-      } catch (NetmaskException &e) {
+        nmg.addMask(jlist[i].GetString());
+      } catch (const NetmaskException &e) {
         throw ApiException(e.reason);
       }
     }
@@ -94,9 +95,7 @@ static void apiServerConfigAllowFrom(HttpRequest* req, HttpResponse* resp)
 
     // Clear allow-from, and provide a "parent" value
     ss << "allow-from=" << endl;
-    for (SizeType i = 0; i < jlist.Size(); ++i) {
-      ss << "allow-from+=" << jlist[i].GetString() << endl;
-    }
+    ss << "allow-from+=" << nmg.toString() << endl;
 
     apiWriteConfigFile("allow-from", ss.str());
 
@@ -233,10 +232,16 @@ static void doCreateZone(const Value& document)
     string serverlist;
     if (servers.IsArray()) {
       for (SizeType i = 0; i < servers.Size(); ++i) {
-        if (!serverlist.empty()) {
-          serverlist += ";";
+        string server = servers[i].GetString();
+        try {
+          ComboAddress ca = parseIPAndPort(server, 53);
+          if (!serverlist.empty()) {
+            serverlist += ";";
+          }
+          serverlist += ca.toStringWithPort();
+        } catch (const PDNSException &e) {
+          throw ApiException(e.reason);
         }
-        serverlist += servers[i].GetString();
       }
     }
 
