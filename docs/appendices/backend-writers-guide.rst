@@ -735,16 +735,16 @@ other update/remove functionality at a later stage.
 
 .. cpp:function:: virtual bool DNSBackend::commitTransaction()
 
-  See `above <#bool-committransaction>`.
+  See :cpp:func:`above <DNSBackend::commitTransaction>`.
 
 .. cpp:function:: virtual bool DNSBackend::abortTransaction()
 
-  See `above <#bool-aborttransaction>`__. Method is called when an
+  See cpp:func:`above <DNSBackend::abortTransaction>`. Method is called when an
   exception is received.
 
 .. cpp:function:: virtual bool DNSBackend::feedRecord(const DNSResourceRecord &rr, string *ordername)
 
-  See `above <#bool-feedrecordconst-dnsresourcerecord-rr-string-ordername>`__.
+  See :cpp:func:`above <DNSBackend::feedRecord>`.
   Please keep in mind that the zone is not empty because
   ``startTransaction()`` was called different.
 

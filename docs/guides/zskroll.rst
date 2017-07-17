@@ -3,8 +3,8 @@ ZSK Rollover
 
 This how to describes the way to roll a ZSK that is not a secure
 entrypoint (a ZSK that is not tied to a DS record in the parent zone)
-using the `"RFC 6781 Pre-Publish Zone Signing Key
-Rollover" <https://tools.ietf.org/html/rfc6781#section-4.1.1.1>`__
+using the :rfc:`"RFC 6781 Pre-Publish Zone Signing Key
+Rollover" <6781#section-4.1.1.1>`
 method. The documentation linked above also lists the minimum time
 between stages. **PLEASE READ THAT DOCUMENT CAREFULLY**
 

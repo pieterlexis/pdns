@@ -224,7 +224,7 @@ Make sure that ``/dev/log`` is available from within the chroot. Logging
 will silently fail over time otherwise (on logrotate).
 
 When setting ``chroot``, all other paths in the config (except for
-:ref:`setting-config-dir` and ```module-dir`` <#module-dir>`__)
+:ref:`setting-config-dir` and :ref:`setting-module-dir`)
 set in the configuration are relative to the new root.
 
 When running on a system where systemd manages services, ``chroot`` does
@@ -662,7 +662,7 @@ any.
 -  Default: no
 
 Bind to addresses even if one or more of the
-```local-address``'s <#local-address>`__ do not exist on this server.
+:ref:`setting-local-address`'s do not exist on this server.
 Setting this option will enable the needed socket options to allow
 binding to non-local addresses. This feature is intended to facilitate
 ip-failover setups, but it may also mask configuration issues and for
@@ -689,7 +689,7 @@ Script to be used to edit incoming AXFRs, see :ref:_modes-of-operation-axfrfilte
 -  Default: no
 
 Fail to start if one or more of the
-```local-address``'s <#local-address>`__ do not exist on this server.
+:ref:`setting-local-address`'s do not exist on this server.
 
 .. _setting-local-ipv6:
 

@@ -92,14 +92,10 @@ records without a location.
 Location and Timestamp support
 ------------------------------
 
-Both timestamp and location are supported in the backend. Locations
-support can be changed using the
-```tinydns-locations`` <#tinydns-locations>`__ setting. Timestamp and
-location only work as expected when
-:ref:`setting-cache-ttl` and
-:ref:`setting-query-cache-ttl` are set to 0
-(which disables these caches). Timestamp can operate with
-:ref:`setting-cache-ttl` if cache is needed, but the
+Both timestamp and location are supported in the backend.
+Locations support can be changed using the :ref:`setting-tinydns-locations` setting.
+Timestamp and location only work as expected when :ref:`setting-cache-ttl` and :ref:`setting-query-cache-ttl` are set to 0 (which disables these caches).
+Timestamp can operate with :ref:`setting-cache-ttl` if cache is needed, but the
 TTL returned for the timestamped racked will not be totally correct. The
 record will expire once the cache is expired and the backend is queried
 again. Please note that :ref:`setting-cache-ttl` is a
@@ -111,8 +107,7 @@ Master mode
 The TinyDNSBackend supports master mode. This allows it to notify slave
 nameservers of updates to a zone. You simply need to rewrite the
 ``data.cdb`` file with an updated/increased serial and PowerDNS will
-notify the slave nameservers of that domain. The
-```tinydns-notify-on-startup`` <#tinydns-notify-on-startup>`__
+notify the slave nameservers of that domain. The :ref:`setting-tinydns-notify-on-startup`
 configuration setting tells the backend if it should notify all the
 slave nameservers just after startup.
 
@@ -149,8 +144,7 @@ useful record building scripts on his
 
 PowerDNS and TinyDNS handle wildcards differently. Looking up
 foo.www.example.com with the below records on TinyDNS will return
-198.51.100.1, PowerDNS will return NXDOMAIN. According to `RFC
-4592 <https://tools.ietf.org/html/rfc4592>`__ \*.example.com should only
+198.51.100.1, PowerDNS will return NXDOMAIN. According to :rfc:`4592` \*.example.com should only
 match subdomains in under example.com, not \*.\*.example.com. This
 compatibility issue is `noted on the axfer-get page for the djbdns
 suite <https://cr.yp.to/djbdns/axfr-get.html>`__.

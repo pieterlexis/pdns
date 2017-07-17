@@ -55,6 +55,8 @@ It is recommended to :doc:`migrate to PowerDNS <../migration>` before
 securing your zones. After that, see the instructions
 :ref:`above <dnssecfromexisting>`.
 
+.. _dnssec-migration-presigned:
+
 From existing DNSSEC non-PowerDNS setups, pre-signed
 ----------------------------------------------------
 

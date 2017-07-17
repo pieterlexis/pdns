@@ -621,8 +621,7 @@ DNS notification support
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 As soon as the LDAP server implementations begin to provide the features
-of the LDAP client update protocol (LCUP,
-`RFC3928 <http://www.ietf.org/rfc/rfc3928.txt>`__), it will be possible
+of the LDAP client update protocol (LCUP, :rfc:`3928`), it will be possible
 to support the DNS notification feature for the LDAP DNS backend in case
 a record in the LDAP directory was changed.
 

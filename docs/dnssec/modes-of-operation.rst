@@ -9,8 +9,8 @@ In addition, PowerDNS supports taking care of the signing itself, in
 which case PowerDNS operates differently from most tutorials and
 handbooks. This mode is easier however.
 
-For relevant tradeoffs, please see `Security <#security>`__ and
-`Performance <#performance.html>`__.
+For relevant tradeoffs, please see :doc:`../security` and
+:doc:`../performance`.
 
 .. _dnssec-online-signing:
 
@@ -75,6 +75,8 @@ NSEC3 in 'narrow' mode uses additional hashing calculations to provide
 hashed secure denial of existence 'on the fly', without further
 involving the database.
 
+.. _dnssec-signatures:
+
 Signatures
 ~~~~~~~~~~
 
@@ -109,8 +111,7 @@ using tools like OpenDNSSEC, ldns-signzone or dnssec-signzone.
 
 Even in this mode, PowerDNS will synthesize NSEC(3) records itself
 because of its architecture. RRSIGs of these NSEC(3) will still need to
-be imported. See the `Presigned migration
-guide <#From-existing-DNSSEC-non-PowerDNS-setups-pre-signed>`__.
+be imported. See the :ref:`Presigned migration guide <dnssec-migration-presigned>`.
 
 Front-signing
 -------------

@@ -108,6 +108,8 @@ master operation instead of the default native replication, issue:
 Make sure that the assigned id in the domains table matches the
 domain_id field in the records table!
 
+.. _generic-sql-disabled-data:
+
 Disabled data
 ^^^^^^^^^^^^^
 
@@ -224,8 +226,7 @@ queries must return the following fields in order:
 -  name: Actual name of a record. Must not end in a '.' and be fully
    qualified - it is not relative to the name of the domain!
 -  disabled: Boolean, if set to true, this record is hidden from DNS
-   clients, but can still be modified from the REST API. See `Disabled
-   data <#disabled-data>`__. (Available since version 3.4.0.)
+   clients, but can still be modified from the REST API. See :ref:`generic-sql-disabled-data`.
 -  auth: A boolean describing if PowerDNS is authoritative for this
    record (DNSSEC)
 

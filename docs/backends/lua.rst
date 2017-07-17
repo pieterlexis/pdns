@@ -45,10 +45,18 @@ There is a couple of new functions for you to use in Lua:
 ``logger(log_facility, "your", "messages")``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-All these ``log_facilities`` is available: \* ``log_all`` \*
-``log_ntlog`` \* ``log_alert`` \* ``log_critical`` \* ``log_error`` \*
-``log_warning`` \* ``log_notice,`` \* ``log_info`` \* ``log_debug`` \*
-``log_none``
+All these ``log_facilities`` is available: 
+
+ * ``log_all`` 
+ * ``log_ntlog`` 
+ * ``log_alert`` 
+ * ``log_critical`` 
+ * ``log_error`` 
+ * ``log_warning`` 
+ * ``log_notice,`` 
+ * ``log_info`` 
+ * ``log_debug`` 
+ * ``log_none``
 
 ``dnspacket()``
 ~~~~~~~~~~~~~~~
@@ -56,8 +64,7 @@ All these ``log_facilities`` is available: \* ``log_all`` \*
 This will give you back three parameters with ``remote_ip``,
 ``remote_port`` and ``local_ip`` in that order.
 
-Can only be used in the functions ```list()`` <#list>`__ and
-```getsoa()`` <#getsoa>`__.
+Can only be used in the functions ``list()`` and ``getsoa()``.
 
 ``getarg("PARAMETER")``
 ~~~~~~~~~~~~~~~~~~~~~~~

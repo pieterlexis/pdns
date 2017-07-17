@@ -56,7 +56,7 @@ and remote-dnssec.
 
 You can pass as many parameters as you want. For unix and pipe
 connectors, these are passed along to the remote end as initialization.
-See `API <#api>`__. Initialize is not called for http connector.
+See :ref:`remote-api`. Initialize is not called for http connector.
 
 Unix connector
 ^^^^^^^^^^^^^^
@@ -79,7 +79,7 @@ parameters: command,timeout (default 2000ms)
 HTTP connector
 ^^^^^^^^^^^^^^
 
-parameters: url, url-suffix, post, post\_json, timeout (default 2000ms)
+parameters: url, url-suffix, post, post_json, timeout (default 2000ms)
 
 ::
 
@@ -87,8 +87,8 @@ parameters: url, url-suffix, post, post\_json, timeout (default 2000ms)
 
 HTTP connector tries to do RESTful requests to your server. See
 examples. You can also use post to change behaviour so that it will send
-POST request to url/method + url\_suffix with
-parameters=json-formatted-parameters. If you use post and post\_json, it
+POST request to url/method + url_suffix with
+parameters=json-formatted-parameters. If you use post and post_json, it
 will POST url with text/javascript containing JSON formatted RPC
 request, just like for pipe and unix. You can use '1', 'yes', 'on' or
 'true' to turn these features on.
@@ -114,6 +114,8 @@ parameters: endpoint, timeout (default 2000ms)
 0MQ connector implements a REQ/REP RPC model. Please see
 http://zeromq.org/ for more information.
 
+.. _remote-api:
+
 API
 ---
 
@@ -125,7 +127,7 @@ remote end. Each JSON query has two sections, 'method' and 'parameters'.
 
 HTTP connector calls methods based on URL and has parameters in the
 query string. Most calls are GET; see the methods listing for details.
-You can change this with post and post\_json attributes.
+You can change this with post and post_json attributes.
 
 Replies
 ^^^^^^^
@@ -167,6 +169,8 @@ Response:
 
     {"result":true}
 
+.. _remote-lookup:
+
 ``lookup``
 ~~~~~~~~~~
 
@@ -174,10 +178,10 @@ This method is used to do the basic query. You can omit auth, but if you
 are using DNSSEC this can lead into trouble.
 
 -  Mandatory: Yes
--  Parameters: qtype, qname, zone\_id
+-  Parameters: qtype, qname, zone_id
 -  Optional parameters: remote, local, real-remote
--  Reply: array of ``qtype,qname,content,ttl,domain\_id,scopeMask,auth``
--  Optional values: domain\_id, scopeMask and auth
+-  Reply: array of ``qtype,qname,content,ttl,domain_id,scopeMask,auth``
+-  Optional values: domain_id, scopeMask and auth
 -  Note: priority field is required before 4.0, after 4.0 priority is
    added to content. This applies to any resource record which uses
    priority, for example SRV or MX.
@@ -202,7 +206,7 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     GET /dnsapi/lookup/www.example.com./ANY HTTP/1.1
     X-RemoteBackend-remote: 192.0.2.24
@@ -212,7 +216,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -227,10 +231,10 @@ should take care of setting auth to appropriate value, otherwise things
 can go wrong.
 
 -  Mandatory: No (Gives AXFR support)
--  Parameters: zonename, domain\_id
--  Optional parameters: domain\_id
--  Reply: array of ``qtype,qname,content,ttl,domain\_id,scopeMask,auth``
--  Optional values: domain\_id, scopeMask and auth
+-  Parameters: zonename, domain_id
+-  Optional parameters: domain_id
+-  Reply: array of ``qtype,qname,content,ttl,domain_id,scopeMask,auth``
+-  Optional values: domain_id, scopeMask and auth
 
 Example JSON/RPC
 ''''''''''''''''
@@ -259,14 +263,14 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     GET /dnsapi/list/-1/example.com HTTP/1.1
     X-RemoteBackend-domain-id: -1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -320,8 +324,11 @@ Response:
 
 Returns the value(s) for variable kind for zone name. You **must**
 always return something, if there are no values, you shall return empty
-set or false. \* Mandatory: No \* Parameters: name \* Reply: hash of key
-to array of strings
+set or false.
+
+ *  Mandatory: No
+ *  Parameters: name
+ *  Reply: hash of key to array of strings
 
 Example JSON/RPC
 ''''''''''''''''
@@ -343,13 +350,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     GET /dnsapi/getalldomainmetadata/example.com HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -388,13 +395,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     GET /dnsapi/getdomainmetadata/example.com./PRESIGNED HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -432,7 +439,7 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     PATCH /dnsapi/setdomainmetadata/example.com/PRESIGNED HTTP/1.1
     Content-Type: application/x-www-form-urlencoded 
@@ -442,20 +449,22 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
 
     {"result":true}
 
+.. _remote-getdomainkeys:
+
 ``getDomainKeys``
 ~~~~~~~~~~~~~~~~~
 
 Retrieves any keys of kind. The id, flags are unsigned integers, and
 active is boolean. Content must be valid key record in format that
-PowerDNS understands. You are encouraged to implement `the section
-called "addDomainKey" <#adddomainkey>`__, as you can use
+PowerDNS understands. You are encouraged to implement :ref:`the section
+called "addDomainKey" <remote-adddomainkey>`, as you can use
 :doc:`../manpages/pdnsutil.1` to provision keys.
 
 -  Mandatory: for DNSSEC
@@ -491,13 +500,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     GET /dnsapi/getdomainkeys/example.com/0 HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -513,11 +522,12 @@ Response:
     Exponent2: LDR9/tyu0vzuLwc20B22FzNdd5rFF2wAQTQ0yF/3Baj5NAi9w84l0u07KgKQZX4g0N8qUyypnU5YDyzc6ZoagQ==
     Coefficient: 6S0vhIQITWzqfQSLj+wwRzs6qCvJckHb1+SD1XpwYjSgMTEUlZhf96m8WiaE1/fIt4Zl2PC3fF7YIBoFLln22w=="}]}
 
+.. _remote-adddomainkey:
+
 ``addDomainKey``
 ~~~~~~~~~~~~~~~~
 
-Adds key into local storage. See ```getDomainKeys`` <#getdomainkeys>`__
-for more information.
+Adds key into local storage. See :ref:`remote-getdomainkeys` for more information.
 
 -  Mandatory: No
 -  Parameters: name, key=\ ``<flags,active,content>``, id
@@ -552,9 +562,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    PUT /dnsapi/adddomainkey/example.com
+    PUT /dnsapi/adddomainkey/example.com HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 965
 
@@ -571,7 +581,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -607,13 +617,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     DELETE /dnsapi/removedomainkey/example.com/1 HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -649,13 +659,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     POST /dnsapi/activatedomainkey/example.com/1 HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; utf-8
@@ -691,13 +701,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     POST /dnsapi/deactivatedomainkey/example.com/1 HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; utf-8
@@ -733,18 +743,18 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    GET /dnsapi/gettsigkey/example.com.
+    GET /dnsapi/gettsigkey/example.com. HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
 
-    {"result":{"algorithm":"hmac-md5","content:"kp4/24gyYsEzbuTVJRUMoqGFmN3LYgVDzJ/3oRSP7ys="}}
+    {"result":{"algorithm":"hmac-md5","content":"kp4/24gyYsEzbuTVJRUMoqGFmN3LYgVDzJ/3oRSP7ys="}}
 
 ``getDomainInfo``
 ~~~~~~~~~~~~~~~~~
@@ -752,13 +762,13 @@ Response:
 Retrieves information about given domain from the backend. If your
 return value has no zone attribute, the backend will signal error.
 Everything else will default to something. Default values: serial:0,
-kind:NATIVE, id:-1, notified\_serial:-1, last\_check:0, masters: [].
+kind:NATIVE, id:-1, notified_serial:-1, last_check:0, masters: [].
 Masters, if present, must be array of strings.
 
 -  Mandatory: No
 -  Parameters: name
 -  Reply: zone
--  Optional values: serial, kind, id, notified\_serial, last\_check,
+-  Optional values: serial, kind, id, notified_serial, last_check,
    masters
 
 Example JSON/RPC
@@ -781,13 +791,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
     GET /dnsapi/getdomaininfo/example.com HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     content-Type: text/javascript: charset=utf-8
@@ -823,9 +833,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    PATCH /dnsapi/setnotified/1
+    PATCH /dnsapi/setnotified/1 HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 17
 
@@ -833,7 +843,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -869,13 +879,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    GET /dnsapi/isMaster/example.com/198.51.100.0.1
+    GET /dnsapi/isMaster/example.com/198.51.100.0.1 HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -920,9 +930,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    POST /dnsapi/supermasterbackend/198.51.100.0.1/example.com
+    POST /dnsapi/supermasterbackend/198.51.100.0.1/example.com HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 317
 
@@ -930,7 +940,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -939,12 +949,12 @@ Response:
 
 Alternative response
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
 
-    {"result":{"account":"my account}}
+    {"result":{"account":"my account"}}
 
 ``createSlaveDomain``
 ~~~~~~~~~~~~~~~~~~~~~
@@ -975,15 +985,15 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    POST /dnsapi/createslavedomain/198.51.100.0.1/pirate.example.net
+    POST /dnsapi/createslavedomain/198.51.100.0.1/pirate.example.net HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 0
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -997,7 +1007,7 @@ This method replaces a given resource record with new set. The new qtype
 can be different from the old.
 
 -  Mandatory: No
--  Parameters: domain\_id, qname, qtype, rrset
+-  Parameters: domain_id, qname, qtype, rrset
 -  Reply: true for success, false for failure
 
 Example JSON/RPC
@@ -1020,9 +1030,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    PATCH /dnsapi/replacerrset/2/replace.example.com/A
+    PATCH /dnsapi/replacerrset/2/replace.example.com/A HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 135
 
@@ -1030,7 +1040,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -1067,9 +1077,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    PATCH /dnsapi/feedrecord/1370416133
+    PATCH /dnsapi/feedrecord/1370416133 HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 117
 
@@ -1077,19 +1087,21 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
 
     {"result":true}
 
+.. _remote-feedents:
+
 ``feedEnts``
 ~~~~~~~~~~~~
 
 This method is used by pdnsutil rectify-zone to populate missing
 non-terminals. This is used when you have, say, record like
-\_sip.\_upd.example.com, but no \_udp.example.com. PowerDNS requires
+_sip._upd.example.com, but no _udp.example.com. PowerDNS requires
 that there exists a non-terminal in between, and this instructs you to
 add one. If startTransaction is called, trxid identifies a transaction.
 
@@ -1117,9 +1129,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    PATCH /dnsapi/feedents/2
+    PATCH /dnsapi/feedents/2 HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 50
 
@@ -1127,7 +1139,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -1137,16 +1149,17 @@ Response:
 ``feedEnts3``
 ~~~~~~~~~~~~~
 
-Same as ```feedEnts`` <#feedents>`__, but provides NSEC3 hashing
+Same as :ref:`remote-feedents`, but provides NSEC3 hashing
 parameters. Note that salt is BYTE value, and can be non-readable text.
 
 -  Mandatory: No
--  Parameters: trxid, domain\_id, domain, times, salt, narrow, nonterm
+-  Parameters: trxid, domain_id, domain, times, salt, narrow, nonterm
 -  Reply: true for success, false for failure
 
 Example JSON/RPC
-Query:
 ''''''''''''''''
+
+Query:
 
 ::
 
@@ -1163,9 +1176,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    PATCH /dnsapi/2/example.com
+    PATCH /dnsapi/2/example.com HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 78
 
@@ -1173,7 +1186,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -1187,7 +1200,7 @@ Starts a new transaction. Transaction ID is chosen for you. Used to
 identify f.ex. AXFR transfer.
 
 -  Mandatory: No
--  Parameters: domain\_id, domain, trxid
+-  Parameters: domain_id, domain, trxid
 -  Reply: true for success, false for failure
 
 Example JSON/RPC
@@ -1210,9 +1223,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    POST /dnsapi/starttransaction/1/example.com
+    POST /dnsapi/starttransaction/1/example.com HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 10
 
@@ -1220,7 +1233,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -1257,15 +1270,15 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    POST /dnsapi/committransaction/1234
+    POST /dnsapi/committransaction/1234 HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 0
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -1301,15 +1314,15 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    POST /dnsapi/aborttransaction/1234
+    POST /dnsapi/aborttransaction/1234 HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 0
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -1346,9 +1359,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    POST /dnsapi/calculatesoaserial/unit.test
+    POST /dnsapi/calculatesoaserial/unit.test HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 198
 
@@ -1356,7 +1369,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -1393,9 +1406,9 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    POST /dnsapi/directBackendCmd
+    POST /dnsapi/directBackendCmd HTTP/1.1
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 10
 
@@ -1403,7 +1416,7 @@ Query:
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -1416,7 +1429,7 @@ Response:
 Get DomainInfo records for all domains in your backend.
 
 -  Mandatory: no
--  Parameters: include\_disabled
+-  Parameters: include_disabled
 -  Reply: array of DomainInfo
 
 Example JSON/RPC
@@ -1439,13 +1452,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    GET /dnsapi/getAllDomains?includeDisabled=true
+    GET /dnsapi/getAllDomains?includeDisabled=true HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
@@ -1459,7 +1472,7 @@ Can be used to search records from the backend. This is used by web api.
 
 -  Mandatory: no
 -  Parameters: pattern, maxResults
--  Reply: same as `lookup <#lookup>`__ or false to indicate failed
+-  Reply: same as :ref:`remote-lookup` or false to indicate failed
    search
 
 Example JSON/RPC
@@ -1482,13 +1495,13 @@ Example HTTP/RPC
 
 Query:
 
-::
+.. code-block:: http
 
-    GET /dnsapi/searchRecords?q=www.example*&maxResults=100
+    GET /dnsapi/searchRecords?q=www.example*&maxResults=100 HTTP/1.1
 
 Response:
 
-::
+.. code-block:: http
 
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8

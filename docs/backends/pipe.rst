@@ -295,9 +295,20 @@ query/answer format:
 Sample backends
 ---------------
 
--  `ABI version
-   1 <https://raw.githubusercontent.com/PowerDNS/pdns/master/modules/pipebackend/backend.pl>`__
--  `ABI version
-   3 <https://raw.githubusercontent.com/PowerDNS/pdns/master/modules/pipebackend/backend-v3.pl>`__
--  `ABI version
-   5 <https://raw.githubusercontent.com/PowerDNS/pdns/master/modules/pipebackend/backend-v5.pl>`__
+ABI version 1
+^^^^^^^^^^^^^
+
+.. literalinclude:: ../../modules/pipebackend/backend.pl
+  :language: perl
+
+ABI version 3
+^^^^^^^^^^^^^
+
+.. literalinclude:: ../../modules/pipebackend/backend-v3.pl
+  :language: perl
+
+ABI version 5
+^^^^^^^^^^^^^
+
+.. literalinclude:: ../../modules/pipebackend/backend-v5.pl
+  :language: perl

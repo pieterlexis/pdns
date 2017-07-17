@@ -289,7 +289,7 @@ SQLite and SQLite3
 ^^^^^^^^^^^^^^^^^^
 
 Supported without changes since OpenDBX 1.0.0 but requires to set
-```opendbx-host`` <#opendbs-host>`__ to the path of the SQLite file
+:ref:`setting-opendbx-host-read` to the path of the SQLite file
 (including the trailing slash or backslash, depending on your operating
 system) and opendbx-database to the name of the file.
 
@@ -438,7 +438,7 @@ SQLite3 Schema
 Firebird/Interbase
 ^^^^^^^^^^^^^^^^^^
 
-Requires ```opendbx-database`` <#opendbx-database>`__ set to the path of
+Requires :ref:`setting-opendbx-database` set to the path of
 the database file and doesn't support the default statement for starting
 transactions. Please add the following lines to your pdns.conf:
 

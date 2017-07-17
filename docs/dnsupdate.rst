@@ -419,8 +419,7 @@ PowerDNS.
     make sure DNSSEC remains working. The cache for that record is
     purged.
 13. If there are records updated and the SOA record was not modified,
-    the SOA serial is updated. See `SOA Serial
-    Updates <#soa-serial-updates>`__. The cache for this record is
+    the SOA serial is updated. See :ref:`dnsupdate-soa-serial-updates`. The cache for this record is
     purged.
 14. The transaction with the backend is committed. If this fails,
     ServFail is returned.

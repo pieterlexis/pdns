@@ -78,13 +78,13 @@ zones will already be available. While a domain is being loaded, it is
 not yet available, to prevent incomplete answers.
 
 Reloading is currently done only when a request for a zone comes in, and
-then only after ```bind-check-interval`` <#bind-check-interval>`__
+then only after :ref:`setting-bind-check-interval`.
 seconds have passed after the last check. If a change occurred, access
 to the zone is disabled, the file is reloaded, access is restored, and
 the question is answered. For regular zones, reloading is fast enough to
 answer the question which lead to the reload within the DNS timeout.
 
-If ```bind-check-interval`` <#bind-check-interval>`__ is specified as
+If :ref:`setting-bind-check-interval` is specified as
 zero, no checks will be performed until the ``pdns_control reload`` is
 given.
 
@@ -175,7 +175,7 @@ a master (no notifies are sent) nor a slave zone (it will never be
 AXFR'd in). This means that the replication mechanism for these zone is
 not AXFR but out of band, e.g. using ``rsync``. Changes to native zones
 are picked up in the same way as master and slave zones, see
-`Operation <#operation>`__.
+:ref:`bind-operation`.
 
 Native zones in the BIND backend are supported since version 4.1.0 of
 the PowerDNS Authoritative Server.
