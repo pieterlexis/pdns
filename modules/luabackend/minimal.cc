@@ -153,7 +153,7 @@ bool LUABackend::get(DNSResourceRecord &rr) {
         rr.ttl = ::arg().asNum( "default-ttl" );
 
     if (logging)
-	L << Logger::Info << backend_name << "(get) END" << endl;
+	L << Logger::Info << backend_name << "(get) END " << got_content << endl;
 
     return got_content;
 }
