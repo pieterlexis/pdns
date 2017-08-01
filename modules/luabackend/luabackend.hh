@@ -30,6 +30,7 @@
 #include <string>
 using std::string;
 
+#define LUABACKEND_PREFIX "lua"
 
 class LUAException {
 public:
@@ -108,6 +109,7 @@ public:
     //private.cc
     string my_getArg(string a);
     bool my_mustDo(string a);
+    bool my_isEmpty(string a);
 
 private:
 
