@@ -1402,3 +1402,33 @@ public:
 private:
   std::string d_reason;
 };
+
+class RewriteMapAction : public DNSAction
+{
+public:
+  RewriteMapAction(const SuffixMatchTree<std::pair<DNSName,DNSName> >& tree): d_smt(tree)
+  {
+  }
+  DNSAction::Action operator()(DNSQuestion* dq, string* ruleresult) const override;
+  string toString() const override
+  {
+    return "rewrite map";
+  }
+private:
+  SuffixMatchTree<std::pair<DNSName,DNSName> > d_smt;
+};
+
+class RewriteMapResponseAction : public DNSResponseAction
+{
+public:
+  RewriteMapResponseAction(const SuffixMatchTree<std::pair<DNSName, DNSName> >& tree): d_smt(tree)
+  {
+  }
+  DNSResponseAction::Action operator()(DNSResponse* dr, string* ruleresult) const override;
+  string toString() const override
+  {
+    return "rewrite map";
+  }
+private:
+  SuffixMatchTree<std::pair<DNSName, DNSName> > d_smt;
+};

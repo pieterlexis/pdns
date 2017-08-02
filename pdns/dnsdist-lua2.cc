@@ -1481,4 +1481,23 @@ void moreLua(bool client)
         g_outputBuffer="recvmmsg support is not available!\n";
 #endif
       });
+
+    g_lua.writeFunction("RewriteMapAction", [](const std::map<std::string,std::string>& map) {
+        SuffixMatchTree<std::pair<DNSName, DNSName> > smt;
+        for (const auto entry : map) {
+          smt.add(DNSName(entry.first), std::make_pair(DNSName(entry.first),DNSName(entry.second)));
+        }
+
+        return std::shared_ptr<DNSAction>(new RewriteMapAction(smt));
+      });
+
+    g_lua.writeFunction("RewriteMapResponseAction", [](const std::map<std::string,std::string>& map) {
+        SuffixMatchTree<std::pair<DNSName, DNSName> > smt;
+        for (const auto entry : map) {
+          smt.add(DNSName(entry.second), std::make_pair(DNSName(entry.second),DNSName(entry.first)));
+        }
+
+        return std::shared_ptr<DNSResponseAction>(new RewriteMapResponseAction(smt));
+      });
+
 }

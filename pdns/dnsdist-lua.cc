@@ -979,7 +979,7 @@ vector<std::function<void(void)>> setupLua(bool client, const std::string& confi
       DTime dt;
       dt.set();
       for(int n=0; n < times; ++n) {
-        const item& i = items[n % items.size()];
+        item& i = items[n % items.size()];
         DNSQuestion dq(&i.qname, i.qtype, i.qclass, &i.rem, &i.rem, (struct dnsheader*)&i.packet[0], i.packet.size(), i.packet.size(), false);
         if(rule->matches(&dq))
           matches++;

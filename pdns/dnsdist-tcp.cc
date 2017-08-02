@@ -392,6 +392,9 @@ void* tcpClientThread(int pipefd)
               goto drop;
             }
 
+            /* might have been altered by a response rule */
+            cachedResponseSize = dr.len;
+
 #ifdef HAVE_DNSCRYPT
             if (!encryptResponse(cachedResponse, &cachedResponseSize, sizeof cachedResponse, true, dnsCryptQuery, nullptr, nullptr)) {
               goto drop;
@@ -506,13 +509,19 @@ void* tcpClientThread(int pipefd)
         }
 
         size_t responseSize = rlen;
-        uint16_t addRoom = 0;
+        uint16_t addRoom = 512;
 #ifdef HAVE_DNSCRYPT
         if (dnsCryptQuery && (UINT16_MAX - rlen) > (uint16_t) DNSCRYPT_MAX_RESPONSE_PADDING_AND_MAC_SIZE) {
-          addRoom = DNSCRYPT_MAX_RESPONSE_PADDING_AND_MAC_SIZE;
+          if (addRoom < DNSCRYPT_MAX_RESPONSE_PADDING_AND_MAC_SIZE) {
+            addRoom = DNSCRYPT_MAX_RESPONSE_PADDING_AND_MAC_SIZE;
+          }
         }
 #endif
         responseSize += addRoom;
+        if (responseSize > std::numeric_limits<uint16_t>::max()) {
+          responseSize = std::numeric_limits<uint16_t>::max();
+        }
+
         char answerbuffer[responseSize];
         readn2WithTimeout(dsock, answerbuffer, rlen, ds->tcpRecvTimeout);
         char* response = answerbuffer;
@@ -543,6 +552,9 @@ void* tcpClientThread(int pipefd)
         if (!processResponse(localRespRulactions, dr, &delayMsec)) {
           break;
         }
+
+        /* might have been altered by a response rule */
+        responseLen = dr.len;
 
 	if (packetCache && !dq.skipCache) {
 	  packetCache->insert(cacheKey, qname, qtype, qclass, response, responseLen, true, dh->rcode);
