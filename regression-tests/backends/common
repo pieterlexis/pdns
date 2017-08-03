@@ -67,6 +67,10 @@ start_master ()
 				source ./ext/bind-master
 				;;
 
+			lua*)
+				source ./backends/lua-master
+				;;
+
 			*)
 				nocontext=yes
 	esac
