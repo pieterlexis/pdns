@@ -48,6 +48,7 @@
 #include <sys/resource.h>
 #include "dnsdist-cache.hh"
 #include "gettime.hh"
+#include "utility.hh"
 
 #ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
@@ -1799,56 +1800,6 @@ catch(std::exception& e)
   errlog("Control connection died: %s", e.what());
 }
 
-
-
-static void bindAny(int af, int sock)
-{
-  int one = 1;
-
-#ifdef IP_FREEBIND
-  if (setsockopt(sock, IPPROTO_IP, IP_FREEBIND, &one, sizeof(one)) < 0)
-    warnlog("Warning: IP_FREEBIND setsockopt failed: %s", strerror(errno));
-#endif
-
-#ifdef IP_BINDANY
-  if (af == AF_INET)
-    if (setsockopt(sock, IPPROTO_IP, IP_BINDANY, &one, sizeof(one)) < 0)
-      warnlog("Warning: IP_BINDANY setsockopt failed: %s", strerror(errno));
-#endif
-#ifdef IPV6_BINDANY
-  if (af == AF_INET6)
-    if (setsockopt(sock, IPPROTO_IPV6, IPV6_BINDANY, &one, sizeof(one)) < 0)
-      warnlog("Warning: IPV6_BINDANY setsockopt failed: %s", strerror(errno));
-#endif
-#ifdef SO_BINDANY
-  if (setsockopt(sock, SOL_SOCKET, SO_BINDANY, &one, sizeof(one)) < 0)
-    warnlog("Warning: SO_BINDANY setsockopt failed: %s", strerror(errno));
-#endif
-}
-
-static void dropGroupPrivs(gid_t gid)
-{
-  if (gid) {
-    if (setgid(gid) == 0) {
-      if (setgroups(0, NULL) < 0) {
-        warnlog("Warning: Unable to drop supplementary gids: %s", strerror(errno));
-      }
-    }
-    else {
-      warnlog("Warning: Unable to set group ID to %d: %s", gid, strerror(errno));
-    }
-  }
-}
-
-static void dropUserPrivs(uid_t uid)
-{
-  if(uid) {
-    if(setuid(uid) < 0) {
-      warnlog("Warning: Unable to set user ID to %d: %s", uid, strerror(errno));
-    }
-  }
-}
-
 static void checkFileDescriptorsLimits(size_t udpBindsCount, size_t tcpBindsCount)
 {
   /* stdin, stdout, stderr */
@@ -2147,8 +2098,13 @@ try
     if(cs->local.sin4.sin_family == AF_INET6) {
       SSetsockopt(cs->udpFD, IPPROTO_IPV6, IPV6_V6ONLY, 1);
     }
-    //if(g_vm.count("bind-non-local"))
-    bindAny(cs->local.sin4.sin_family, cs->udpFD);
+
+    try {
+      Utility::setBindAny(cs->local.sin4.sin_family, cs->udpFD);
+    }
+    catch(const std::exception& e) {
+      warnlog(e.what());
+    }
 
     //    if (!setSocketTimestamps(cs->udpFD))
     //      L<<Logger::Warning<<"Unable to enable timestamp reporting for socket"<<endl;
@@ -2247,8 +2203,13 @@ try
     }
 #endif /* HAVE_EBPF */
 
-    //    if(g_vm.count("bind-non-local"))
-      bindAny(cs->local.sin4.sin_family, cs->tcpFD);
+    try {
+      Utility::setBindAny(cs->local.sin4.sin_family, cs->tcpFD);
+    }
+    catch(const std::exception& e) {
+      warnlog(e.what());
+    }
+
     SBind(cs->tcpFD, cs->local);
     SListen(cs->tcpFD, 64);
     warnlog("Listening on %s", cs->local.toStringWithPort());
@@ -2267,7 +2228,13 @@ try
     if(cs->local.sin4.sin_family == AF_INET6) {
       SSetsockopt(cs->udpFD, IPPROTO_IPV6, IPV6_V6ONLY, 1);
     }
-    bindAny(cs->local.sin4.sin_family, cs->udpFD);
+    try {
+      Utility::setBindAny(cs->local.sin4.sin_family, cs->udpFD);
+    }
+    catch(const std::exception& e) {
+      warnlog(e.what());
+    }
+
     if(IsAnyAddress(cs->local)) {
       int one=1;
       setsockopt(cs->udpFD, IPPROTO_IP, GEN_IP_PKTINFO, &one, sizeof(one));     // linux supports this, so why not - might fail on other systems
@@ -2352,7 +2319,13 @@ try
 
     cs->cpus = std::get<5>(dcLocal);
 
-    bindAny(cs->local.sin4.sin_family, cs->tcpFD);
+    try {
+      Utility::setBindAny(cs->local.sin4.sin_family, cs->tcpFD);
+    }
+    catch(const std::exception& e) {
+      warnlog(e.what());
+    }
+
     SBind(cs->tcpFD, cs->local);
     SListen(cs->tcpFD, 64);
     warnlog("Listening on %s", cs->local.toStringWithPort());
@@ -2390,8 +2363,19 @@ try
   if(!g_cmdLine.uid.empty())
     newuid = strToUID(g_cmdLine.uid.c_str());
 
-  dropGroupPrivs(newgid);
-  dropUserPrivs(newuid);
+  try {
+    Utility::dropGroupPrivs(static_cast<uid_t>(-1), newgid, false);
+  }
+  catch(const std::exception& e) {
+    warnlog(e.what());
+  }
+
+  try {
+    Utility::dropUserPrivs(newuid);
+  }
+  catch(const std::exception& e) {
+    warnlog(e.what());
+  }
 
   /* this need to be done _after_ dropping privileges */
   g_delay = new DelayPipe<DelayedPacket>();
