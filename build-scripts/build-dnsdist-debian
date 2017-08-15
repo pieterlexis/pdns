@@ -5,13 +5,14 @@ if [ "$0" != "./build-scripts/build-dnsdist-debian" ]; then
   exit 1
 fi
 
+set -x
+
 . build-scripts/functions.sh
 TARBALLPREFIX=dnsdist
 
 startup
 
 set -e
-set -x
 
 cp_tarball_to_tmp
 
