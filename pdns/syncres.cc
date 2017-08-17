@@ -111,7 +111,13 @@ SyncRes::SyncRes(const struct timeval& now) :  d_outqueries(0), d_tcpoutqueries(
 { 
 }
 
-/** everything begins here - this is the entry point just after receiving a packet */
+/*! everything begins here - this is the entry point just after receiving a packet
+ * Fills ret with an answer (if resolution is successful) and returns one of the following values:
+ *
+ * -2: PolicyEngine took a decision
+ * -1: Unsupported QTYPE (A/IXFR) or QCLASS
+ *  0 and higher: The RCODE for the response
+ */
 int SyncRes::beginResolve(const DNSName &qname, const QType &qtype, uint16_t qclass, vector<DNSRecord>&ret)
 {
   vState state = Indeterminate;
@@ -494,9 +500,9 @@ int SyncRes::asyncresolveWrapper(const ComboAddress& ip, bool ednsMANDATORY, con
  * \param qname The name we need an answer for
  * \param qtype
  * \param ret The vector of DNSRecords we need to fill with the answers
- * \param depth The recursion depth we are in
- * \param beenthere
- * \return DNS RCODE or -1 (Error) or -2 (RPZ hit)
+ * \param depth The recursion depth we are in (for indenting the traces)
+ * \param beenthere The set GetBestNSAnswer's, encoding where we've already been in the DNS tree and their NSSets (to prevent loops)
+ * \return DNS RCODE or -1 (Error) or -2 (RPZ/PolicyEngine hit)
  */
 int SyncRes::doResolve(const DNSName &qname, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, set<GetBestNSAnswer>& beenthere, vState& state)
 {
