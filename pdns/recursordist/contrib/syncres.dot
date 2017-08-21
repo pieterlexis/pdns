@@ -9,13 +9,13 @@ digraph {
     beginResolve_doResolve [label="SyncRes::doResolve()", color=red];
     beginResolve_doSpecialNamesResolve [label="SyncRes::doSpecialNamesResolve()", color=red]
 
-    "Is this an AXFR request?";
-    "Is this an AXFR request?" -> beginResolve_return_minus_1 [label=yes];
-    "Is this an AXFR request?" -> beginResolve_doSpecialNamesResolve [label=no];
+    "Is this an I/AXFR request?";
+    "Is this an I/AXFR request?" -> beginResolve_return_minus_1 [label=yes];
+    "Is this an I/AXFR request?" -> "Is the qlass IN?" [label=no];
 
-    beginResolve_doSpecialNamesResolve -> "Is the qlass IN?" [label="Was not a special name"];
-    beginResolve_doSpecialNamesResolve -> beginResolve_return_0 [label="Was handled!"];
-
+    beginResolve_doSpecialNamesResolve -> "Is this an I/AXFR request?" [label="Was not a special name"];
+    beginResolve_doSpecialNamesResolve -> "set d_queryValidationState to Insecure" [label="Was handled!"];
+    "set d_queryValidationState to Insecure" -> beginResolve_return_0;
     "Is the qlass IN?" -> beginResolve_return_minus_1 [label=no];
     "Is the qlass IN?" -> beginResolve_doResolve [label=yes];
     beginResolve_doResolve -> beginResolve_return_doResolve;
@@ -25,7 +25,7 @@ digraph {
   }
 
   subgraph cluster_doResolve {
-    label="SyncRes::doResolve(const DNSName &qname, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, set<GetBestNSAnswer>& beenthere)";
+    label="SyncRes::doResolve(const DNSName &qname, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, set<GetBestNSAnswer>& beenthere, vState& state)";
 
     doResolve_doOOBResolve [label="SyncRes::doOOBResolve()", color=red];
     doResolve_doCNAMECacheCheck [label="SyncRes::doCNAMECacheCheck()", color=red];
@@ -37,9 +37,12 @@ digraph {
     doResolve_return_res [label="return res", color=green];
     doResolve_return_servfail [label="return SERVFAIL", color=green];
 
-    "SERVFAIL if too deep" -> "Check if called from getRootNS()";
-    "Check if called from getRootNS()" -> "Check if RD-bit was not set (d_cacheonly)" [label=yes];
-    "Check if called from getRootNS()" -> doResolve_getBestNSNamesFromCache [label=no];
+    "set state to Indeterminate" -> "SERVFAIL if too deep";
+    "SERVFAIL if too deep" -> "Are we updating the root?";
+    "Are we updating the root?" -> "Check if RD-bit was not set (d_cacheonly)" [label=no];
+    "Are we updating the root?" -> "is d_skipCNAMECheck set?" [label=yes];
+    "is d_skipCNAMECheck set?" -> doResolve_doCNAMECacheCheck [label=no];
+    "is d_skipCNAMECheck set?" -> doResolve_doCacheCheck [label=yes];
     "Check if RD-bit was not set (d_cacheonly)" -> doResolve_doCNAMECacheCheck [label=no];
     "Check if RD-bit was not set (d_cacheonly)" -> "Check if there is a forward or auth-zone" [label=yes];
     "Check if there is a forward or auth-zone" -> doResolve_doCNAMECacheCheck [label=no];

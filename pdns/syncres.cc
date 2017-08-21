@@ -502,6 +502,7 @@ int SyncRes::asyncresolveWrapper(const ComboAddress& ip, bool ednsMANDATORY, con
  * \param ret The vector of DNSRecords we need to fill with the answers
  * \param depth The recursion depth we are in (for indenting the traces)
  * \param beenthere The set GetBestNSAnswer's, encoding where we've already been in the DNS tree and their NSSets (to prevent loops)
+ * \param state The Security state for the QNAME|QTYPE (when validating records)
  * \return DNS RCODE or -1 (Error) or -2 (RPZ/PolicyEngine hit)
  */
 int SyncRes::doResolve(const DNSName &qname, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, set<GetBestNSAnswer>& beenthere, vState& state)
@@ -584,9 +585,13 @@ int SyncRes::doResolve(const DNSName &qname, const QType &qtype, vector<DNSRecor
 
   LOG(prefix<<qname<<": initial validation status for "<<qname<<" inherited from "<<subdomain<<" is "<<vStates[state]<<endl);
   */
+  dsmap_t ds;
+  state = getDSRecords(qname, ds, false, depth);
+  if(d_updatingRootNS && qtype.getCode()==QType::NS && qname.isRoot()) {
+    state = Indeterminate;
+  }
 
   if(!(res=doResolveAt(nsset, subdomain, flawedNSSet, qname, qtype, ret, depth, beenthere, state))) {
-
     return 0;
   }
 
@@ -1825,16 +1830,11 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
       isAA = false;
     }
 
-    dsmap_t ds;
-    vState recordState = getDSRecords(auth, ds, false, depth);
-    if (recordState == TA)
-      recordState = Secure;
-    if (recordState == NTA)
-      recordState = Insecure;
+    vState recordState = d_cutStates[qname];
 
     LOG(d_prefix<<": got initial zone status "<<vStates[recordState]<<" for record "<<i->first.name<<endl);
 
-    if (d_DNSSECValidationRequested && recordState == Secure) {
+    if (d_DNSSECValidationRequested && recordState == Secure ) {
       if (isAA) {
         if (i->first.place != DNSResourceRecord::ADDITIONAL) {
           /* the additional entries can be insecure,
@@ -2349,7 +2349,8 @@ int SyncRes::doResolveAt(NsSet &nameservers, DNSName auth, bool flawedNSSet, con
         }
         if (gotNewServers) {
           // At a zonecut
-          d_cutStates[auth] = Indeterminate;
+          dsmap_t x;
+          d_cutStates[auth] = getDSRecords(auth, x, false, depth);
           break;
         }
       }
@@ -2416,7 +2417,8 @@ int SyncRes::doResolveAt(NsSet &nameservers, DNSName auth, bool flawedNSSet, con
           }
           if (gotNewServers) {
             // At a zonecut
-            d_cutStates[auth] = Indeterminate;
+            dsmap_t x;
+            d_cutStates[auth] = getDSRecords(auth, x, false, depth);
             break;
           }
           /* was lame */
