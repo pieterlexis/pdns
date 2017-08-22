@@ -1263,7 +1263,7 @@ static void apiServerZoneExport(HttpRequest* req, HttpResponse* resp) {
 static void apiServerZoneAxfrRetrieve(HttpRequest* req, HttpResponse* resp) {
   DNSName zonename = apiZoneIdToName(req->parameters["id"]);
 
-  if(req->method != "PUT")
+  if(req->method != "PUT" || ::arg().mustDo("api-readonly"))
     throw HttpMethodNotAllowedException();
 
   UeberBackend B;
@@ -1282,7 +1282,7 @@ static void apiServerZoneAxfrRetrieve(HttpRequest* req, HttpResponse* resp) {
 static void apiServerZoneNotify(HttpRequest* req, HttpResponse* resp) {
   DNSName zonename = apiZoneIdToName(req->parameters["id"]);
 
-  if(req->method != "PUT")
+  if(req->method != "PUT" || ::arg().mustDo("api-readonly"))
     throw HttpMethodNotAllowedException();
 
   UeberBackend B;
@@ -1606,7 +1606,7 @@ static void apiServerSearchData(HttpRequest* req, HttpResponse* resp) {
 }
 
 void apiServerCacheFlush(HttpRequest* req, HttpResponse* resp) {
-  if(req->method != "PUT")
+  if(req->method != "PUT" || ::arg().mustDo("api-readonly"))
     throw HttpMethodNotAllowedException();
 
   DNSName canon = apiNameToDNSName(req->getvars["domain"]);
