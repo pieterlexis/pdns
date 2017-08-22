@@ -149,32 +149,46 @@ set-minimum-ttl *NUM*
 
 top-queries
     Shows the top-20 queries. Statistics are over the last
-    'stats-ringbuffer-entries' queries.
+    'stats-ringbuffer-entries' queries. This includes queries answered
+    from the PacketCache.
+
+    .. versionchanged:: 4.1.0
+      PacketCache hits are counted.
 
 top-pub-queries
     Shows the top-20 queries grouped by public suffix list. Statistics are over
-    the last 'stats-ringbuffer-entries' queries.
+    the last 'stats-ringbuffer-entries' queries. This does includes queries
+    answered from the PacketCache.
+
+    .. versionchanged:: 4.1.0
+      PacketCache hits are counted.
 
 top-largeanswer-remotes
     Shows the top-20 remote hosts causing large answers. Statistics are over
-    the last 'stats-ringbuffer-entries' queries.
+    the last 'stats-ringbuffer-entries' queries. This includes queries answered
+    from the PacketCache.
 
 top-remotes
     Shows the top-20 most active remote hosts. Statistics are over the last
-    'stats-ringbuffer-entries' queries.
+    'stats-ringbuffer-entries' queries. This includes queries answered
+    from the PacketCache.
 
 top-servfail-queries
     Shows the top-20 queries causing servfail responses. Statistics are over
-    the last 'stats-ringbuffer-entries' queries.
+    the last 'stats-ringbuffer-entries' queries. This includes queries
+    answered from the PacketCache, but not DNSSEC Bogus responses.
 
 top-pub-servfail-queries
     Shows the top-20 queries causing servfail responses grouped by public
     suffix list. Statistics are over the last 'stats-ringbuffer-entries'
-    queries.
+    queries. This includes queries answered from the PacketCache but not DNSSEC
+    Bogus responses.
 
 top-servfail-remotes
     Shows the top-20 most active remote hosts causing servfail responses.
-    Statistics are over the last 'stats-ringbuffer-entries' queries.
+    Statistics are over the last 'stats-ringbuffer-entries' queries. This
+    includes queries answered from the PacketCache, but not DNSSEC Bogus
+    responses.
 
 trace-regex *REGEX*
     Emit resolution trace for matching queries. Empty regex to disable trace.
