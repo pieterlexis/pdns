@@ -895,7 +895,7 @@ static void apiServerZoneExport(HttpRequest* req, HttpResponse* resp) {
 static void apiServerZoneAxfrRetrieve(HttpRequest* req, HttpResponse* resp) {
   string zonename = apiZoneIdToName(req->parameters["id"]);
 
-  if(req->method != "PUT")
+  if(req->method != "PUT" || ::arg().mustDo("experimental-api-readonly"))
     throw HttpMethodNotAllowedException();
 
   UeberBackend B;
@@ -914,7 +914,7 @@ static void apiServerZoneAxfrRetrieve(HttpRequest* req, HttpResponse* resp) {
 static void apiServerZoneNotify(HttpRequest* req, HttpResponse* resp) {
   string zonename = apiZoneIdToName(req->parameters["id"]);
 
-  if(req->method != "PUT")
+  if(req->method != "PUT" || ::arg().mustDo("experimental-api-readonly"))
     throw HttpMethodNotAllowedException();
 
   UeberBackend B;
@@ -1195,7 +1195,7 @@ static void apiServerSearchData(HttpRequest* req, HttpResponse* resp) {
 }
 
 void apiServerFlushCache(HttpRequest* req, HttpResponse* resp) {
-  if(req->method != "PUT")
+  if(req->method != "PUT" || ::arg().mustDo("experimental-api-readonly"))
     throw HttpMethodNotAllowedException();
 
   extern PacketCache PC;
