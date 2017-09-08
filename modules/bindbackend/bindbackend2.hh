@@ -20,8 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef PDNS_BINDBACKEND_HH
-#define PDNS_BINDBACKEND_HH
+#pragma once
 
 #include <string>
 #include <map>
@@ -327,5 +326,3 @@ private:
   static void nukeZoneRecords(BB2DomainInfo *bbd);
 
 };
-
-#endif /* PDNS_BINDBACKEND_HH */
