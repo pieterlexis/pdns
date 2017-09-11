@@ -1149,8 +1149,9 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
 
     if (boolFromJson(document, "dnssec", false) && document["nsec3param"].string_value().length() > 0) {
       NSEC3PARAMRecordContent ns3pr(document["nsec3param"].string_value());
-      if (!dk.checkNSEC3PARAM(ns3pr)) {
-        throw ApiException("NSEC3PARAMs provided for zone '"+zonename.toString()+"' are invalid. Check if the number of NSEC3 iterations is above 'max-nsec3-iterations'");
+      string error_msg = "";
+      if (!dk.checkNSEC3PARAM(ns3pr, error_msg)) {
+        throw ApiException("NSEC3PARAMs provided for zone '"+zonename.toString()+"' are invalid. " + error_msg);
       }
     }
 
