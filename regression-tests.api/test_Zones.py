@@ -337,6 +337,85 @@ class AuthZones(ApiTestCase, AuthZonesHelperMixin):
             headers={'content-type': 'application/json'})
         self.assertEquals(r.status_code, 422)
 
+    def test_create_zone_with_dnssec(self):
+        """
+        Create a zone with "dnssec" set and see if a key was made.
+        """
+        name = unique_zone_name()
+        name, payload, data = self.create_zone(dnssec=True)
+
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name))
+
+        for k in ('dnssec', ):
+            self.assertIn(k, data)
+            if k in payload:
+                self.assertEquals(data[k], payload[k])
+
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name + '/cryptokeys'))
+
+        keys = r.json()
+
+        print keys
+
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(len(keys), 1)
+        self.assertEquals(keys[0]['type'], 'Cryptokey')
+        self.assertEquals(keys[0]['active'], True)
+        self.assertEquals(keys[0]['keytype'], 'csk')
+
+    def test_create_zone_with_nsec3param(self):
+        """
+        Create a zone with "nsec3param" set and see if the metadata was added.
+        """
+        name = unique_zone_name()
+        nsec3param = '1 0 500 aabbccddeeff'
+        name, payload, data = self.create_zone(dnssec=True, nsec3param=nsec3param)
+
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name))
+
+        for k in ('dnssec', 'nsec3param'):
+            self.assertIn(k, data)
+            if k in payload:
+                self.assertEquals(data[k], payload[k])
+
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name + '/metadata/NSEC3PARAM'))
+
+        data = r.json()
+
+        print data
+
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(len(data['metadata']), 1)
+        self.assertEquals(data['kind'], 'NSEC3PARAM')
+        self.assertEquals(data['metadata'][0], nsec3param)
+
+    def test_create_zone_with_nsec3narrow(self):
+        """
+        Create a zone with "nsec3narrow" set and see if the metadata was added.
+        """
+        name = unique_zone_name()
+        nsec3param = '1 0 500 aabbccddeeff'
+        name, payload, data = self.create_zone(dnssec=True, nsec3param=nsec3param,
+                                               nsec3narrow=True)
+
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name))
+
+        for k in ('dnssec', 'nsec3param', 'nsec3narrow'):
+            self.assertIn(k, data)
+            if k in payload:
+                self.assertEquals(data[k], payload[k])
+
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name + '/metadata/NSEC3NARROW'))
+
+        data = r.json()
+
+        print data
+
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(len(data['metadata']), 1)
+        self.assertEquals(data['kind'], 'NSEC3NARROW')
+        self.assertEquals(data['metadata'][0], '1')
+
     def test_zone_absolute_url(self):
         name, payload, data = self.create_zone()
         r = self.session.get(self.url("/api/v1/servers/localhost/zones"))
