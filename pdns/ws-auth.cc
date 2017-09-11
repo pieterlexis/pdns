@@ -333,6 +333,15 @@ static void fillZone(const DNSName& zonename, HttpResponse* resp) {
   string soa_edit;
   di.backend->getDomainMetadataOne(zonename, "SOA-EDIT", soa_edit);
   doc["soa_edit"] = soa_edit;
+  string nsec3param;
+  di.backend->getDomainMetadataOne(zonename, "NSEC3PARAM", nsec3param);
+  doc["nsec3param"] = nsec3param;
+  string nsec3narrow;
+  bool nsec3narrowbool = false;
+  di.backend->getDomainMetadataOne(zonename, "NSEC3NARROW", nsec3narrow);
+  if (nsec3narrow == "1")
+    nsec3narrowbool = true;
+  doc["nsec3narrow"] = nsec3narrowbool;
 
   vector<DNSResourceRecord> records;
   vector<Comment> comments;
