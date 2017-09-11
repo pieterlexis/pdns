@@ -233,7 +233,7 @@ public:
   static state_t s_state;
   static pthread_rwlock_t s_state_lock;
 
-  void parseZoneFile(BB2DomainInfo *bbd);
+  void parseZoneFile(BB2DomainInfo *bbd, const bool SOAONly = false);
   void insertRecord(BB2DomainInfo& bbd, const DNSName &qname, const QType &qtype, const string &content, int ttl, const std::string& hashed=string(), bool *auth=0);
   void rediscover(string *status=0) override;
 
@@ -322,7 +322,7 @@ private:
   static string DLAddDomainHandler(const vector<string>&parts, Utility::pid_t ppid);
   static void fixupOrderAndAuth(BB2DomainInfo& bbd, bool nsec3zone, NSEC3PARAMRecordContent ns3pr);
   void doEmptyNonTerminals(BB2DomainInfo& bbd, bool nsec3zone, NSEC3PARAMRecordContent ns3pr);
-  void loadConfig(string *status=0);
+  void loadConfig(string *status=0, const bool parseZones=true);
   static void nukeZoneRecords(BB2DomainInfo *bbd);
 
 };

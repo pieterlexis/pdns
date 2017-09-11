@@ -441,8 +441,16 @@ void Bind2Backend::alsoNotifies(const DNSName& domain, set<string> *ips)
   }   
 }
 
-// only parses, does NOT add to s_state!
-void Bind2Backend::parseZoneFile(BB2DomainInfo *bbd)
+/*! Parse a zonefile.
+ *
+ * This stores the pointer to the record storage in bbd and fills bbd with relevan info.
+ * Only parses, does NOT add to s_state!
+ *
+ * \param bbd The BB2DomainInfo that cotnains at least the path to the zonefile
+ * \param SOAOnly Whether of not to stop parsing after the SOA record. Can e.g. be used when when the full zone does not have to be loaded (when using pdnsutil show-zone)
+ *
+ */
+void Bind2Backend::parseZoneFile(BB2DomainInfo *bbd, const bool SOAOnly)
 {
   NSEC3PARAMRecordContent ns3pr;
   bool nsec3zone;
@@ -458,10 +466,14 @@ void Bind2Backend::parseZoneFile(BB2DomainInfo *bbd)
   DNSResourceRecord rr;
   string hashed;
   while(zpt.get(rr)) { 
+    if(rr.qtype.getCode() != QType::SOA && SOAOnly)
+      continue;
     if(rr.qtype.getCode() == QType::NSEC || rr.qtype.getCode() == QType::NSEC3)
       continue; // we synthesise NSECs on demand
 
     insertRecord(*bbd, rr.qname, rr.qtype, rr.content, rr.ttl, "");
+    if (SOAOnly) // Apparently, we added a SOA
+      break;
   }
   fixupOrderAndAuth(*bbd, nsec3zone, ns3pr);
   doEmptyNonTerminals(*bbd, nsec3zone, ns3pr);
@@ -637,10 +649,8 @@ Bind2Backend::Bind2Backend(const string &suffix, bool loadZones)
     return;
   }
   
-  if(loadZones) {
-    loadConfig();
-    s_first=0;
-  }
+  loadConfig(nullptr, loadZones);
+  s_first=0;
   
   extern DynListener *dl;
   dl->registerFunc("BIND-RELOAD-NOW", &DLReloadNowHandler, "bindbackend: reload domains", "<domains>");
@@ -762,7 +772,7 @@ void Bind2Backend::doEmptyNonTerminals(BB2DomainInfo& bbd, bool nsec3zone, NSEC3
   }
 }
 
-void Bind2Backend::loadConfig(string* status)
+void Bind2Backend::loadConfig(string* status, const bool parseZones)
 {
   static int domain_id=1;
 
@@ -840,7 +850,7 @@ void Bind2Backend::loadConfig(string* status)
           L<<Logger::Info<<d_logprefix<<" parsing '"<<i->name<<"' from file '"<<i->filename<<"'"<<endl;
 
           try {
-            parseZoneFile(&bbd);
+            parseZoneFile(&bbd, parseZones);
           }
           catch(PDNSException &ae) {
             ostringstream msg;

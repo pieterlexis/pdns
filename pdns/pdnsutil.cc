@@ -1500,7 +1500,7 @@ void verifyCrypto(const string& zone)
 }
 bool disableDNSSECOnZone(DNSSECKeeper& dk, const DNSName& zone)
 {
-  UeberBackend B("default");
+  UeberBackend B("key-only");
   DomainInfo di;
 
   if (!B.getDomainInfo(zone, di)){
@@ -1530,7 +1530,7 @@ bool disableDNSSECOnZone(DNSSECKeeper& dk, const DNSName& zone)
 
 int setZoneAccount(const DNSName& zone, const string &account)
 {
-  UeberBackend B("default");
+  UeberBackend B("key-only");
   DomainInfo di;
 
   if (!B.getDomainInfo(zone, di)){
@@ -1546,7 +1546,7 @@ int setZoneAccount(const DNSName& zone, const string &account)
 
 int setZoneKind(const DNSName& zone, const DomainInfo::DomainKind kind)
 {
-  UeberBackend B("default");
+  UeberBackend B("key-only");
   DomainInfo di;
 
   if (!B.getDomainInfo(zone, di)){
@@ -1562,7 +1562,7 @@ int setZoneKind(const DNSName& zone, const DomainInfo::DomainKind kind)
 
 bool showZone(DNSSECKeeper& dk, const DNSName& zone, bool exportDS = false)
 {
-  UeberBackend B("default");
+  UeberBackend B("key-only");
   DomainInfo di;
 
   if (!B.getDomainInfo(zone, di)){
@@ -1808,7 +1808,7 @@ bool secureZone(DNSSECKeeper& dk, const DNSName& zone)
   }
 
   DomainInfo di;
-  UeberBackend B("default");
+  UeberBackend B("key-only");
   if(!B.getDomainInfo(zone, di) || !di.backend) { // di.backend and B are mostly identical
     cerr<<"Can't find a zone called '"<<zone<<"'"<<endl;
     return false;
