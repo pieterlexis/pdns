@@ -99,6 +99,10 @@ ns1.insecure-formerr.example. 3600 IN A    {prefix}.2
 
 islandofsecurity.example.          3600 IN NS   ns1.islandofsecurity.example.
 ns1.islandofsecurity.example.      3600 IN A    {prefix}.9
+
+norrsigs.example.          3600 IN NS ns1.norrsigs.example.
+norrsigs.example.          3600 IN DS 63916 13 1 31047c752594cc413e5b9190a23643b569fcaaf4
+ns1.norrsigs.example.      3600 IN A {prefix}.16
         """,
         'secure.example': """
 secure.example.          3600 IN SOA  {soa}
