@@ -277,6 +277,8 @@ PrivateKey: kvoV/g4IO/tefSro+FLJ5UC7H3BUf0IUtZQSUOfQGyA=
     _auth_env = {}
     _auths = {}
 
+    _rec_env = {}
+
     @classmethod
     def createConfigDir(cls, confdir):
         try:
@@ -465,7 +467,8 @@ distributor-threads=1""".format(confdir=confdir,
         logFile = os.path.join(confdir, 'recursor.log')
         with open(logFile, 'w') as fdLog:
             cls._recursor = subprocess.Popen(recursorcmd, close_fds=True,
-                                             stdout=fdLog, stderr=fdLog)
+                                             stdout=fdLog, stderr=fdLog,
+                                             env=cls._rec_env)
 
         if 'PDNSRECURSOR_FAST_TESTS' in os.environ:
             delay = 0.5
