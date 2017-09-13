@@ -322,6 +322,11 @@ vState getKeysFor(DNSRecordOracle& dro, const DNSName& zone, keyset_t &keyset)
     }
     LOG("got "<<tkeys.size()<<" keys and "<<sigs.size()<<" sigs from server"<<endl);
 
+    if (sigs.empty()) {
+      LOG("No signatures found on DNSKEY"<<endl);
+      return Bogus;
+    }
+
     /*
      * Check all DNSKEY records against all DS records and place all DNSKEY records
      * that have DS records (that we support the algo for) in the tentative key storage
