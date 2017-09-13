@@ -119,6 +119,10 @@ vState validateRecords(const ResolveContext& ctx, const vector<DNSRecord>& recs)
 
       LOG("! state = "<<vStates[state]<<", now have "<<keys.size()<<" keys "<<endl);
     }
+    if (state != Insecure) {
+      LOG("Found keys but no signatures! Going Bogus."<<endl);
+      return increaseDNSSECStateCounter(Bogus);
+    }
     return increaseDNSSECStateCounter(state);
   }
 
