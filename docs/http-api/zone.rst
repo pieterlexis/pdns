@@ -24,9 +24,9 @@ Comments are per-RRset.
   :property integer notified_serial: The SOA serial notifications have been sent out for
   :property [str] masters: List of IP addresses configured as a master for this zone ("Slave" type zones only)
   :property bool dnssec: Whether or not this zone is DNSSEC signed (inferred from presigned being true XOR presence of at least one cryptokey with active being true)
-  :property string nsec3param: The NSEC3PARAM record (not implemented)
+  :property string nsec3param: The NSEC3PARAM record
   :property bool nsec3narrow: Whether or not the zone uses NSEC3 narrow (not implemented)
-  :property bool presigned: Whether or not the zone is pre-signed (not implemented)
+  :property bool presigned: Whether or not the zone is pre-signed
   :property string soa_edit: The :ref:`metadata-soa-edit` metadata item
   :property string soa_edit_api: The :ref:`metadata-soa-edit-api` metadata item
   :property string zone: MAY contain a BIND-style zone file when creating a zone
@@ -41,7 +41,7 @@ Comments are per-RRset.
   zones. If ``presigned`` is ``true``, no DNSSEC changes will be made to
   the zone or cryptokeys.
 
-  ``dnssec``, ``nsec3narrow``, ``nsec3param``, ``presigned`` are not yet implemented.
+  ``nsec3narrow``  is not yet implemented.
 
 .. note::
 

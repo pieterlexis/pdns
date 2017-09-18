@@ -22,8 +22,6 @@ Zones endpoint
   These default values can be overridden by supplying a custom SOA record in the records list.
   If ``soa_edit_api`` is set, the SOA record is edited according to the SOA-EDIT-API rules before storing it (also applies to custom SOA records).
 
-  **TODO**: ``presigned`` is not yet implemented.
-
 .. http:get:: /api/v1/servers/:server_id/zones/:zone_id
 
   Returns zone information.
