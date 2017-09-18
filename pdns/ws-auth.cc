@@ -506,7 +506,7 @@ static void gatherComments(const Json container, const DNSName& qname, const QTy
   }
 }
 
-static void updateDomainSettingsFromDocument(const DomainInfo& di, const DNSName& zonename, const Json document) {
+static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& di, const DNSName& zonename, const Json document) {
   string zonemaster;
   for(auto value : document["masters"].array_items()) {
     string master = value.string_value();
@@ -526,6 +526,91 @@ static void updateDomainSettingsFromDocument(const DomainInfo& di, const DNSName
   }
   if (document["account"].is_string()) {
     di.backend->setAccount(zonename, document["account"].string_value());
+  }
+
+  DNSSECKeeper dk(&B);
+  bool dnssecInJSON = false;
+  bool dnssecDocVal = false;
+
+  try {
+    dnssecDocVal = boolFromJson(document, "dnssec");
+    dnssecInJSON = true;
+  }
+  catch (JsonException) {}
+
+  bool isDNSSECZone = dk.isSecuredZone(zonename);
+
+  if (dnssecInJSON) {
+    if (dnssecDocVal) {
+      if (!isDNSSECZone) {
+        int k_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-ksk-algorithm"]);
+        int z_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-zsk-algorithm"]);
+        int k_size = arg().asNum("default-ksk-size");
+        int z_size = arg().asNum("default-zsk-size");
+
+        // Sanity check DNSSEC parameters
+        if (k_algo == -1)
+          throw ApiException("default-ksk-algorithm setting is set to unknown algorithm: " + ::arg()["default-ksk-algorithm"]);
+        else if (k_algo <= 10 && k_size == 0)
+          throw ApiException("default-ksk-algorithm is set to an algorithm("+::arg()["default-ksk-algorithm"]+") that requires a non-zero default-ksk-size!");
+
+        if (z_algo == -1)
+          throw ApiException("default-zsk-algorithm setting is set to unknown algorithm: " + ::arg()["default-zsk-algorithm"]);
+        else if (z_algo <= 10 && z_size == 0)
+          throw ApiException("default-zsk-algorithm is set to an algorithm("+::arg()["default-zsk-algorithm"]+") that requires a non-zero default-zsk-size!");
+
+        if (k_algo) {
+          int64_t id;
+          if (!dk.addKey(zonename, true, k_algo, id, k_size)) {
+            throw ApiException("No backend was able to secure '" + zonename.toString() + "', most likely because no DNSSEC"
+                + "capable backends are loaded, or because the backends have DNSSEC disabled."
+                + "For the Generic SQL backends, set the 'gsqlite3-dnssec', 'gmysql-dnssec' or"
+                + "'gpgsql-dnssec' flag. Also make sure the schema has been updated for DNSSEC!");
+          }
+        }
+
+        if (z_algo) {
+          int64_t id;
+          if (!dk.addKey(zonename, false, z_algo, id, z_size)) {
+            throw ApiException("No backend was able to secure '" + zonename.toString() + "', most likely because no DNSSEC"
+                + "capable backends are loaded, or because the backends have DNSSEC disabled."
+                + "For the Generic SQL backends, set the 'gsqlite3-dnssec', 'gmysql-dnssec' or"
+                + "'gpgsql-dnssec' flag. Also make sure the schema has been updated for DNSSEC!");
+          }
+        }
+
+        // Used later for NSEC3PARAM
+        isDNSSECZone = dk.isSecuredZone(zonename);
+
+        if (!isDNSSECZone) {
+          throw ApiException("Failed to secure '" + zonename.toString() + "'. Is your backend dnssec enabled? (set "
+              + "gsqlite3-dnssec, or gmysql-dnssec etc). Check this first."
+              + "If you run with the BIND backend, make sure you have configured"
+              + "it to use DNSSEC with 'bind-dnssec-db=/path/fname' and"
+              + "'pdnsutil create-bind-db /path/fname'!");
+        }
+      }
+    } else {
+      // "dnssec": false in json
+      if (isDNSSECZone) {
+        throw ApiException("Refusing to un-secure zone " + zonename.toString());
+      }
+    }
+  }
+
+  if(document["nsec3param"].string_value().length() > 0) {
+    NSEC3PARAMRecordContent ns3pr(document["nsec3param"].string_value());
+    string error_msg = "";
+    if (!isDNSSECZone) {
+      throw ApiException("NSEC3PARAMs provided for zone '"+zonename.toString()+"', but zone is not DNSSEC secured.");
+    }
+    if (!dk.checkNSEC3PARAM(ns3pr, error_msg)) {
+      throw ApiException("NSEC3PARAMs provided for zone '"+zonename.toString()+"' are invalid. " + error_msg);
+    }
+    if (!dk.setNSEC3PARAM(zonename, ns3pr, boolFromJson(document, "nsec3narrow", false))) {
+      throw ApiException("NSEC3PARAMs provided for zone '" + zonename.toString() +
+          "' passed our basic sanity checks, but cannot be used with the current backend.");
+    }
   }
 }
 
@@ -1145,22 +1230,29 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
 
     checkDuplicateRecords(new_records);
 
-    // determine signing algorithms
-    vector<string> k_algos;
-    vector<string> z_algos;
-    int k_size;
-    int z_size;
+    // Sanity check DNSSEC parameters
+    int k_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-ksk-algorithm"]);
+    int z_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-zsk-algorithm"]);
+    int k_size = arg().asNum("default-ksk-size");
+    int z_size = arg().asNum("default-zsk-size");
 
-    stringtok(k_algos, arg()["default-ksk-algorithms"], " ,");
-    stringtok(z_algos, arg()["default-zsk-algorithms"], " ,");
-    k_size = arg().asNum("default-ksk-size");
-    z_size = arg().asNum("default-zsk-size");
+    if (boolFromJson(document, "dnssec", false)) {
+      if (k_algo == -1)
+        throw ApiException("default-ksk-algorithm setting is set to unknown algorithm: " + ::arg()["default-ksk-algorithm"]);
+      else if (k_algo <= 10 && k_size == 0)
+        throw ApiException("default-ksk-algorithm is set to an algorithm("+::arg()["default-ksk-algorithm"]+") that requires a non-zero default-ksk-size!");
 
-    if (boolFromJson(document, "dnssec", false) && document["nsec3param"].string_value().length() > 0) {
-      NSEC3PARAMRecordContent ns3pr(document["nsec3param"].string_value());
-      string error_msg = "";
-      if (!dk.checkNSEC3PARAM(ns3pr, error_msg)) {
-        throw ApiException("NSEC3PARAMs provided for zone '"+zonename.toString()+"' are invalid. " + error_msg);
+      if (z_algo == -1)
+        throw ApiException("default-zsk-algorithm setting is set to unknown algorithm: " + ::arg()["default-zsk-algorithm"]);
+      else if (z_algo <= 10 && z_size == 0)
+        throw ApiException("default-zsk-algorithm is set to an algorithm("+::arg()["default-zsk-algorithm"]+") that requires a non-zero default-zsk-size!");
+
+      if(document["nsec3param"].string_value().length() > 0) {
+        NSEC3PARAMRecordContent ns3pr(document["nsec3param"].string_value());
+        string error_msg = "";
+        if (!dk.checkNSEC3PARAM(ns3pr, error_msg)) {
+          throw ApiException("NSEC3PARAMs provided for zone '"+zonename.toString()+"' are invalid. " + error_msg);
+        }
       }
     }
 
@@ -1187,56 +1279,7 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
       di.backend->feedComment(c);
     }
 
-    if (boolFromJson(document, "dnssec", false)) {
-
-      if (document["nsec3param"].string_value().length() > 0) {
-        NSEC3PARAMRecordContent ns3pr(document["nsec3param"].string_value());
-        if (!dk.setNSEC3PARAM(zonename, ns3pr, boolFromJson(document, "nsec3narrow", false))) {
-          throw ApiException("NSEC3PARAMs provided for zone '" + zonename.toString() +
-                             "' passed our basic sanity checks, but cannot be used with the current backend.");
-        }
-      }
-
-      for (auto &k_algo: k_algos) {
-        int algo = DNSSECKeeper::shorthand2algorithm(k_algo);
-
-        int64_t id;
-        if (!dk.addKey(zonename, true, algo, id, k_size)) {
-          throw ApiException("No backend was able to secure '" + zonename.toString() + "', most likely because no DNSSEC"
-                             + "capable backends are loaded, or because the backends have DNSSEC disabled."
-                             + "For the Generic SQL backends, set the 'gsqlite3-dnssec', 'gmysql-dnssec' or"
-                             + "'gpgsql-dnssec' flag. Also make sure the schema has been updated for DNSSEC!");
-        }
-      }
-
-      for (auto &z_algo :  z_algos) {
-        int algo = DNSSECKeeper::shorthand2algorithm(z_algo);
-
-        int64_t id;
-        if (!dk.addKey(zonename, false, algo, id, z_size)) {
-          throw ApiException("No backend was able to secure '" + zonename.toString() + "', most likely because no DNSSEC"
-                             + "capable backends are loaded, or because the backends have DNSSEC disabled."
-                             + "For the Generic SQL backends, set the 'gsqlite3-dnssec', 'gmysql-dnssec' or"
-                             + "'gpgsql-dnssec' flag. Also make sure the schema has been updated for DNSSEC!");
-        }
-      }
-
-      if (!dk.isSecuredZone(zonename)) {
-        throw ApiException("Failed to secure '" + zonename.toString() + "'. Is your backend dnssec enabled? (set "
-                           + "gsqlite3-dnssec, or gmysql-dnssec etc). Check this first."
-                           + "If you run with the BIND backend, make sure you have configured"
-                           + "it to use DNSSEC with 'bind-dnssec-db=/path/fname' and"
-                           + "'pdnsutil create-bind-db /path/fname'!");
-      }
-    }
-
-    if (dk.isSecuredZone(zonename) && !dk.isPresigned(zonename)) {
-      if (!dk.rectifyZone(B, zonename)) {
-        throw ApiException("Failed to rectify '" + zonename.toString() + "'. Check if the zone contains too many non-empty terminals.");
-      }
-    }
-
-    updateDomainSettingsFromDocument(di, zonename, document);
+    updateDomainSettingsFromDocument(B, di, zonename, document);
 
     di.backend->commitTransaction();
 
@@ -1270,7 +1313,7 @@ static void apiServerZoneDetail(HttpRequest* req, HttpResponse* resp) {
     if(!B.getDomainInfo(zonename, di))
       throw ApiException("Could not find domain '"+zonename.toString()+"'");
 
-    updateDomainSettingsFromDocument(di, zonename, req->json());
+    updateDomainSettingsFromDocument(B, di, zonename, req->json());
 
     resp->body = "";
     resp->status = 204; // No Content, but indicate success
