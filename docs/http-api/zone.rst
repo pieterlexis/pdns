@@ -29,6 +29,7 @@ Comments are per-RRset.
   :property bool presigned: Whether or not the zone is pre-signed
   :property string soa_edit: The :ref:`metadata-soa-edit` metadata item
   :property string soa_edit_api: The :ref:`metadata-soa-edit-api` metadata item
+  :property string api_rectify: The :ref:`metadata-api-rectify` metadata item
   :property string zone: MAY contain a BIND-style zone file when creating a zone
   :property str account: MAY be set. Its value is defined by local policy
   :property [str] nameservers: MAY be sent in client bodies during creation, and MUST NOT be sent by the server. Simple list of strings of nameserver names, including the trailing dot. Not required for slave zones.
@@ -37,9 +38,9 @@ Comments are per-RRset.
 
   Switching ``dnssec`` to ``true`` (from ``false``) sets up DNSSEC signing
   based on the other flags, this includes running the equivalent of
-  ``secure-zone`` and ``rectify-zone``. This also applies to newly created
-  zones. If ``presigned`` is ``true``, no DNSSEC changes will be made to
-  the zone or cryptokeys.
+  ``secure-zone`` and ``rectify-zone`` (if ``api_rectify`` is set to "1").
+  This also applies to newly created zones. If ``presigned`` is ``true``,
+  no DNSSEC changes will be made to the zone or cryptokeys.
 
   ``nsec3narrow``  is not yet implemented.
 
