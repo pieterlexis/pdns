@@ -508,6 +508,7 @@ static void gatherComments(const Json container, const DNSName& qname, const QTy
 
 static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& di, const DNSName& zonename, const Json document) {
   string zonemaster;
+  bool shouldRectify = false;
   for(auto value : document["masters"].array_items()) {
     string master = value.string_value();
     if (master.empty())
@@ -523,6 +524,9 @@ static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& 
   }
   if (document["soa_edit"].is_string()) {
     di.backend->setDomainMetadataOne(zonename, "SOA-EDIT", document["soa_edit"].string_value());
+  }
+  if (document["api_rectify"].is_string()) {
+    di.backend->setDomainMetadataOne(zonename, "API-RECTIFY", document["api_rectify"].string_value());
   }
   if (document["account"].is_string()) {
     di.backend->setAccount(zonename, document["account"].string_value());
@@ -589,6 +593,7 @@ static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& 
               + "it to use DNSSEC with 'bind-dnssec-db=/path/fname' and"
               + "'pdnsutil create-bind-db /path/fname'!");
         }
+        shouldRectify = true;
       }
     } else {
       // "dnssec": false in json
@@ -599,6 +604,7 @@ static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& 
   }
 
   if(document["nsec3param"].string_value().length() > 0) {
+    shouldRectify = true;
     NSEC3PARAMRecordContent ns3pr(document["nsec3param"].string_value());
     string error_msg = "";
     if (!isDNSSECZone) {
@@ -611,6 +617,13 @@ static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& 
       throw ApiException("NSEC3PARAMs provided for zone '" + zonename.toString() +
           "' passed our basic sanity checks, but cannot be used with the current backend.");
     }
+  }
+
+  string api_rectify;
+  di.backend->getDomainMetadataOne(zonename, "API-RECTIFY", api_rectify);
+  if (shouldRectify && dk.isSecuredZone(zonename) && !dk.isPresigned(zonename) && api_rectify == "1") {
+    if (!dk.rectifyZone(B, zonename))
+      throw ApiException("Failed to rectify '" + zonename.toString() + "'. Check if the zone contains too many non-empty terminals.");
   }
 }
 
@@ -1632,7 +1645,9 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
   }
 
   DNSSECKeeper dk;
-  if (dk.isSecuredZone(zonename) && !dk.isPresigned(zonename)) {
+  string api_rectify;
+  di.backend->getDomainMetadataOne(zonename, "API-RECTIFY", api_rectify);
+  if (dk.isSecuredZone(zonename) && !dk.isPresigned(zonename) && api_rectify == "1") {
     if (!dk.rectifyZone(B, zonename))
       throw ApiException("Failed to rectify '" + zonename.toString() + "'. Check if the zone contains too many non-empty terminals.");
   }
