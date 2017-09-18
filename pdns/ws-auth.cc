@@ -516,9 +516,12 @@ static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& 
     zonemaster += master + " ";
   }
 
-  di.backend->setKind(zonename, DomainInfo::stringToKind(stringFromJson(document, "kind")));
-  di.backend->setMaster(zonename, zonemaster);
-
+  if (zonemaster != "") {
+    di.backend->setMaster(zonename, zonemaster);
+  }
+  if (document["kind"].is_string()) {
+    di.backend->setKind(zonename, DomainInfo::stringToKind(stringFromJson(document, "kind")));
+  }
   if (document["soa_edit_api"].is_string()) {
     di.backend->setDomainMetadataOne(zonename, "SOA-EDIT-API", document["soa_edit_api"].string_value());
   }
