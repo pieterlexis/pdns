@@ -1393,6 +1393,45 @@ fred   IN  A      192.168.0.4
         # should return zone, SOA, ns1, ns2, sub.sub A (but not the ENT)
         self.assertEquals(len(r.json()), 5)
 
+    def test_rrset_parameter_post_false(self):
+        name = unique_zone_name()
+        payload = {
+            'name': name,
+            'kind': 'Native',
+            'nameservers': ['ns1.example.com.', 'ns2.example.com.']
+        }
+        r = self.session.post(
+            self.url("/api/v1/servers/localhost/zones?rrsets=false"),
+            data=json.dumps(payload),
+            headers={'content-type': 'application/json'})
+        print r.json()
+        self.assert_success_json(r)
+        self.assertEquals(r.status_code, 201)
+        self.assertEquals(r.json().get('rrsets'), None)
+
+    def test_rrset_false_parameter(self):
+        name = unique_zone_name()
+        self.create_zone(name=name, kind='Native')
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones/"+name+"?rrsets=false"))
+        self.assert_success_json(r)
+        print r.json()
+        self.assertEquals(r.json().get('rrsets'), None)
+
+    def test_rrset_true_parameter(self):
+        name = unique_zone_name()
+        self.create_zone(name=name, kind='Native')
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones/"+name+"?rrsets=true"))
+        self.assert_success_json(r)
+        print r.json()
+        self.assertEquals(len(r.json().get('rrsets')), 2)
+
+    def test_wrong_rrset_parameter(self):
+        name = unique_zone_name()
+        self.create_zone(name=name, kind='Native')
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones/"+name+"?rrsets=foobar"))
+        self.assertEquals(r.status_code, 422)
+        self.assertIn("'rrsets' request parameter value 'foobar' is not supported", r.json()['error'])
+
 
 @unittest.skipIf(not is_auth(), "Not applicable")
 class AuthRootZone(ApiTestCase, AuthZonesHelperMixin):
@@ -1568,7 +1607,6 @@ class RecursorZones(ApiTestCase):
         print r.json()
         # should return zone, SOA
         self.assertEquals(len(r.json()), 2)
-
 
 @unittest.skipIf(not is_auth(), "Not applicable")
 class AuthZoneKeys(ApiTestCase, AuthZonesHelperMixin):

@@ -8,9 +8,11 @@ Zones endpoint
 
 .. http:post:: /api/v1/servers/:server_id/zones
 
-  Creates a new domain.
+  Creates a new domain, returns the :json:object:`Zone` on creation.
 
   :param server_id: The name of the server
+  :query rrsets: "true" (default) or "false", whether to include the "rrsets" in the response :json:object:`Zone` object.
+  :statuscode 201: The zone was successfully created
 
   A :json:object:`Zone` MUST be sent in the request body.
 
@@ -28,6 +30,7 @@ Zones endpoint
 
   :param server_id: The name of the server
   :param zone_id: The id number of the :json:object:`Zone`
+  :query rrsets: "true" (default) or "false", whether to include the "rrsets" in the response :json:object:`Zone` object.
 
 .. http:delete:: /api/v1/servers/:server_id/zones/:zone_id
 
