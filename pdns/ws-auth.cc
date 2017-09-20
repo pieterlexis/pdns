@@ -516,6 +516,28 @@ static void gatherComments(const Json container, const DNSName& qname, const QTy
   }
 }
 
+static void checkDefaultDNSSECAlgos() {
+  int k_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-ksk-algorithm"]);
+  int z_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-zsk-algorithm"]);
+  int k_size = arg().asNum("default-ksk-size");
+  int z_size = arg().asNum("default-zsk-size");
+
+  // Sanity check DNSSEC parameters
+  if (::arg()["default-zsk-algorithm"] != "") {
+    if (k_algo == -1)
+      throw ApiException("default-ksk-algorithm setting is set to unknown algorithm: " + ::arg()["default-ksk-algorithm"]);
+    else if (k_algo <= 10 && k_size == 0)
+      throw ApiException("default-ksk-algorithm is set to an algorithm("+::arg()["default-ksk-algorithm"]+") that requires a non-zero default-ksk-size!");
+  }
+
+  if (::arg()["default-zsk-algorithm"] != "") {
+    if (z_algo == -1)
+      throw ApiException("default-zsk-algorithm setting is set to unknown algorithm: " + ::arg()["default-zsk-algorithm"]);
+    else if (z_algo <= 10 && z_size == 0)
+      throw ApiException("default-zsk-algorithm is set to an algorithm("+::arg()["default-zsk-algorithm"]+") that requires a non-zero default-zsk-size!");
+  }
+}
+
 static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& di, const DNSName& zonename, const Json document) {
   string zonemaster;
   bool shouldRectify = false;
@@ -560,23 +582,14 @@ static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& 
   if (dnssecInJSON) {
     if (dnssecDocVal) {
       if (!isDNSSECZone) {
+        checkDefaultDNSSECAlgos();
+
         int k_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-ksk-algorithm"]);
         int z_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-zsk-algorithm"]);
         int k_size = arg().asNum("default-ksk-size");
         int z_size = arg().asNum("default-zsk-size");
 
-        // Sanity check DNSSEC parameters
-        if (k_algo == -1)
-          throw ApiException("default-ksk-algorithm setting is set to unknown algorithm: " + ::arg()["default-ksk-algorithm"]);
-        else if (k_algo <= 10 && k_size == 0)
-          throw ApiException("default-ksk-algorithm is set to an algorithm("+::arg()["default-ksk-algorithm"]+") that requires a non-zero default-ksk-size!");
-
-        if (z_algo == -1)
-          throw ApiException("default-zsk-algorithm setting is set to unknown algorithm: " + ::arg()["default-zsk-algorithm"]);
-        else if (z_algo <= 10 && z_size == 0)
-          throw ApiException("default-zsk-algorithm is set to an algorithm("+::arg()["default-zsk-algorithm"]+") that requires a non-zero default-zsk-size!");
-
-        if (k_algo) {
+        if (k_algo != -1) {
           int64_t id;
           if (!dk.addKey(zonename, true, k_algo, id, k_size)) {
             throw ApiException("No backend was able to secure '" + zonename.toString() + "', most likely because no DNSSEC"
@@ -586,7 +599,7 @@ static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& 
           }
         }
 
-        if (z_algo) {
+        if (z_algo != -1) {
           int64_t id;
           if (!dk.addKey(zonename, false, z_algo, id, z_size)) {
             throw ApiException("No backend was able to secure '" + zonename.toString() + "', most likely because no DNSSEC"
@@ -1256,22 +1269,8 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
 
     checkDuplicateRecords(new_records);
 
-    // Sanity check DNSSEC parameters
-    int k_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-ksk-algorithm"]);
-    int z_algo = DNSSECKeeper::shorthand2algorithm(::arg()["default-zsk-algorithm"]);
-    int k_size = arg().asNum("default-ksk-size");
-    int z_size = arg().asNum("default-zsk-size");
-
     if (boolFromJson(document, "dnssec", false)) {
-      if (k_algo == -1)
-        throw ApiException("default-ksk-algorithm setting is set to unknown algorithm: " + ::arg()["default-ksk-algorithm"]);
-      else if (k_algo <= 10 && k_size == 0)
-        throw ApiException("default-ksk-algorithm is set to an algorithm("+::arg()["default-ksk-algorithm"]+") that requires a non-zero default-ksk-size!");
-
-      if (z_algo == -1)
-        throw ApiException("default-zsk-algorithm setting is set to unknown algorithm: " + ::arg()["default-zsk-algorithm"]);
-      else if (z_algo <= 10 && z_size == 0)
-        throw ApiException("default-zsk-algorithm is set to an algorithm("+::arg()["default-zsk-algorithm"]+") that requires a non-zero default-zsk-size!");
+      checkDefaultDNSSECAlgos();
 
       if(document["nsec3param"].string_value().length() > 0) {
         NSEC3PARAMRecordContent ns3pr(document["nsec3param"].string_value());
