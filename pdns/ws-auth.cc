@@ -318,7 +318,15 @@ static Json::object getZoneInfo(const DomainInfo& di, DNSSECKeeper *dk) {
   };
 }
 
-static void fillZone(const DNSName& zonename, HttpResponse* resp) {
+static bool shouldDoRRSets(HttpRequest* req) {
+  if (req->getvars.count("rrsets") == 0 || req->getvars["rrsets"] == "true")
+    return true;
+  if (req->getvars["rrsets"] == "false")
+    return false;
+  throw ApiException("'rrsets' request parameter value '"+req->getvars["rrsets"]+"' is not supported");
+}
+
+static void fillZone(const DNSName& zonename, HttpResponse* resp, bool doRRSets) {
   UeberBackend B;
   DomainInfo di;
   if(!B.getDomainInfo(zonename, di))
@@ -343,91 +351,93 @@ static void fillZone(const DNSName& zonename, HttpResponse* resp) {
     nsec3narrowbool = true;
   doc["nsec3narrow"] = nsec3narrowbool;
 
-  vector<DNSResourceRecord> records;
-  vector<Comment> comments;
+  if (doRRSets) {
+    vector<DNSResourceRecord> records;
+    vector<Comment> comments;
 
-  // load all records + sort
-  {
-    DNSResourceRecord rr;
-    di.backend->list(zonename, di.id, true); // incl. disabled
-    while(di.backend->get(rr)) {
-      if (!rr.qtype.getCode())
-        continue; // skip empty non-terminals
-      records.push_back(rr);
+    // load all records + sort
+    {
+      DNSResourceRecord rr;
+      di.backend->list(zonename, di.id, true); // incl. disabled
+      while(di.backend->get(rr)) {
+        if (!rr.qtype.getCode())
+          continue; // skip empty non-terminals
+        records.push_back(rr);
+      }
+      sort(records.begin(), records.end(), [](const DNSResourceRecord& a, const DNSResourceRecord& b) {
+              if (a.qname == b.qname) {
+                  return b.qtype < a.qtype;
+              }
+              return b.qname < a.qname;
+          });
     }
-    sort(records.begin(), records.end(), [](const DNSResourceRecord& a, const DNSResourceRecord& b) {
-            if (a.qname == b.qname) {
-                return b.qtype < a.qtype;
-            }
-            return b.qname < a.qname;
+
+    // load all comments + sort
+    {
+      Comment comment;
+      di.backend->listComments(di.id);
+      while(di.backend->getComment(comment)) {
+        comments.push_back(comment);
+      }
+      sort(comments.begin(), comments.end(), [](const Comment& a, const Comment& b) {
+              if (a.qname == b.qname) {
+                  return b.qtype < a.qtype;
+              }
+              return b.qname < a.qname;
+          });
+    }
+
+    Json::array rrsets;
+    Json::object rrset;
+    Json::array rrset_records;
+    Json::array rrset_comments;
+    DNSName current_qname;
+    QType current_qtype;
+    uint32_t ttl;
+    auto rit = records.begin();
+    auto cit = comments.begin();
+
+    while (rit != records.end() || cit != comments.end()) {
+      if (cit == comments.end() || (rit != records.end() && (cit->qname.toString() <= rit->qname.toString() || cit->qtype < rit->qtype || cit->qtype == rit->qtype))) {
+        current_qname = rit->qname;
+        current_qtype = rit->qtype;
+        ttl = rit->ttl;
+      } else {
+        current_qname = cit->qname;
+        current_qtype = cit->qtype;
+        ttl = 0;
+      }
+
+      while(rit != records.end() && rit->qname == current_qname && rit->qtype == current_qtype) {
+        ttl = min(ttl, rit->ttl);
+        rrset_records.push_back(Json::object {
+          { "disabled", rit->disabled },
+          { "content", makeApiRecordContent(rit->qtype, rit->content) }
         });
-  }
-
-  // load all comments + sort
-  {
-    Comment comment;
-    di.backend->listComments(di.id);
-    while(di.backend->getComment(comment)) {
-      comments.push_back(comment);
-    }
-    sort(comments.begin(), comments.end(), [](const Comment& a, const Comment& b) {
-            if (a.qname == b.qname) {
-                return b.qtype < a.qtype;
-            }
-            return b.qname < a.qname;
+        rit++;
+      }
+      while (cit != comments.end() && cit->qname == current_qname && cit->qtype == current_qtype) {
+        rrset_comments.push_back(Json::object {
+          { "modified_at", (double)cit->modified_at },
+          { "account", cit->account },
+          { "content", cit->content }
         });
+        cit++;
+      }
+
+      rrset["name"] = current_qname.toString();
+      rrset["type"] = current_qtype.getName();
+      rrset["records"] = rrset_records;
+      rrset["comments"] = rrset_comments;
+      rrset["ttl"] = (double)ttl;
+      rrsets.push_back(rrset);
+      rrset.clear();
+      rrset_records.clear();
+      rrset_comments.clear();
+    }
+
+    doc["rrsets"] = rrsets;
   }
-
-  Json::array rrsets;
-  Json::object rrset;
-  Json::array rrset_records;
-  Json::array rrset_comments;
-  DNSName current_qname;
-  QType current_qtype;
-  uint32_t ttl;
-  auto rit = records.begin();
-  auto cit = comments.begin();
-
-  while (rit != records.end() || cit != comments.end()) {
-    if (cit == comments.end() || (rit != records.end() && (cit->qname.toString() <= rit->qname.toString() || cit->qtype < rit->qtype || cit->qtype == rit->qtype))) {
-      current_qname = rit->qname;
-      current_qtype = rit->qtype;
-      ttl = rit->ttl;
-    } else {
-      current_qname = cit->qname;
-      current_qtype = cit->qtype;
-      ttl = 0;
-    }
-
-    while(rit != records.end() && rit->qname == current_qname && rit->qtype == current_qtype) {
-      ttl = min(ttl, rit->ttl);
-      rrset_records.push_back(Json::object {
-        { "disabled", rit->disabled },
-        { "content", makeApiRecordContent(rit->qtype, rit->content) }
-      });
-      rit++;
-    }
-    while (cit != comments.end() && cit->qname == current_qname && cit->qtype == current_qtype) {
-      rrset_comments.push_back(Json::object {
-        { "modified_at", (double)cit->modified_at },
-        { "account", cit->account },
-        { "content", cit->content }
-      });
-      cit++;
-    }
-
-    rrset["name"] = current_qname.toString();
-    rrset["type"] = current_qtype.getName();
-    rrset["records"] = rrset_records;
-    rrset["comments"] = rrset_comments;
-    rrset["ttl"] = (double)ttl;
-    rrsets.push_back(rrset);
-    rrset.clear();
-    rrset_records.clear();
-    rrset_comments.clear();
-  }
-
-  doc["rrsets"] = rrsets;
 
   resp->setBody(doc);
 }
@@ -1301,7 +1311,7 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
 
     storeChangedPTRs(B, new_ptrs);
 
-    fillZone(zonename, resp);
+    fillZone(zonename, resp, shouldDoRRSets(req));
     resp->status = 201;
     return;
   }
@@ -1353,7 +1363,7 @@ static void apiServerZoneDetail(HttpRequest* req, HttpResponse* resp) {
     patchZone(req, resp);
     return;
   } else if (req->method == "GET") {
-    fillZone(zonename, resp);
+    fillZone(zonename, resp, shouldDoRRSets(req));
     return;
   }
 
