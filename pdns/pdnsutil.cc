@@ -172,6 +172,9 @@ bool rectifyZone(DNSSECKeeper& dk, const DNSName& zone)
   else
     cerr<<"Adding empty non-terminals for non-DNSSEC zone"<<endl;
 
+  if(doTransaction)
+    sd.db->startTransaction(zone, -1);
+
   if (!dk.rectifyZone(B, zone))
     return false;
 
