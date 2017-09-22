@@ -1137,6 +1137,7 @@ testrunner_SOURCES = \
 	nameserver.cc \
 	nsecrecords.cc \
 	packetcache.cc \
+	opensslsigners.cc opensslsigners.hh \
 	qtype.cc \
 	rcpgenerator.cc \
 	recpacketcache.cc recpacketcache.hh \
@@ -1203,6 +1204,11 @@ endif
 if LIBSODIUM
 testrunner_SOURCES += sodiumsigners.cc
 testrunner_LDADD += $(LIBSODIUM_LIBS)
+endif
+
+if BOTAN110
+testrunner_SOURCES += botan110signers.cc
+testrunner_LDADD += $(BOTAN110_LIBS)
 endif
 
 if LIBDECAF

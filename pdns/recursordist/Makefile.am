@@ -153,12 +153,89 @@ pdns_recursor_LDADD = \
 	$(RT_LIBS)
 
 pdns_recursor_LDFLAGS = $(AM_LDFLAGS) \
+	$(LIBCRYPTO_LDFLAGS) $(BOOST_CONTEXT_LDFLAGS)
+
+testrunner_SOURCES = \
+	arguments.cc \
+	base32.cc \
+	base64.cc base64.hh \
+	dns.cc dns.hh \
+	dns_random.cc dns_random.hh \
+	dnslabeltext.cc \
+	dnsname.cc dnsname.hh \
+	dnsparser.hh dnsparser.cc \
+	dnsrecords.cc \
+	dnssecinfra.cc \
+	dnsseckeeper.hh \
+	dnswriter.cc dnswriter.hh \
+	ednscookies.cc ednscookies.hh \
+	ednsoptions.cc ednsoptions.hh \
+	ednssubnet.cc ednssubnet.hh \
+	filterpo.cc filterpo.hh \
+	gettime.cc gettime.hh \
+	gss_context.cc gss_context.hh \
+	iputils.cc iputils.hh \
+	ixfr.cc ixfr.hh \
+	logger.cc logger.hh \
+	misc.cc misc.hh \
+	negcache.hh negcache.cc \
+	namespaces.hh \
+	nsecrecords.cc \
+	pdnsexception.hh \
+	opensslsigners.cc opensslsigners.hh \
+	protobuf.cc protobuf.hh \
+	qtype.cc qtype.hh \
+	randomhelper.cc \
+	rcpgenerator.cc \
+	rec-protobuf.cc rec-protobuf.hh \
+	recpacketcache.cc recpacketcache.hh \
+	recursor_cache.cc recursor_cache.hh \
+	responsestats.cc \
+	root-dnssec.hh \
+	sillyrecords.cc \
+	sholder.hh \
+	sstuff.hh \
+	syncres.cc syncres.hh \
+	test-arguments_cc.cc \
+	test-base32_cc.cc \
+	test-base64_cc.cc \
+	test-common.hh \
+	test-dnsrecordcontent.cc \
+	test-dns_random_hh.cc \
+	test-dnsname_cc.cc \
+	test-dnsparser_hh.cc \
+	test-dnsrecords_cc.cc \
+	test-ednsoptions_cc.cc \
+	test-iputils_hh.cc \
+	test-ixfr_cc.cc \
+	test-misc_hh.cc \
+	test-nmtree.cc \
+	test-negcache_cc.cc \
+	test-rcpgenerator_cc.cc \
+	test-recpacketcache_cc.cc \
+	test-recursorcache_cc.cc \
+	test-signers.cc \
+	test-syncres_cc.cc \
+	test-tsig.cc \
+	testrunner.cc \
+	tsigverifier.cc tsigverifier.hh \
+	unix_utility.cc \
+	validate.cc validate.hh \
+	validate-recursor.cc validate-recursor.hh \
+	zoneparser-tng.cc zoneparser-tng.hh
+
+testrunner_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	$(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
 	$(LIBCRYPTO_LDFLAGS)
 
 if BOTAN110
 pdns_recursor_SOURCES += \
 	botan110signers.cc
 pdns_recursor_LDADD += $(BOTAN110_LIBS)
+testrunner_SOURCES += \
+	botan110signers.cc
+testrunner_LDADD += $(BOTAN110_LIBS)
 endif
 
 if MALLOC_TRACE
