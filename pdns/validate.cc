@@ -298,6 +298,10 @@ dState getDenial(const cspmap_t &validrrsets, const DNSName& qname, const uint16
         if (!v.first.first.isPartOf(signer))
           continue;
 
+        /* if this is a wildcard NSEC, the owner name has been modified
+           to match the name. Make sure we use the original '*' form. */
+        const DNSName owner = getNSECOwnerName(v.first.first, v.second.signatures);
+
         /* RFC 6840 section 4.1 "Clarifications on Nonexistence Proofs":
            Ancestor delegation NSEC or NSEC3 RRs MUST NOT be used to assume
            nonexistence of any RRs below that zone cut, which include all RRs at
@@ -305,17 +309,17 @@ dState getDenial(const cspmap_t &validrrsets, const DNSName& qname, const uint16
            owner name regardless of type.
         */
         if (nsec->d_set.count(QType::NS) && !nsec->d_set.count(QType::SOA) &&
-            signer.countLabels() < v.first.first.countLabels()) {
-          LOG("type is "<<QType(qtype).getName()<<", NS is "<<std::to_string(nsec->d_set.count(QType::NS))<<", SOA is "<<std::to_string(nsec->d_set.count(QType::SOA))<<", signer is "<<signer.toString()<<", owner name is "<<v.first.first.toString()<<endl);
+            signer.countLabels() < owner.countLabels()) {
+          LOG("type is "<<QType(qtype).getName()<<", NS is "<<std::to_string(nsec->d_set.count(QType::NS))<<", SOA is "<<std::to_string(nsec->d_set.count(QType::SOA))<<", signer is "<<signer.toString()<<", owner name is "<<owner.toString()<<endl);
           /* this is an "ancestor delegation" NSEC RR */
-          if (qname == v.first.first && qtype != QType::DS) {
+          if (qname == owner && qtype != QType::DS) {
             LOG("An ancestor delegation NSEC RR can only deny the existence of a DS"<<endl);
             continue;
           }
         }
 
         /* check if the type is denied */
-        if(qname == v.first.first) {
+        if(qname == owner) {
           if (nsec->d_set.count(qtype)) {
             LOG("Does _not_ deny existence of type "<<QType(qtype).getName()<<endl);
             continue;
@@ -356,7 +360,7 @@ dState getDenial(const cspmap_t &validrrsets, const DNSName& qname, const uint16
         }
 
         /* check if the whole NAME is denied existing */
-        if(isCoveredByNSEC(qname, v.first.first, nsec->d_next)) {
+        if(isCoveredByNSEC(qname, owner, nsec->d_next)) {
           /* if the name is an ENT and we received a NODATA answer,
              we are fine with a NSEC proving that the name does not exist. */
           if (wantsNoDataProof && nsecProvesENT(qname, v.first.first, nsec->d_next)) {
@@ -375,7 +379,7 @@ dState getDenial(const cspmap_t &validrrsets, const DNSName& qname, const uint16
           return NODATA;
         }
 
-        LOG("Did not deny existence of "<<QType(qtype).getName()<<", "<<v.first.first<<"?="<<qname<<", "<<nsec->d_set.count(qtype)<<", next: "<<nsec->d_next<<endl);
+        LOG("Did not deny existence of "<<QType(qtype).getName()<<", "<<owner<<"?="<<qname<<", "<<nsec->d_set.count(qtype)<<", next: "<<nsec->d_next<<endl);
       }
     } else if(v.first.second==QType::NSEC3) {
       for(const auto& r : v.second.records) {
