@@ -3,7 +3,7 @@ PowerDNS Security Advisory 2017-05: Cross-Site Scripting in the web interface
 
 -  CVE: CVE-2017-15092
 -  Date: TBD
--  Credit: Nixu, cnavarrete
+-  Credit: Nixu, Chris Navarrete of Fortinet's Fortiguard Labs
 -  Affects: PowerDNS Recursor from 4.0.0 up to and including 4.0.6
 -  Not affected: PowerDNS Recursor 4.0.7, 3.7.x
 -  Severity: Low
@@ -23,5 +23,5 @@ PowerDNS Recursor from 4.0.0 up to and including 4.0.6 are affected.
 For those unable to upgrade to a new version, a minimal patch is
 `available <https://downloads.powerdns.com/patches/2017-05>`__
 
-We would like to thank Nixu and cnavarrete for independantly finding and
- reporting this issue.
+We would like to thank Nixu and Chris Navarrete of Fortinet's Fortiguard Labs
+for independently finding and reporting this issue.
