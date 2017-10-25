@@ -12,9 +12,13 @@ PowerDNS Security Advisory 2017-06: Configuration file injection in the API
    credentials
 -  Risk of system compromise: No
 -  Solution: Upgrade to a non-affected version
+-  Workaround: Disable the ability to alter the configuration via the API
+   by setting `api-config-dir` to an empty value (default), or set the API
+   read-only via the `api-readonly` setting.
 
 An issue has been found in the API of PowerDNS Recursor during a source code audit
-by Nixu. The API allows an authorized user to update the Recursor's ACL by adding
+by Nixu. When `api-config-dir` is set to a non-empty value, which is not the case
+by default, the API allows an authorized user to update the Recursor's ACL by adding
 and removing netmasks, and to configure forward zones. It was discovered that
 the new netmask and IP addresses of forwarded zones were not sufficiently validated,
 allowing an authenticated user to inject new configuration directives into the
