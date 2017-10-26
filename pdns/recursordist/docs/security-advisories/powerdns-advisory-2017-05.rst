@@ -6,7 +6,7 @@ PowerDNS Security Advisory 2017-05: Cross-Site Scripting in the web interface
 -  Credit: Nixu, Chris Navarrete of Fortinet's Fortiguard Labs
 -  Affects: PowerDNS Recursor from 4.0.0 up to and including 4.0.6
 -  Not affected: PowerDNS Recursor 4.0.7, 3.7.x
--  Severity: Low
+-  Severity: Medium
 -  Impact: Alteration and denial of service of the web interface
 -  Exploit: This problem can be triggered by an attacker sending DNS queries
    to the server

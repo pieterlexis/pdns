@@ -6,7 +6,7 @@ PowerDNS Security Advisory 2017-06: Configuration file injection in the API
 -  Credit: Nixu
 -  Affects: PowerDNS Recursor up to and including 4.0.6, 3.7.4
 -  Not affected: PowerDNS Recursor 4.0.7, 3.7.5
--  Severity: Low
+-  Severity: Medium
 -  Impact: Alteration of configuration by an API user
 -  Exploit: This problem can be triggered by an attacker with valid API
    credentials
