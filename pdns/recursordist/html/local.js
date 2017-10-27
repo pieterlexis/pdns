@@ -108,7 +108,7 @@ $(document).ready(function () {
                 render('queryring', {rows: rows});
             });
 
-        $.getJSON('jsonstat', jsonstatParams('get-query-ring', 'servfail-queries', $("#filter2").is(':checked')),
+        $.getJSON('jsonstat', jsonstatParams('get-query-ring', 'servfail-queries', $("#filter1").is(':checked')),
             function (data) {
                 var rows = makeRingRows(data);
                 render('servfailqueryring', {rows: rows});
@@ -131,6 +131,7 @@ $(document).ready(function () {
         if (ok) {
             $("#connection-status").hide();
             $("#connection-error").html("");
+            $("#content-hidden-on-load").show();
         } else {
             $("#connection-status").show();
             $("#connection-error").html(o.status + " " + o.statusText);

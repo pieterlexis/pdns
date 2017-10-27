@@ -11,90 +11,9 @@
 <link type="text/css" rel="stylesheet" href="detail.css">
 <link type="text/css" rel="stylesheet" href="legend.css">
 <link type="text/css" rel="stylesheet" href="lines.css">
+<link type="text/css" rel="stylesheet" href="styling.css">
 
 <script src="local.js"></script>
-
-<style>
-	.pdns-chart {
-		position: relative;
-		left: 40px;
-		z-index: -10; /* don't steal clicks from stuff it overlaps with */
-	}
-	.pdns-axis {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		width: 40px;
-	}
-	#connection-status, #connection-error {
-		color: red;
-	}
-	.topbar {
-		background: url(powerdns-logo-220px.png) no-repeat;
-		height: 30px;
-		padding-left: 250px;
-		padding-top: 5px;
-	}
-	.charts-container {
-		display: inline-block;
-		width: 500px;
-		vertical-align: top;
-	}
-	.charts-container .chart {
-	}
-	.charts-container h2 {
-		padding-left: 40px;
-		text-align: center;
-	}
-	.all-tables {
-		display: inline-block;
-		min-width: 700px;
-		vertical-align: top;
-	}
-	.table-container {
-		display: inline-block;
-		width: 330px;
-		vertical-align: top;
-		margin-right: 20px;
-	}
-	h2 {
-		font-size: 16pt;
-	}
-	.stats-table {
-	}
-	.stats-table table,
-	.stats-table th,
-	.stats-table td {
-		/*border: 1px solid #aaaaaa;*/
-		border-left: 1px solid #aaaaaa;
-		border-right: 1px solid #aaaaaa;
-		border-collapse: collapse;
-		text-overflow: ellipsis;
-	}
-	.stats-table td,
-	.stats-table th {
-		padding-left: 4px;
-		padding-right: 4px;
-	}
-	.stats-table th {
-		text-align: left;
-		border: 1px solid #aaaaaa;
-	}
-	.stats-table table {
-		width: 100%;
-		margin-top: 30px;
-		border: 1px solid #aaaaaa;
-	}
-	.stats-table table tr:last-child {
-		border: 1px solid #aaaaaa;
-	}
-	table.two-col th:first-child { width: 25%; }
-	table.three-col th:first-child { width: 25%; }
-	table.three-col th:last-child { width: 20%; }
-	.stats-table td:empty:after{
-  		content: "\00a0"; /* non-breaking space */
-	}
-</style>
 
 </head>
 
@@ -103,10 +22,13 @@
 <!-- ========================= CONTENT ========================= -->
 
 <div class="topbar">
-	<label>API Key: <input type="password" id="password" value="x"></label>
+	<label>API Key: <input type="password" id="password" value=""></label>
+	<button>Submit</button><!-- Just a trick to make the user click outside of the input field -->
 	<span id="connection-status" style="display:none">No server connection or incorrect key</span>
 	<span id="connection-error"></span>
 </div>
+
+<div id="content-hidden-on-load" style="display: none">
 
 <div id="top-stats"></div>
 
@@ -130,20 +52,25 @@
 <div class="all-tables">
     <div class="table-container">
         <h2>Queries</h2>
-        <label><input id="filter1" type="checkbox"> Group by public suffixes</label>
+		<div class="filter">
+			<label><input id="filter1" type="checkbox"> Group by public suffixes</label>
+		</div>
         <div class="stats-table" id="queryring"></div>
         <div class="stats-table" id="servfailqueryring"></div>
     </div>
 
     <div class="table-container">
         <h2>Remotes</h2>
-        <label><input id="filter2" type="checkbox"> Group by public suffixes</label>
+		<div class="filter"></div>
         <div class="stats-table" id="remotering"></div>
         <div class="stats-table" id="servfailremotering"></div>
     </div>
 </div>
 
+</div><!-- content-hidden-on-load -->
+
 <!-- ========================= TEMPLATES ========================= -->
+
 <script id="top-stats-template" type="text/x-handlebars-template">
 	<p>
 		Version: {{version}}, uptime: {{uptime}}, Number of queries: {{questions}} ({{qps}} qps)<br/>

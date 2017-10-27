@@ -1,4 +1,6 @@
 # Proxy for web UI development without recompiling
+#
+# Simply run the `caddy` command in this directory to start the server.
 # See: https://caddyserver.com/tutorial/caddyfile
 #
 # Run the recursor like this:
