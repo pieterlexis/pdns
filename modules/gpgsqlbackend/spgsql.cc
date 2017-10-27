@@ -78,7 +78,17 @@ public:
   SSqlStatement* execute() {
     prepareStatement();
     if (d_dolog) {
-      L<<Logger::Warning<<"Query: "<<d_query<<endl;
+      L<<Logger::Warning<<"Query: "<<d_query;
+      if (paramValues) {
+        for(int i=0;i<d_nparams;i++)
+          if (paramValues[i]) {
+            L<<"\""<<paramValues[i]<<"\"";
+          } else {
+            L<<"(null)";
+          }
+        }
+      }
+      L<<endl;
     }
     d_res_set = PQexecPrepared(d_db(), d_stmt.c_str(), d_nparams, paramValues, paramLengths, NULL, 0);
     ExecStatusType status = PQresultStatus(d_res_set);
