@@ -766,6 +766,13 @@ void moreLua(bool client)
 #endif
     });
 
+#ifdef HAVE_DNSCRYPT
+    g_lua.writeVariable("DNSCryptExchangeVersion", std::unordered_map<string,int>{
+        { "VERSION1", DNSCryptExchangeVersion::VERSION1 },
+        { "VERSION2", DNSCryptExchangeVersion::VERSION2 },
+    });
+#endif
+
     g_lua.writeFunction("generateDNSCryptCertificate", [](const std::string& providerPrivateKeyFile, const std::string& certificateFile, const std::string privateKeyFile, uint32_t serial, time_t begin, time_t end, boost::optional<DNSCryptExchangeVersion> version) {
         setLuaNoSideEffect();
 #ifdef HAVE_DNSCRYPT
