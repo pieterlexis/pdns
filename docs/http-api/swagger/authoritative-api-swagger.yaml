@@ -137,9 +137,9 @@ definitions:
           - 'Slave'
         description: 'Zone kind, one of “Native”, “Master”, “Slave”'
       rrsets:
-        type: object
+        type: array
         items:
-          $ref: '#/definitions/RRSets'
+          $ref: '#/definitions/RRSet'
         description: 'RRSets in this zone'
       serial:
         type: integer
@@ -189,11 +189,6 @@ definitions:
     type: array
     items:
       $ref: '#/definitions/Zone'
-
-  RRSets:
-    type: array
-    items:
-      $ref: '#/definitions/RRSet'
 
   RRSet:
     properties:
