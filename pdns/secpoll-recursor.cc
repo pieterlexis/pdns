@@ -25,7 +25,7 @@ void doSecPoll(time_t* last_secpoll)
   struct timeval now;
   gettimeofday(&now, 0);
   SyncRes sr(now);
-  if (g_dnssecmode != DNSSECMode::Off) {
+  if (g_dnssecValidationMode != DNSSECValidationMode::Off) {
     sr.setDoDNSSEC(true);
     sr.setDNSSECValidationRequested(true);
   }
@@ -45,7 +45,7 @@ void doSecPoll(time_t* last_secpoll)
   DNSName query(qstring);
   int res=sr.beginResolve(query, QType(QType::TXT), 1, ret);
 
-  if (g_dnssecmode != DNSSECMode::Off && res) {
+  if (g_dnssecValidationMode != DNSSECValidationMode::Off && res) {
     state = sr.getValidationState();
   }
 
