@@ -1,6 +1,6 @@
 swagger: '2.0'
 info:
-  version: 0.0.1
+  version: "0.0.3"
   title: PowerDNS Authoritative HTTP API
   license:
     name: MIT
@@ -12,6 +12,14 @@ consumes:
   - application/json
 produces:
   - application/json
+securityDefinitions:
+  # X-API-Key: abcdef12345
+  APIKeyHeader:
+    type: apiKey
+    in: header
+    name: X-API-Key
+security:
+  - APIKeyHeader: []
 paths:
   /servers:
     get:
@@ -23,7 +31,10 @@ paths:
         '200':
           description: An array of servers
           schema:
-            $ref: '#/definitions/Servers'
+            #$ref: '#/definitions/Servers'
+            type: array
+            items:
+              $ref: '#/definitions/Server'
 
   '/servers/{server_id}':
     get:
@@ -59,7 +70,10 @@ paths:
         '200':
           description: An array of Zones
           schema:
-            $ref: '#/definitions/Zones'
+            #$ref: '#/definitions/Zones'
+            type: array
+            items:
+              $ref: '#/definitions/Zone'
 
   '/servers/{server_id}/zones/{zone_id}':
     get:
@@ -83,6 +97,30 @@ paths:
           description: A Zone
           schema:
             $ref: '#/definitions/Zone'
+    patch:
+      summary: 'Modifies present RRsets and comments. Returns 204 No Content on success.'
+      operationId: patchZone
+      tags:
+        - zones
+      parameters:
+        - name: server_id
+          in: path
+          required: true
+          description: The id of the server to retrieve
+          type: string
+        - name: zone_id
+          type: string
+          in: path
+          required: true
+        - name: zone_struct
+          description: The zone struct to patch with
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/Zone'
+      responses:
+        '204':
+          description: 'Returns 204 No Content on success.'
 
 
 definitions:
@@ -216,6 +254,9 @@ definitions:
           $ref: '#/definitions/Comment'
 
   Record:
+    required: 
+      - content
+      - disabled # PatchZone endpoint complains if this is missing
     properties:
       content:
         type: string
@@ -225,7 +266,7 @@ definitions:
         description: 'Whether or not this record is disabled'
       set-ptr:
         type: boolean
-        description: 'f set to true, the server will find the matching reverse zone and create a PTR there. Existing PTR records are replaced. If no matching reverse Zone, an error is thrown. Only valid in client bodies, only valid for A and AAAA types. Not returned by the server.'
+        description: 'If set to true, the server will find the matching reverse zone and create a PTR there. Existing PTR records are replaced. If no matching reverse Zone, an error is thrown. Only valid in client bodies, only valid for A and AAAA types. Not returned by the server.'
 
   Comment:
     properties:
