@@ -1110,21 +1110,21 @@ bool SyncRes::doCacheCheck(const DNSName &qname, const QType &qtype, vector<DNSR
       }
     }
 
-    DNSSECLOG(prefix<<qname<<" DNSSEC validated the following record content:"<<endl);
+    LOG(prefix<<qname<<" Got the following records from the cache:"<<endl);
     for(auto j=cset.cbegin() ; j != cset.cend() ; ++j) {
-      DNSSECLOG(prefix<<qname<<" - "<<j->d_content->getZoneRepresentation());
+      LOG(prefix<<qname<<" - "<<j->d_content->getZoneRepresentation());
       if(j->d_ttl>(unsigned int) d_now.tv_sec) {
         DNSRecord dr=*j;
         ttl = (dr.d_ttl-=d_now.tv_sec);
         ret.push_back(dr);
-        DNSSECLOG("[ttl="<<dr.d_ttl<<"] ");
+        LOG("[ttl="<<dr.d_ttl<<"] ");
         found=true;
       }
       else {
-        DNSSECLOG("[expired] ");
+        LOG("[expired] ");
         expired=true;
       }
-      DNSSECLOG(endl);
+      LOG(endl);
     }
 
     for(const auto& signature : signatures) {

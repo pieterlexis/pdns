@@ -380,9 +380,9 @@ string doSetDnssecLog(T begin, T end)
 
   if (pdns_iequals(*begin, "on") || pdns_iequals(*begin, "yes")) {
     if (g_dnssecLogMode != DNSSECLogMode::On) {
-      L<<Logger::Warning<<"Enabling DNSSEC Bogus logging, requested via control channel"<<endl;
+      L<<Logger::Warning<<"Enabling DNSSEC validation logging, requested via control channel"<<endl;
       g_dnssecLogMode = DNSSECLogMode::On;
-      return "DNSSEC Bogus logging enabled\n";
+      return "DNSSEC validation logging enabled\n";
     }
     return "DNSSEC validation logging was already enabled\n";
   }

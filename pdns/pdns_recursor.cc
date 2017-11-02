@@ -1070,7 +1070,7 @@ static void startDoResolve(void *p)
             if(!pw.getHeader()->cd &&
                 ((g_dnssecBogusServfailMode == DNSSECBogusServfailMode::ClientOnly && (dc->d_mdp.d_header.ad || DNSSECOK)) ||
                 g_dnssecBogusServfailMode == DNSSECBogusServfailMode::On)) {
-              if(sr.doLog() || shouldLog || g_dnssecLogMode == DNSSECLogMode::BogusOnly) {
+              if(shouldLog || g_dnssecLogMode == DNSSECLogMode::BogusOnly) {
                 L<<Logger::Warning<<"Sending out SERVFAIL for "<<dc->d_mdp.d_qname<<"|"<<QType(dc->d_mdp.d_qtype).getName()<<" because recursor or query demands it for Bogus results"<<endl;
               }
               
@@ -3294,7 +3294,7 @@ int main(int argc, char **argv)
     ::arg().set("local-address","IP addresses to listen on, separated by spaces or commas. Also accepts ports.")="127.0.0.1";
     ::arg().setSwitch("non-local-bind", "Enable binding to non-local addresses by using FREEBIND / BINDANY socket options")="no";
     ::arg().set("trace","if we should output heaps of logging. set to 'fail' to only log failing domains")="off";
-    ::arg().set("dnssec-validation", "DNSSEC validation mode: yes/no/client")="no";
+    ::arg().set("dnssec-validation", "DNSSEC validation mode: yes/no/client/process")="process";
     ::arg().set("dnssec-servfail", "DNSSEC send SERVFAIL on bogus: yes/no/client")="no";
     ::arg().set("dnssec-log", "DNSSEC log validation results: yes/all/no/bogus")="no";
     ::arg().set("daemon","Operate as a daemon")="no";
