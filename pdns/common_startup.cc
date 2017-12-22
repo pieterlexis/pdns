@@ -468,49 +468,49 @@ static void triggerLoadOfLibraries()
 
 void mainthread()
 {
-   Utility::srandom(time(0) ^ getpid());
+  Utility::srandom(time(0) ^ getpid());
 
-   int newgid=0;      
-   if(!::arg()["setgid"].empty()) 
-     newgid=Utility::makeGidNumeric(::arg()["setgid"]);      
-   int newuid=0;      
-   if(!::arg()["setuid"].empty())        
-     newuid=Utility::makeUidNumeric(::arg()["setuid"]); 
-   
-   g_anyToTcp = ::arg().mustDo("any-to-tcp");
-   g_8bitDNS = ::arg().mustDo("8bit-dns");
+  int newgid=0;
+  if(!::arg()["setgid"].empty())
+    newgid=Utility::makeGidNumeric(::arg()["setgid"]);
+  int newuid=0;
+  if(!::arg()["setuid"].empty())
+    newuid=Utility::makeUidNumeric(::arg()["setuid"]);
 
-   DNSPacket::s_udpTruncationThreshold = std::max(512, ::arg().asNum("udp-truncation-threshold"));
-   DNSPacket::s_doEDNSSubnetProcessing = ::arg().mustDo("edns-subnet-processing");
+  g_anyToTcp = ::arg().mustDo("any-to-tcp");
+  g_8bitDNS = ::arg().mustDo("8bit-dns");
 
-   PC.setTTL(::arg().asNum("cache-ttl"));
-   PC.setMaxEntries(::arg().asNum("max-packet-cache-entries"));
-   QC.setMaxEntries(::arg().asNum("max-cache-entries"));
+  DNSPacket::s_udpTruncationThreshold = std::max(512, ::arg().asNum("udp-truncation-threshold"));
+  DNSPacket::s_doEDNSSubnetProcessing = ::arg().mustDo("edns-subnet-processing");
 
-   stubParseResolveConf();
+  PC.setTTL(::arg().asNum("cache-ttl"));
+  PC.setMaxEntries(::arg().asNum("max-packet-cache-entries"));
+  QC.setMaxEntries(::arg().asNum("max-cache-entries"));
 
-   if(!::arg()["chroot"].empty()) {
+  stubParseResolveConf();
+
+  if(!::arg()["chroot"].empty()) {
 #ifdef HAVE_SYSTEMD
-     char *ns;
-     ns = getenv("NOTIFY_SOCKET");
-     if (ns != nullptr) {
-       L<<Logger::Error<<"Unable to chroot when running from systemd. Please disable chroot= or set the 'Type' for this service to 'simple'"<<endl;
-       exit(1);
-     }
+    char *ns;
+    ns = getenv("NOTIFY_SOCKET");
+    if (ns != nullptr) {
+      L<<Logger::Error<<"Unable to chroot when running from systemd. Please disable chroot= or set the 'Type' for this service to 'simple'"<<endl;
+      exit(1);
+    }
 #endif
-     triggerLoadOfLibraries();
-     if(::arg().mustDo("master") || ::arg().mustDo("slave"))
-        gethostbyname("a.root-servers.net"); // this forces all lookup libraries to be loaded
-     Utility::dropGroupPrivs(newuid, newgid);
-     if(chroot(::arg()["chroot"].c_str())<0 || chdir("/")<0) {
-       L<<Logger::Error<<"Unable to chroot to '"+::arg()["chroot"]+"': "<<strerror(errno)<<", exiting"<<endl; 
-       exit(1);
-     }   
-     else
-       L<<Logger::Error<<"Chrooted to '"<<::arg()["chroot"]<<"'"<<endl;      
-   } else {
-     Utility::dropGroupPrivs(newuid, newgid);
-   }
+    triggerLoadOfLibraries();
+    if(::arg().mustDo("master") || ::arg().mustDo("slave"))
+      gethostbyname("a.root-servers.net"); // this forces all lookup libraries to be loaded
+    Utility::dropGroupPrivs(newuid, newgid);
+    if(chroot(::arg()["chroot"].c_str())<0 || chdir("/")<0) {
+      L<<Logger::Error<<"Unable to chroot to '"+::arg()["chroot"]+"': "<<strerror(errno)<<", exiting"<<endl;
+      exit(1);
+    }
+    else
+      L<<Logger::Error<<"Chrooted to '"<<::arg()["chroot"]<<"'"<<endl;
+  } else {
+    Utility::dropGroupPrivs(newuid, newgid);
+  }
 
   AuthWebServer webserver;
   Utility::dropUserPrivs(newuid);
@@ -548,7 +548,7 @@ void mainthread()
     webserver.go();
 
   if(::arg().mustDo("slave") || ::arg().mustDo("master") || !::arg()["forward-notify"].empty())
-    Communicator.go(); 
+    Communicator.go();
 
   if(TN)
     TN->go(); // tcp nameserver launch
@@ -559,7 +559,7 @@ void mainthread()
   for(unsigned int n=0; n < max_rthreads; ++n)
     pthread_create(&qtid,0,qthread, reinterpret_cast<void *>(n)); // receives packets
 
-  pthread_create(&qtid,0,carbonDumpThread, 0); // runs even w/o carbon, might change @ runtime    
+  pthread_create(&qtid,0,carbonDumpThread, 0); // runs even w/o carbon, might change @ runtime
 
 #ifdef HAVE_SYSTEMD
   /* If we are here, notify systemd that we are ay-ok! This might have some
@@ -567,7 +567,7 @@ void mainthread()
    * is slow and times out (leading to process termination through the backend)
    * We probably have told systemd already that we have started correctly.
    */
-    sd_notify(0, "READY=1");
+  sd_notify(0, "READY=1");
 #endif
 
   for(;;) {
@@ -577,6 +577,6 @@ void mainthread()
     }
     catch(...){}
   }
-  
+
   L<<Logger::Error<<"Mainthread exiting - should never happen"<<endl;
 }
