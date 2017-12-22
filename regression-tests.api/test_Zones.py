@@ -322,6 +322,31 @@ class AuthZones(ApiTestCase, AuthZonesHelperMixin):
         dbrecs = get_db_records(name, 'SOA')
         self.assertEqual(dbrecs[0]['name'], name.rstrip('.'))
 
+    def test_create_zone_wrong_ttl(self):
+        name = unique_zone_name()
+        rrset = {
+            "name": 'record.'+name,
+            "type": "A",
+            "ttl": 2147483648,
+            "records": [{
+                "content": "192.0.2.2",
+                "disabled": False,
+            }],
+        }
+        payload = {
+            'name': name,
+            'kind': 'Native',
+            'nameservers': ['ns1.example.com.'],
+            'rrsets': [rrset],
+        }
+        print payload
+        r = self.session.post(
+            self.url("/api/v1/servers/localhost/zones"),
+            data=json.dumps(payload),
+            headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 422)
+        self.assertIn(' is not within range ', r.json()['error'])
+
     def test_create_zone_with_nameservers_non_string(self):
         # ensure we don't crash
         name = unique_zone_name()

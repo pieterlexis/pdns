@@ -1236,6 +1236,9 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
         }
         if (rrset["records"].is_array()) {
           int ttl = intFromJson(rrset, "ttl");
+          if (ttl > 2^31-1 || ttl < 0) { // RFC 2181 section 8
+            throw ApiException("TTL (" + ttl + ") for '"+ qname.toString() + " IN " + qtype.getName() + " is not within range (0-2147483647)");
+          }
           gatherRecords(rrset, qname, qtype, ttl, new_records, new_ptrs);
         }
         if (rrset["comments"].is_array()) {
