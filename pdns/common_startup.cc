@@ -489,6 +489,11 @@ void mainthread()
 
   stubParseResolveConf();
 
+  if (::arg().asNum("default-ttl") > 2^31-1) { // RFC 2181 section 8
+    L<<Logger::Error<<"default-ttl setting is not within range (1-2147483647)"<<endl;
+    exit(1);
+  }
+
   if(!::arg()["chroot"].empty()) {
 #ifdef HAVE_SYSTEMD
     char *ns;
