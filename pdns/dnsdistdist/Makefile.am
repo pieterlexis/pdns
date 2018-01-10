@@ -30,10 +30,9 @@ endif
 
 
 EXTRA_DIST=dnslabeltext.rl \
-	   dnsdistconf.lua \
+	   dnsdist.example.conf \
 	   dnsmessage.proto \
 	   README.md \
-	   delaypipe.cc delaypipe.hh \
 	   html \
 	   .version \
 	   contrib \
@@ -70,6 +69,7 @@ dnsdist_SOURCES = \
 	ascii.hh \
 	base64.hh \
 	bpf-filter.cc bpf-filter.hh \
+	delaypipe.cc delaypipe.hh \
 	dns.cc dns.hh \
 	dnscrypt.cc dnscrypt.hh \
 	dnsdist.cc dnsdist.hh \
@@ -179,10 +179,12 @@ testrunner_SOURCES = \
 	base64.hh \
 	dns.hh \
 	test-base64_cc.cc \
+	test-delaypipe_hh.cc \
 	test-dnsdist_cc.cc \
 	test-dnsdistpacketcache_cc.cc \
 	test-dnscrypt_cc.cc \
 	test-iputils_hh.cc \
+	delaypipe.cc delaypipe.hh \
 	dnsdist.hh \
 	dnsdist-cache.cc dnsdist-cache.hh \
 	dnsdist-ecs.cc dnsdist-ecs.hh \
