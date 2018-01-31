@@ -27,6 +27,7 @@
 #include <mutex>
 #include <thread>
 #include <dirent.h>
+#include "base64.hh"
 #include "ixfr.hh"
 #include "ixfrutils.hh"
 #include "resolver.hh"
@@ -75,6 +76,8 @@ bool g_exiting = false;
 uint16_t g_keep = KEEP_DEFAULT;
 
 NetmaskGroup g_acl;
+
+TSIGTriplet g_server_tsig, g_local_tsig;
 
 void handleSignal(int signum) {
   if (g_verbose) {
@@ -205,7 +208,7 @@ void updateThread() {
       shared_ptr<SOARecordContent> sr;
       try {
         lastCheck[domain] = now;
-        auto newSerial = getSerialFromMaster(g_master, domain, sr); // TODO TSIG
+        auto newSerial = getSerialFromMaster(g_master, domain, sr, g_server_tsig);
         if(g_soas.find(domain) != g_soas.end() && g_verbose) {
           cerr<<"[INFO] Got SOA Serial for "<<domain<<" from "<<g_master.toStringWithPort()<<": "<< newSerial<<", had Serial: "<<g_soas[domain]->d_st.serial;
           if (newSerial == g_soas[domain]->d_st.serial) {
@@ -216,6 +219,9 @@ void updateThread() {
           }
           cerr<<", will update."<<endl;
         }
+      } catch (PDNSException &e) {
+        cerr<<"[WARNING] Unable to get SOA serial update for '"<<domain<<"': "<<e.reason<<endl;
+        continue;
       } catch (runtime_error &e) {
         cerr<<"[WARNING] Unable to get SOA serial update for '"<<domain<<"': "<<e.what()<<endl;
         continue;
@@ -225,10 +231,9 @@ void updateThread() {
         cerr<<"[INFO] Attempting to receive full zonedata for '"<<domain<<"'"<<endl;
       }
       ComboAddress local = g_master.isIPv4() ? ComboAddress("0.0.0.0") : ComboAddress("::");
-      TSIGTriplet tt;
       shared_ptr<SOARecordContent> soa;
       try {
-        AXFRRetriever axfr(g_master, domain, tt, &local);
+        AXFRRetriever axfr(g_master, domain, g_server_tsig, &local);
         unsigned int nrecords=0;
         Resolver::res_t nop;
         vector<DNSRecord> chunk;
@@ -701,6 +706,7 @@ int main(int argc, char** argv) {
       ("listen-address", po::value< vector< string>>(), "IP Address(es) to listen on")
       ("acl", po::value<vector<string>>(), "IP Address masks that are allowed access, by default only loopback addresses are allowed")
       ("server-address", po::value<string>()->default_value("127.0.0.1:5300"), "server address")
+      ("server-tsig", po::value<string>(), "TSIG secret to use to retrieve zones. Comma-separated values in this order: name,algorithm,key")
       ("work-dir", po::value<string>()->default_value("."), "Directory for storing AXFR and IXFR data")
       ("keep", po::value<uint16_t>()->default_value(KEEP_DEFAULT), "Number of old zone versions to retain")
       ;
@@ -763,6 +769,28 @@ int main(int argc, char** argv) {
   } catch(PDNSException &e) {
     cerr<<"[ERROR] server-address '"<<g_vm["server-address"].as<string>()<<"' is not an IP address: "<<e.reason<<endl;
     had_error = true;
+  }
+
+  if (g_vm.count("server-tsig") > 0) {
+    string tsig = g_vm["server-tsig"].as<string>();
+    vector<string> tsigParts;
+    stringtok(tsigParts, tsig, ",");
+    if (tsigParts.size() == 3) {
+      try {
+        g_server_tsig.name = DNSName(toLower(tsigParts[0]));
+        g_server_tsig.algo = DNSName(toLower(tsigParts[1]));
+        if (B64Decode(tsigParts[2], g_server_tsig.secret) < 0) {
+          cerr<<"[ERROR] Could not decode server-tsig secret!"<<endl;
+          had_error = true;
+        }
+      } catch (PDNSException &e) {
+        cerr<<"[ERROR] Can not create TSIG triplet for server-tsig: "<<e.reason<<endl;
+        had_error = true;
+      }
+    } else {
+      cerr<<"[ERROR] --server-tsig is not in the right format (algorithm,name,key)"<<endl;
+      had_error = true;
+    }
   }
 
   if (!g_vm.count("domains")) {
