@@ -151,6 +151,35 @@ void cleanUpDomain(const DNSName& domain) {
   }
 }
 
+// Returns true when successfully parsed, false otherwise
+bool parseTSIGArg(const string &tsigArg, const string &tsigOpt) {
+  vector<string> tsigParts;
+  TSIGTriplet tt;
+  stringtok(tsigParts, tsigArg, ",");
+  if (tsigParts.size() == 3) {
+    try {
+      tt.name = DNSName(toLower(tsigParts[0]));
+      tt.algo = DNSName(toLower(tsigParts[1]));
+      if (B64Decode(tsigParts[2], tt.secret) < 0) {
+        cerr<<"[ERROR] Could not decode server-tsig secret!"<<endl;
+        return false;
+      }
+    } catch (PDNSException &e) {
+      cerr<<"[ERROR] Can not create TSIG triplet for server-tsig: "<<e.reason<<endl;
+      return false;
+    }
+  } else {
+    cerr<<"[ERROR] --server-tsig is not in the right format (algorithm,name,key)"<<endl;
+    return false;
+  }
+  if (tsigOpt == "server-tsig") {
+    g_server_tsig = tt;
+  } else if (tsigOpt == "tsig") {
+    g_local_tsig = tt;
+  }
+  return true;
+}
+
 void updateThread() {
   std::map<DNSName, time_t> lastCheck;
 
@@ -278,6 +307,34 @@ void updateThread() {
   } /* while (true) */
 } /* updateThread */
 
+bool checkQueryTSIG(const MOADNSParser& mdp, const string& originalPacket, const ComboAddress& saddr) {
+  if (!g_local_tsig.algo.empty()) { // We should have a TSIG
+    uint16_t tsigPos = mdp.getTSIGPos();
+    shared_ptr<TSIGRecordContent> content;
+    if (tsigPos) {
+      for(const auto &ans : mdp.d_answers) {
+        if(ans.first.d_type == QType::TSIG && ans.first.d_class == QType::ANY) {
+          content = getRR<TSIGRecordContent>(ans.first);
+          if (!content) {
+            cerr<<"[WARNING] TSIG record has no or invalid content (invalid packet)"<<endl;
+            return false;
+          }
+        }
+      }
+      try {
+        validateTSIG(originalPacket, tsigPos, g_local_tsig, *content, "", content->d_mac, false);
+      } catch (runtime_error &e) {
+        cerr<<"[WARNING] "<<e.what()<<endl;
+        return false;
+      }
+    } else {
+      cerr<<"[WARNING] No TSIG found in query from "<<saddr.toStringWithPort()<<endl;
+      return false;
+    }
+  }
+  return true;
+}
+
 bool checkQuery(const MOADNSParser& mdp, const ComboAddress& saddr, const bool udp = true) {
   vector<string> info_msg;
 
@@ -335,6 +392,20 @@ bool makeSOAPacket(const MOADNSParser& mdp, vector<uint8_t>& packet) {
   g_soas[mdp.d_qname]->toPacket(pw);
   pw.commit();
 
+  if(!g_local_tsig.algo.empty()) {
+    TSIGRecordContent trc;
+    trc.d_algoName = g_local_tsig.algo;
+    trc.d_time = time(nullptr);
+    trc.d_fudge = 300;
+    trc.d_origID=ntohs(pw.getHeader()->id);
+    trc.d_eRcode=0;
+    try {
+      addTSIG(pw, trc, g_local_tsig.name, g_local_tsig.secret, trc.d_mac, false);
+    } catch (PDNSException &e) {
+      cerr<<"[WARNING] Could not add TSIG to SOA packet: "<<e.reason<<endl;
+      return false;
+    }
+  }
   return true;
 }
 
@@ -543,6 +614,9 @@ void handleUDPRequest(int fd, boost::any&) {
   }
 
   MOADNSParser mdp(true, string(buf, res));
+  if (!checkQueryTSIG(mdp, string(buf, res), saddr)) {
+    return;
+  }
   if (!checkQuery(mdp, saddr)) {
     return;
   }
@@ -559,7 +633,9 @@ void handleUDPRequest(int fd, boost::any&) {
    * Just send the current SOA and let the client try over TCP
    */
   vector<uint8_t> packet;
-  makeSOAPacket(mdp, packet);
+  if (!makeSOAPacket(mdp, packet)) {
+    return;
+  }
   if(sendto(fd, &packet[0], packet.size(), 0, (struct sockaddr*) &saddr, fromlen) < 0) {
     auto savedErrno = errno;
     cerr<<"[WARNING] Could not send reply for "<<mdp.d_qname<<"|"<<QType(mdp.d_qtype).getName()<<" to "<<saddr.toStringWithPort()<<": "<<strerror(savedErrno)<<endl;
@@ -623,6 +699,11 @@ void handleTCPRequest(int fd, boost::any&) {
 
   try {
     MOADNSParser mdp(true, string(buf, res));
+
+    if (!checkQueryTSIG(mdp, string(buf, res), saddr)) {
+      close(cfd);
+      return;
+    }
 
     if (!checkQuery(mdp, saddr, false)) {
       close(cfd);
@@ -704,6 +785,7 @@ int main(int argc, char** argv) {
       ("verbose", "Be verbose")
       ("debug", "Be even more verbose")
       ("listen-address", po::value< vector< string>>(), "IP Address(es) to listen on")
+      ("tsig", po::value<string>(), "TSIG secret to allow queries to ixfrdist. Comma-separated values in this order: name,algorithm,key")
       ("acl", po::value<vector<string>>(), "IP Address masks that are allowed access, by default only loopback addresses are allowed")
       ("server-address", po::value<string>()->default_value("127.0.0.1:5300"), "server address")
       ("server-tsig", po::value<string>(), "TSIG secret to use to retrieve zones. Comma-separated values in this order: name,algorithm,key")
@@ -771,25 +853,9 @@ int main(int argc, char** argv) {
     had_error = true;
   }
 
-  if (g_vm.count("server-tsig") > 0) {
-    string tsig = g_vm["server-tsig"].as<string>();
-    vector<string> tsigParts;
-    stringtok(tsigParts, tsig, ",");
-    if (tsigParts.size() == 3) {
-      try {
-        g_server_tsig.name = DNSName(toLower(tsigParts[0]));
-        g_server_tsig.algo = DNSName(toLower(tsigParts[1]));
-        if (B64Decode(tsigParts[2], g_server_tsig.secret) < 0) {
-          cerr<<"[ERROR] Could not decode server-tsig secret!"<<endl;
-          had_error = true;
-        }
-      } catch (PDNSException &e) {
-        cerr<<"[ERROR] Can not create TSIG triplet for server-tsig: "<<e.reason<<endl;
-        had_error = true;
-      }
-    } else {
-      cerr<<"[ERROR] --server-tsig is not in the right format (algorithm,name,key)"<<endl;
-      had_error = true;
+  for (const auto &s : {"server-tsig", "tsig"}) {
+    if (g_vm.count(s) > 0) {
+      had_error = had_error || !parseTSIGArg(g_vm[s].as<string>(), s);
     }
   }
 
