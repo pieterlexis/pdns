@@ -8,17 +8,21 @@ then
 	DIR=$1/
 fi
 
+if [ -z "$2" ]; then
+  exit 1
+fi
+
 for a in $(find ${DIR}html -type f | grep -v \~ | sort)
 do
 	c=$(echo $a | sed s:${DIR}html/:: | tr "/.-" "___")
 	echo "INCBIN(${c}, \"$a\");"
-done
+done > $2
 
-echo "map<string,string> g_urlmap={"
+echo "map<string,string> g_urlmap={" >> $2
 for a in $(find ${DIR}html -type f | grep -v \~ | sort)
 do
 	b=$(echo $a | sed s:${DIR}html/::g)
 	c=$(echo $b | tr "/.-" "___")
 	echo "{\"$b\", string((const char*)g${c}Data, g${c}Size)},"
-done
-echo "};"
+done >> $2
+echo "};" >> $2
