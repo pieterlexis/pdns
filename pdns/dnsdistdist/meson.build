@@ -1,26 +1,14 @@
-project('dnsdist', 'cpp')
+project('dnsdist', 'cpp', default_options: ['cpp_std=c++11'], license: 'GPL2')
 conf_data = configuration_data()
-conf_data.set('VERSION', '"0.0.1"')
-conf_data.set('SYSCONFDIR', join_paths(get_option('prefix'), get_option('sysconfdir')))
+conf_data.set_quoted('VERSION', '0.0.1')
+conf_data.set_quoted('SYSCONFDIR', get_option('sysconfdir'))
 
-configure_file(output : 'config.h',
-               configuration : conf_data)
-
-# TODO detect BPS support (ext/libbpf)
 include_dirs = include_directories('ext/incbin', 'ext/json11', 'ext/luawrapper/include', 'ext/yahttp')
-
-if get_option('with-luajit')
-  luadep = dependency('luajit')
-else
-  luadep = dependency('lua')
-endif
 
 sources = ['ascii.hh',
   'base32.hh',
   'base64.hh',
   'bpf-filter.cc',
-  'delaypipe.cc',
-  #  'devpollmplexer.cc',
   'dns.cc',
   'dnscrypt.cc',
   'dnsdist-cache.cc',
@@ -54,7 +42,6 @@ sources = ['ascii.hh',
   'fstrm_logger.cc',
   'gettime.cc',
   'iputils.cc',
-  'kqueuemplexer.cc',
   'misc.cc',
   'pollmplexer.cc',
   'portsmplexer.cc',
@@ -68,32 +55,65 @@ sources = ['ascii.hh',
   'tcpiohandler.cc',
   'xpf.cc']
 
-openssldep = dependency('libcrypto')
+custom_target('htmlfiles.h',
+  command: ['@SOURCE_DIR@/incfiles', '@SOURCE_DIR@'],
+  build_always: true,
+  output: 'htmlfiles.h')
 
-if get_option('enable-protobuf') or get_option('enable-dnstap')
-  protobufdep = dependency('protobuf')
-  protoc = find_program('protoc')
-  protoc_gen = generator(protoc, \
-      output:     ['@BASENAME@.pb.cc', '@BASENAME@.pb.h'],
-      arguments : ['--proto_path=@SOURCE_DIR@', '--cpp_out=@BUILD_DIR@', '@INPUT@'])
+luadep = dependency('luajit', required: get_option('luajit'))
+luadep = dependency('lua', required: not get_option('luajit'))
+
+need_sodium = get_option('console-encryption') or get_option('dnscrypt')
+need_protobuf = get_option('protobuf') or get_option('dnstap')
+need_openssl = get_option('dns-over-tls') and required('openssl')
+need_gnutls = get_option('dns-over-tls') and required('gnutls')
+
+boostdep = dependency('boost', version: '>=1.42')
+re2dep = dependency('re2', required: get_option('re2'))
+openssldep = dependency('openssl', required: need_openssl)
+gnutlsdep = dependency('gnutls', required: need_gnutls)
+sodiumdep = dependency('libsodium', required: need_sodium)
+dnstapdep = dependency('fstrm', required: get_option('dnstap'))
+systemddep = dependency('systemd', required: get_option('systemd'))
+protobufdep = dependency('protobuf', required: need_protobuf)
+protoc = find_program('protoc', required: need_protobuf)
+
+compiler = meson.get_compiler('cpp')
+
+if get_option('ebpf')
+  if not compiler.has_header('linux/bpf.h')
+    error('linux/bpf.h not found, can not enable eBPF support!')
+  endif
+  include_dirs += 'ext/libbpf'
 endif
 
-protobuf_files = []
-if get_option('enable-protobuf')
+protoc_gen = generator(protoc,
+    output:     ['@BASENAME@.pb.cc', '@BASENAME@.pb.h'],
+    arguments : ['--proto_path=@SOURCE_DIR@', '--cpp_out=@BUILD_DIR@', '@INPUT@'])
+
+if get_option('protobuf') and protobufdep.found() and protoc.found()
+  conf_data.set('HAVE_PROTOBUF', 1)
   sources += protoc_gen.process('dnsmessage.proto')
 endif
 
-dnstapdep = dependency('fstrm', required: false)
-
-if get_option('enable-dnstap')
-  if not dnstapdep.found()
-
+if get_option('dnstap') and dnstapdep.found() and protobufdep.found() and protoc.found()
+  conf_data.set('HAVE_FSTRM', 1)
   sources += protoc_gen.process('dnstap.proto')
-  dependencies += dnstapdep
 endif
+
+configure_file(output : 'config.h',
+               configuration : conf_data)
 
 executable('dnsdist',
   sources,
+  include_directories: include_dirs,
   dependencies: [dnstapdep,
                  openssldep,
-                 protobufdep])
+                 re2dep,
+                 boostdep,
+                 protobufdep,
+                 sodiumdep,
+                 luadep,
+                 gnutlsdep,
+                 systemddep
+                 ])
