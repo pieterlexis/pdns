@@ -1,0 +1,6 @@
+option('enable-console-encryption', type: 'boolean', value: false)
+option('enable-dns-over-tls', type: 'boolean', value: false)
+option('enable-dnscrypt', type: 'boolean', value: false)
+option('enable-luajit', type: 'boolean', value: false)
+option('enable-protobuf', type: 'boolean', value: false)
+option('enable-dnstap', type: 'boolean', value: false)
