@@ -104,6 +104,7 @@ void BindParser::commit(BindDomainInfo DI)
 
 %token AWORD QUOTEDWORD OBRACE EBRACE SEMICOLON ZONETOK FILETOK OPTIONSTOK
 %token DIRECTORYTOK ACLTOK LOGGINGTOK CLASSTOK TYPETOK MASTERTOK ALSONOTIFYTOK
+%token PORTTOK ANUMBER
 
 %%
 
@@ -197,13 +198,22 @@ also_notify: AWORD
 		parent->addAlsoNotify($1);
 		free($1);
 	}
+	|
+	AWORD PORTTOK ANUMBER
+	{
+		string s = string($1) + ":" + string($3);
+		parent->addAlsoNotify(s);
+		free($1);
+		free($3);
+	}
 	;
+
 terms: /* empty */
 	|
 	terms term
 	;
 
-term: AWORD | block | quotedname
+term: AWORD | block | quotedname | PORTTOK | ANUMBER
 	;
 block: 
 	OBRACE commands EBRACE 
@@ -255,6 +265,14 @@ master: AWORD
 	{
 		s_di.masters.push_back($1);
 		free($1);
+	}
+	|
+	AWORD PORTTOK ANUMBER
+	{
+		string s = string($1) + ":" + string($3);
+		s_di.masters.push_back(s);
+		free($1);
+		free($3);
 	}
 	;
 
