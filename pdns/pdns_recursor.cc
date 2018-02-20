@@ -910,6 +910,9 @@ static void startDoResolve(void *p)
 
       sr.setWantsRPZ(wantsRPZ);
       if(wantsRPZ) {
+        if ((traced_query || ! g_quiet) && appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) {
+          L<<Logger::Warning<<dc->d_mdp.d_qname<<": Query hit an RPZ "<<appliedPolicy.getKindType()<<" policy '"<<appliedPolicy.getKindToString()<<" '"<<appliedPolicy.getName()<<"'"<<endl;
+        }
         switch(appliedPolicy.d_kind) {
           case DNSFilterEngine::PolicyKind::NoAction:
             break;
@@ -969,15 +972,24 @@ static void startDoResolve(void *p)
             g_stats.policyDrops++;
             delete dc;
             dc=0;
+            if (traced_query || ! g_quiet) {
+              L<<Logger::Warning<<dc->d_mdp.d_qname<<": Query hit an RPZ NSDNAME or NSIP policy '"<<appliedPolicy.getKindToString()<<"' '"<<appliedPolicy.getName()<<"'"<<endl;
+            }
             return;
           case DNSFilterEngine::PolicyKind::NXDOMAIN:
             ret.clear();
             res=RCode::NXDomain;
+            if (traced_query || ! g_quiet) {
+              L<<Logger::Warning<<dc->d_mdp.d_qname<<": Query hit an RPZ NSDNAME or NSIP policy '"<<appliedPolicy.getKindToString()<<"' '"<<appliedPolicy.getName()<<"'"<<endl;
+            }
             goto haveAnswer;
 
           case DNSFilterEngine::PolicyKind::NODATA:
             ret.clear();
             res=RCode::NoError;
+            if (traced_query || ! g_quiet) {
+              L<<Logger::Warning<<dc->d_mdp.d_qname<<": Query hit an RPZ NSDNAME or NSIP policy '"<<appliedPolicy.getKindToString()<<"' '"<<appliedPolicy.getName()<<"'"<<endl;
+            }
             goto haveAnswer;
 
           case DNSFilterEngine::PolicyKind::Truncate:
@@ -985,7 +997,10 @@ static void startDoResolve(void *p)
               ret.clear();
               res=RCode::NoError;
               pw.getHeader()->tc=1;
-              goto haveAnswer;
+            if (traced_query || ! g_quiet) {
+              L<<Logger::Warning<<dc->d_mdp.d_qname<<": Query hit an RPZ NSDNAME or NSIP policy '"<<appliedPolicy.getKindToString()<<"' '"<<appliedPolicy.getName()<<"'"<<endl;
+            }
+            goto haveAnswer;
             }
             break;
 
@@ -995,6 +1010,9 @@ static void startDoResolve(void *p)
             spoofed=appliedPolicy.getCustomRecord(dc->d_mdp.d_qname);
             ret.push_back(spoofed);
             handleRPZCustom(spoofed, QType(dc->d_mdp.d_qtype), sr, res, ret);
+            if (traced_query || ! g_quiet) {
+              L<<Logger::Warning<<dc->d_mdp.d_qname<<": Query hit an RPZ NSDNAME or NSIP policy '"<<appliedPolicy.getKindToString()<<"' '"<<appliedPolicy.getName()<<"'"<<endl;
+            }
             goto haveAnswer;
         }
       }

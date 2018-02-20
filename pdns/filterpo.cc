@@ -312,6 +312,24 @@ std::string DNSFilterEngine::Policy::getKindToString() const
   }
 }
 
+std::string DNSFilterEngine::Policy::getTypeToString() const
+{
+  switch (d_type) {
+    case PolicyType::None:
+      return "None";
+    case PolicyType::QName:
+      return "QName";
+    case PolicyType::ClientIP:
+      return "ClientIP";
+    case PolicyType::ResponseIP:
+      return "ResponseIP";
+    case PolicyType::NSDName:
+      return "NSDName";
+    case PolicyType::NSIP:
+      return "NSIP";
+  }
+}
+
 DNSRecord DNSFilterEngine::Policy::getRecord(const DNSName& qname) const
 {
   DNSRecord dr;

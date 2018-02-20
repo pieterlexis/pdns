@@ -78,6 +78,7 @@ public:
       return d_kind == rhs.d_kind; // XXX check d_custom too!
     }
     std::string getKindToString() const;
+    std::string getTypeToString() const;
     DNSRecord getCustomRecord(const DNSName& qname) const;
     DNSRecord getRecord(const DNSName& qname) const;
 
