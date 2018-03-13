@@ -2105,6 +2105,11 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
       isAA = false;
     }
 
+    // TODO move this into the if statement above
+    if(!isAA && isDNAMEAnswer && i->first.place == DNSResourceRecord::ANSWER && i->first.type == QType::DNAME && qname.isPartOf(i->first.name)) {
+      isAA = true;
+    }
+
     vState recordState = getValidationStatus(i->first.name, false);
     LOG(d_prefix<<": got initial zone status "<<vStates[recordState]<<" for record "<<i->first.name<<endl);
 
