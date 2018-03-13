@@ -579,6 +579,11 @@ int SyncRes::doResolve(const DNSName &qname, const QType &qtype, vector<DNSRecor
       }
     }
 
+    if(!d_skipCNAMECheck && doDNAMECacheCheck(qname, qtype, ret, depth, res, state, wasAuthZone)) { // will reroute us if needed
+      d_wasOutOfBand = wasAuthZone;
+      return res;
+    }
+
     if(!d_skipCNAMECheck && doCNAMECacheCheck(qname, qtype, ret, depth, res, state, wasAuthZone)) { // will reroute us if needed
       d_wasOutOfBand = wasAuthZone;
       return res;
@@ -878,6 +883,129 @@ DNSName SyncRes::getBestNSNamesFromCache(const DNSName &qname, const QType& qtyp
     }
   }
   return subdomain;
+}
+
+bool SyncRes::doDNAMECacheCheck(const DNSName &qname, const QType &qtype, vector<DNSRecord>& ret, unsigned int depth, int &res, vState& state, bool wasAuthZone)
+{
+  string prefix;
+  if(doLog()) {
+    prefix=d_prefix;
+    prefix.append(depth, ' ');
+  }
+
+  if((depth>9 && d_outqueries>10 && d_throttledqueries>5) || depth > 15) {
+    LOG(prefix<<qname<<": recursing (CNAME or other indirection) too deep, depth="<<depth<<endl);
+    res=RCode::ServFail;
+    return true;
+  }
+
+  vector<DNSRecord> dset;
+  vector<std::shared_ptr<RRSIGRecordContent>> dsignatures;
+  vector<std::shared_ptr<DNSRecord>> dauthorityRecs;
+  bool wasAuth;
+
+  auto labels = qname.getRawLabels();
+  DNSName dnameName(g_rootdnsname);
+
+  while(!labels.empty()) {
+    LOG(prefix<<qname<<": Looking for DNAME cache hit of '"<<dnameName<<"|DNAME"<<"'"<<endl);
+    if(t_RC->get(d_now.tv_sec, dnameName, QType(QType::DNAME), d_requireAuthData, &dset, d_cacheRemote, d_doDNSSEC ? &dsignatures : nullptr, d_doDNSSEC ? &dauthorityRecs : nullptr, &d_wasVariable, &state, &wasAuth) > 0) {
+      break;
+    }
+    dnameName.prependRawLabel(labels.back());
+    labels.pop_back();
+  }
+
+  if (dset.empty()) { // no cache hit
+    LOG(prefix<<qname<<": No DNAME cache hit found"<<endl);
+    return false;
+  }
+
+  for(const auto& record : dset) {
+    if (record.d_class != QClass::IN) {
+      continue;
+    }
+
+    if(record.d_ttl>(unsigned int) d_now.tv_sec) {
+
+      if (!wasAuthZone && shouldValidate() && wasAuth && state == Indeterminate && d_requireAuthData) {
+        /* This means we couldn't figure out the state when this entry was cached,
+           most likely because we hadn't computed the zone cuts yet. */
+        /* make sure they are computed before validating */
+        DNSName subdomain(dnameName);
+        /* if we are retrieving a DS, we only care about the state of the parent zone */
+        if(qtype == QType::DS)
+          subdomain.chopOff();
+
+        computeZoneCuts(subdomain, g_rootdnsname, depth);
+
+        vState recordState = getValidationStatus(dnameName, false);
+        if (recordState == Secure) {
+          LOG(prefix<<qname<<": got Indeterminate state from the CNAME cache, validating.."<<endl);
+          state = SyncRes::validateRecordsWithSigs(depth, dnameName, QType(QType::DNAME), dnameName, dset, dsignatures);
+          if (state != Indeterminate) {
+            LOG(prefix<<qname<<": got Indeterminate state from the CNAME cache, new validation result is "<<vStates[state]<<endl);
+            t_RC->updateValidationStatus(d_now.tv_sec, dnameName, QType(QType::DNAME), d_cacheRemote, d_requireAuthData, state);
+          }
+        }
+      }
+
+      LOG(prefix<<qname<<": Found cache DNAME hit for '"<< dnameName << "|DNAME" <<"' to '"<<record.d_content->getZoneRepresentation()<<"', validation state is "<<vStates[state]<<endl);
+
+      DNSRecord dr = record;
+      dr.d_ttl -= d_now.tv_sec;
+      ret.push_back(dr);
+
+      for(const auto& signature : dsignatures) {
+        DNSRecord sigdr;
+        sigdr.d_type = QType::RRSIG;
+        sigdr.d_name = dnameName;
+        sigdr.d_ttl = record.d_ttl - d_now.tv_sec;
+        sigdr.d_content = signature;
+        sigdr.d_place = DNSResourceRecord::ANSWER;
+        sigdr.d_class = QClass::IN;
+        ret.push_back(sigdr);
+      }
+
+      for(const auto& rec : dauthorityRecs) {
+        DNSRecord authDR(*rec);
+        authDR.d_ttl = record.d_ttl - d_now.tv_sec;
+        ret.push_back(authDR);
+      }
+
+      if (qtype == QType::DNAME && qname == dnameName) {
+        res = 0;
+        return true;
+      }
+
+      // Synthesize a CNAME
+      auto dnameSuffix = getRR<DNAMERecordContent>(record)->d_content;
+      DNSName newTarget;
+      DNSName targetPrefix = qname.makeRelative(dnameName);
+      dr.d_type = QType::CNAME;
+      dr.d_name = targetPrefix + dnameName;
+      newTarget = targetPrefix + dnameSuffix;
+      dr.d_content = std::make_shared<CNAMERecordContent>(CNAMERecordContent(newTarget));
+      ret.push_back(dr);
+
+      LOG(prefix<<qname<<": Synthesized "<<qname<<"|CNAME "<<newTarget<<endl);
+
+      if (qtype == QType::CNAME) {
+        res = 0;
+        return true;
+      }
+
+      // No answer, recurse!
+      set<GetBestNSAnswer>beenthere;
+
+      vState cnameState = Indeterminate;
+      res = doResolve(newTarget, qtype, ret, depth+1, beenthere, cnameState);
+      LOG(prefix<<qname<<": updating validation state for response to "<<qname<<" from "<<vStates[state]<<" with the state from the DNAME+CNAME quest: "<<vStates[cnameState]<<endl);
+      updateValidationState(state, cnameState);
+      return true;
+    }
+  }
+  return false;
 }
 
 bool SyncRes::doCNAMECacheCheck(const DNSName &qname, const QType &qtype, vector<DNSRecord>& ret, unsigned int depth, int &res, vState& state, bool wasAuthZone)
