@@ -10226,6 +10226,388 @@ BOOST_AUTO_TEST_CASE(test_getDSRecords_multialgo_prefer_gost_over_sha1) {
 }
 #endif // HAVE_BOTAN110
 
+BOOST_AUTO_TEST_CASE(test_DNAME_A_query_target_unsigned) {
+  std::unique_ptr<SyncRes> sr;
+  initSR(sr, true);
+
+  setDNSSECValidation(sr, DNSSECMode::ValidateAll);
+
+  primeHints();
+  const DNSName source("example.");
+  const DNSName target("unsigned.");
+  const DNSName qname("host.example.");
+  testkeysset_t keys, keys2;
+
+  auto luaconfsCopy = g_luaconfs.getCopy();
+  luaconfsCopy.dsAnchors.clear();
+  generateKeyMaterial(g_rootdnsname, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys, luaconfsCopy.dsAnchors);
+  generateKeyMaterial(source, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  g_luaconfs.setState(luaconfsCopy);
+
+  sr->setAsyncCallback([source, target, qname, keys](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult* res) {
+      DNSName auth = domain;
+      auth.chopOff();
+
+      if (type == QType::DS || type == QType::DNSKEY) {
+        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
+      }
+
+      if (isRootServer(ip)) {
+        setLWResult(res, 0, false, false, true);
+        if (domain.isPartOf(DNSName("example."))) {
+          addRecordToLW(res, "example.", QType::NS, "ns1.example.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("example."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.example.", QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(DNSName("unsigned."))) {
+          addRecordToLW(res, "unsigned.", QType::NS, "ns1.unsigned.", DNSResourceRecord::AUTHORITY, 3600);
+          addRecordToLW(res, "ns1.unsigned.", QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.1:53") && domain.isPartOf(DNSName("example."))) {
+        setLWResult(res, 0, true, false, true);
+        if (domain == qname) {
+          addRecordToLW(res, "example.", QType::DNAME, "unsigned.", DNSResourceRecord::ANSWER, 3600);
+          addRRSIG(keys, res->d_records, auth, 300);
+          addRecordToLW(res, qname.toString(), QType::CNAME, "host.unsigned.", DNSResourceRecord::ANSWER, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.2:53") && domain.isPartOf(DNSName("unsigned."))) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, "host.unsigned.", QType::A, "192.0.2.3", DNSResourceRecord::ANSWER, 3600);
+        return 1;
+      }
+      return 0;
+    });
+
+  vector<DNSRecord> ret;
+  int res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 4); // Answer, CNAME, DNAME, RRSIG DNAME
+}
+
+BOOST_AUTO_TEST_CASE(test_DNAME_A_query_target_signed) {
+  std::unique_ptr<SyncRes> sr;
+  initSR(sr, true);
+
+  setDNSSECValidation(sr, DNSSECMode::ValidateAll);
+
+  primeHints();
+  const DNSName source("example.");
+  const DNSName target("signed.");
+  const DNSName qname("host.example.");
+  testkeysset_t keys;
+
+  auto luaconfsCopy = g_luaconfs.getCopy();
+  luaconfsCopy.dsAnchors.clear();
+  generateKeyMaterial(g_rootdnsname, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys, luaconfsCopy.dsAnchors);
+  generateKeyMaterial(source, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(target, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  g_luaconfs.setState(luaconfsCopy);
+
+  size_t queriesCount = 0;
+
+  sr->setAsyncCallback([source, target, qname, keys, &queriesCount](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult* res) {
+      queriesCount++;
+      DNSName auth = domain;
+      auth.chopOff();
+
+      if (type == QType::DS || type == QType::DNSKEY) {
+        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
+      }
+
+      if (isRootServer(ip)) {
+        setLWResult(res, 0, false, false, true);
+        if (domain.isPartOf(DNSName("example."))) {
+          addRecordToLW(res, "example.", QType::NS, "ns1.example.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("example."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.example.", QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(DNSName(target))) {
+          addRecordToLW(res, "signed.", QType::NS, "ns1.signed.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("signed."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.signed.", QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.1:53") && domain.isPartOf(source)) {
+        setLWResult(res, 0, true, false, true);
+        if (domain == qname) {
+          addRecordToLW(res, "example.", QType::DNAME, "signed.", DNSResourceRecord::ANSWER, 3600);
+          addRRSIG(keys, res->d_records, auth, 300);
+          addRecordToLW(res, qname.toString(), QType::CNAME, "host.signed.", DNSResourceRecord::ANSWER, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.2:53") && domain.isPartOf(target)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, "host.signed.", QType::A, "192.0.2.3", DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        return 1;
+      }
+      return 0;
+    });
+
+  vector<DNSRecord> ret;
+  int res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 5); // A, CNAME, DNAME, RRSIG DNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 10);
+}
+
+BOOST_AUTO_TEST_CASE(test_DNAME_A_query_cached) {
+  std::unique_ptr<SyncRes> sr;
+  initSR(sr, true);
+
+  setDNSSECValidation(sr, DNSSECMode::ValidateAll);
+
+  primeHints();
+  const DNSName source("example.");
+  const DNSName target("signed.");
+  const DNSName qname("host.example.");
+  testkeysset_t keys;
+  size_t queriesCount = 0;
+
+  auto luaconfsCopy = g_luaconfs.getCopy();
+  luaconfsCopy.dsAnchors.clear();
+  generateKeyMaterial(g_rootdnsname, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys, luaconfsCopy.dsAnchors);
+  generateKeyMaterial(source, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(target, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  g_luaconfs.setState(luaconfsCopy);
+
+  sr->setAsyncCallback([source, target, qname, keys, &queriesCount](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult* res) {
+      queriesCount++;
+      DNSName auth = domain;
+      auth.chopOff();
+
+      if (type == QType::DS || type == QType::DNSKEY) {
+        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
+      }
+
+      if (isRootServer(ip)) {
+        setLWResult(res, 0, false, false, true);
+        if (domain.isPartOf(DNSName("example."))) {
+          addRecordToLW(res, "example.", QType::NS, "ns1.example.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("example."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.example.", QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(DNSName(target))) {
+          addRecordToLW(res, "signed.", QType::NS, "ns1.signed.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("signed."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.signed.", QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.1:53") && domain.isPartOf(source)) {
+        setLWResult(res, 0, true, false, true);
+        if (domain == qname) {
+          addRecordToLW(res, "example.", QType::DNAME, "signed.", DNSResourceRecord::ANSWER, 3600);
+          addRRSIG(keys, res->d_records, auth, 300);
+          addRecordToLW(res, qname.toString(), QType::CNAME, "host.signed.", DNSResourceRecord::ANSWER, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.2:53") && domain.isPartOf(target)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, "host.signed.", QType::A, "192.0.2.3", DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        return 1;
+      }
+      return 0;
+    });
+
+  vector<DNSRecord> ret;
+  int res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 5); // A, CNAME, DNAME, RRSIG DNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 10);
+
+  ret.clear();
+  // Should come from the cache, CNAME will be synthesized, no further queries
+  res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 5); // A, CNAME, DNAME, RRSIG DNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 10);
+}
+
+BOOST_AUTO_TEST_CASE(test_DNAME_A_query_cached_synthesis) {
+  std::unique_ptr<SyncRes> sr;
+  initSR(sr, true);
+
+  setDNSSECValidation(sr, DNSSECMode::ValidateAll);
+
+  primeHints();
+  const DNSName source("example.");
+  const DNSName target("signed.");
+  const DNSName qname("host.example.");
+  testkeysset_t keys;
+  size_t queriesCount = 0;
+
+  auto luaconfsCopy = g_luaconfs.getCopy();
+  luaconfsCopy.dsAnchors.clear();
+  generateKeyMaterial(g_rootdnsname, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys, luaconfsCopy.dsAnchors);
+  generateKeyMaterial(source, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(target, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  g_luaconfs.setState(luaconfsCopy);
+
+  sr->setAsyncCallback([source, target, qname, keys, &queriesCount](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult* res) {
+      queriesCount++;
+      DNSName auth = domain;
+      auth.chopOff();
+
+      if (type == QType::DS || type == QType::DNSKEY) {
+        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
+      }
+
+      if (isRootServer(ip)) {
+        setLWResult(res, 0, false, false, true);
+        if (domain.isPartOf(DNSName("example."))) {
+          addRecordToLW(res, "example.", QType::NS, "ns1.example.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("example."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.example.", QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(DNSName(target))) {
+          addRecordToLW(res, "signed.", QType::NS, "ns1.signed.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("signed."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.signed.", QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.1:53") && domain.isPartOf(source)) {
+        setLWResult(res, 0, true, false, true);
+        if (domain == qname) {
+          addRecordToLW(res, "example.", QType::DNAME, "signed.", DNSResourceRecord::ANSWER, 3600);
+          addRRSIG(keys, res->d_records, auth, 300);
+          addRecordToLW(res, qname.toString(), QType::CNAME, "host.signed.", DNSResourceRecord::ANSWER, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.2:53") && domain.isPartOf(target)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, domain, QType::A, "192.0.2.3", DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        return 1;
+      }
+      return 0;
+    });
+
+  vector<DNSRecord> ret;
+  int res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 5); // A, CNAME, DNAME, RRSIG DNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 10);
+
+  ret.clear();
+  // The CNAME will be synthesized from the cached DNAME, and will be queried for
+  res = sr->beginResolve(DNSName("host2.example."), QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 5); // A, CNAME, DNAME, RRSIG DNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 12);
+}
+
+BOOST_AUTO_TEST_CASE(test_DNAME_A_query_target_NXDOMAIN) {
+  std::unique_ptr<SyncRes> sr;
+  initSR(sr, true);
+
+  setDNSSECValidation(sr, DNSSECMode::ValidateAll);
+
+  primeHints();
+  const DNSName source("example.");
+  const DNSName target("signed.");
+  const DNSName qname("host.example.");
+  testkeysset_t keys;
+  size_t queriesCount = 0;
+
+  auto luaconfsCopy = g_luaconfs.getCopy();
+  luaconfsCopy.dsAnchors.clear();
+  generateKeyMaterial(g_rootdnsname, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys, luaconfsCopy.dsAnchors);
+  generateKeyMaterial(source, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(target, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  g_luaconfs.setState(luaconfsCopy);
+
+  sr->setAsyncCallback([source, target, qname, keys, &queriesCount](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult* res) {
+      queriesCount++;
+      DNSName auth = domain;
+      auth.chopOff();
+
+      if (type == QType::DS || type == QType::DNSKEY) {
+        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
+      }
+
+      if (isRootServer(ip)) {
+        setLWResult(res, 0, false, false, true);
+        if (domain.isPartOf(DNSName("example."))) {
+          addRecordToLW(res, "example.", QType::NS, "ns1.example.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("example."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.example.", QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(DNSName(target))) {
+          addRecordToLW(res, "signed.", QType::NS, "ns1.signed.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("signed."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.signed.", QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.1:53") && domain.isPartOf(source)) {
+        setLWResult(res, 0, true, false, true);
+        if (domain == qname) {
+          addRecordToLW(res, "example.", QType::DNAME, "signed.", DNSResourceRecord::ANSWER, 3600);
+          addRRSIG(keys, res->d_records, auth, 300);
+          addRecordToLW(res, qname.toString(), QType::CNAME, "host.signed.", DNSResourceRecord::ANSWER, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.2:53") && domain.isPartOf(target)) {
+        setLWResult(res, RCode::NXDomain, true, false, true);
+        addRecordToLW(res, "signed.", QType::SOA, "ns1.signed. e.mail. 2017032800 1800 900 604800 86400", DNSResourceRecord::AUTHORITY, 86400);
+        addNSECRecordToLW(DNSName("hoss.signed."), DNSName("hosu.signed."), { QType::A }, 600, res->d_records);
+        addRRSIG(keys, res->d_records, auth, 300);
+        addRecordToLW(res, domain, QType::RRSIG, "SOA 5 3 600 2100010100000000 2100010100000000 24567 dummy data", DNSResourceRecord::AUTHORITY);
+        return 1;
+      }
+      return 0;
+    });
+
+  vector<DNSRecord> ret;
+  int res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  for (auto const r : ret) {
+    cerr<<"name: "<<r.d_name<<" type:"<<QType(r.d_type).getName()<<endl;
+  }
+  BOOST_CHECK_EQUAL(res, RCode::NXDomain);
+  BOOST_CHECK_EQUAL(ret.size(), 7); // DNAME, RRSIG DNAME, CNAME, SOA, NSEC, RRSIG SOA, RRSIG NSEC
+  BOOST_CHECK_EQUAL(queriesCount, 11);
+
+  ret.clear();
+  // And the cache
+  res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  for (auto const r : ret) {
+    cerr<<"name: "<<r.d_name<<" type:"<<QType(r.d_type).getName()<<endl;
+  }
+  BOOST_CHECK_EQUAL(res, RCode::NXDomain);
+  BOOST_CHECK_EQUAL(ret.size(), 7); // DNAME, RRSIG DNAME, CNAME, SOA, NSEC, RRSIG SOA, RRSIG NSEC
+  BOOST_CHECK_EQUAL(queriesCount, 11);
+}
 /*
 // cerr<<"asyncresolve called to ask "<<ip.toStringWithPort()<<" about "<<domain.toString()<<" / "<<QType(type).getName()<<" over "<<(doTCP ? "TCP" : "UDP")<<" (rd: "<<sendRDQuery<<", EDNS0 level: "<<EDNS0Level<<")"<<endl;
 
