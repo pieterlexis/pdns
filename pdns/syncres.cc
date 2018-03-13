@@ -2194,6 +2194,7 @@ dState SyncRes::getDenialValidationState(NegCache::NegCacheEntry& ne, const vSta
 bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, const QType& qtype, const DNSName& auth, LWResult& lwr, const bool sendRDQuery, vector<DNSRecord>& ret, set<DNSName>& nsset, DNSName& newtarget, DNSName& newauth, bool& realreferral, bool& negindic, vState& state, const bool needWildcardProof, const unsigned int wildcardLabelsCount)
 {
   bool done = false;
+  DNSName dnameTarget, dnameOwner;
 
   for(auto& rec : lwr.d_records) {
     if (rec.d_type!=QType::OPT && rec.d_class!=QClass::IN)
@@ -2240,6 +2241,13 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
       }
 
       negindic=true;
+    }
+    else if(rec.d_place==DNSResourceRecord::ANSWER && rec.d_type==QType::DNAME && qtype != QType(QType::DNAME) && qname.isPartOf(rec.d_name)) {
+      ret.push_back(rec);
+      if (auto content = getRR<DNAMERecordContent>(rec)) {
+        dnameOwner = rec.d_name;
+        dnameTarget = content->d_content;
+      }
     }
     else if(rec.d_place==DNSResourceRecord::ANSWER && rec.d_type==QType::CNAME && (!(qtype==QType(QType::CNAME))) && rec.d_name == qname) {
       ret.push_back(rec);
@@ -2380,6 +2388,15 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
         }
         negindic=true;
       }
+    }
+  }
+
+  if (!dnameTarget.empty() && !newtarget.empty()) {
+    DNSName substTarget = qname.makeRelative(dnameOwner) + dnameTarget;
+    if (substTarget != newtarget) {
+      throw ImmediateServFailException("Received wrong DNAME substitution. qname='" + qname.toLogString() +
+          "', DNAME owner='" + dnameOwner.toLogString() + "', DNAME target='" + dnameTarget.toLogString() +
+          "', received CNAME='" + newtarget.toLogString() + "', substituted CNAME='" + substTarget.toLogString() + "'");
     }
   }
 
