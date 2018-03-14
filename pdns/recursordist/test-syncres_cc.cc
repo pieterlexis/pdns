@@ -10675,9 +10675,6 @@ BOOST_AUTO_TEST_CASE(test_DNAME_A_query_bad_cname) {
 
   res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
 
-  for (const auto& r : ret) {
-    cerr<<"name: "<<r.d_name<<" type: "<<QType(r.d_type).getName()<<endl;
-  }
   BOOST_CHECK_EQUAL(res, RCode::NoError);
   BOOST_CHECK_EQUAL(ret.size(), 5); // A, CNAME, DNAME, RRSIG DNAME, RRSIG A
   BOOST_CHECK_EQUAL(queriesCount, 10);
@@ -10686,14 +10683,338 @@ BOOST_AUTO_TEST_CASE(test_DNAME_A_query_bad_cname) {
   // And the cache, now we have the DNAME in cache, so the CNAME is correct
   res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
 
-  for (const auto& r : ret) {
-    cerr<<"name: "<<r.d_name<<" type: "<<QType(r.d_type).getName()<<endl;
-  }
   BOOST_CHECK_EQUAL(res, RCode::NoError);
   BOOST_CHECK_EQUAL(ret.size(), 5); // A, CNAME, DNAME, RRSIG DNAME, RRSIG A
   BOOST_CHECK_EQUAL(queriesCount, 10);
 }
 
+BOOST_AUTO_TEST_CASE(test_DNAME_chain) {
+  std::unique_ptr<SyncRes> sr;
+  initSR(sr, true);
+
+  setDNSSECValidation(sr, DNSSECMode::ValidateAll);
+
+  primeHints();
+  const DNSName source("example.");
+  const DNSName chain1("chain1.");
+  const DNSName chain2("chain2.");
+  const DNSName target("target.");
+  const DNSName qname("host.example.");
+  testkeysset_t keys;
+
+  auto luaconfsCopy = g_luaconfs.getCopy();
+  luaconfsCopy.dsAnchors.clear();
+  generateKeyMaterial(g_rootdnsname, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys, luaconfsCopy.dsAnchors);
+  generateKeyMaterial(source, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(target, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(chain1, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(chain2, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  g_luaconfs.setState(luaconfsCopy);
+
+  size_t queriesCount = 0;
+
+  sr->setAsyncCallback([source, target, chain1, chain2, qname, keys, &queriesCount](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult* res) {
+      queriesCount++;
+      DNSName auth = domain;
+      auth.chopOff();
+
+      if (type == QType::DS || type == QType::DNSKEY) {
+        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
+      }
+
+      if (isRootServer(ip)) {
+        setLWResult(res, 0, false, false, true);
+        if (domain.isPartOf(source)) {
+          addRecordToLW(res, source.toString(), QType::NS, "ns1." + source.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(source, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + source.toString(), QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(chain1)) {
+          addRecordToLW(res, chain1.toString(), QType::NS, "ns1." + chain1.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(chain1, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + chain1.toString(), QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(chain2)) {
+          addRecordToLW(res, chain2.toString(), QType::NS, "ns1." + chain2.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(chain2, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + chain2.toString(), QType::A, "192.0.2.3", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(target)) {
+          addRecordToLW(res, target.toString(), QType::NS, "ns1." + target.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(target, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + target.toString(), QType::A, "192.0.2.4", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.1:53") && domain.isPartOf(source)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, source.toString(), QType::DNAME, chain1.toString(), DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        addRecordToLW(res, "host." + source.toString() , QType::CNAME, "host." + chain1.toString(), DNSResourceRecord::ANSWER, 3600);
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.2:53") && domain.isPartOf(chain1)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, chain1.toString(), QType::DNAME, chain2.toString(), DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        addRecordToLW(res, "host." + chain1.toString(), QType::CNAME, "host." + chain2.toString(), DNSResourceRecord::ANSWER, 3600);
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.3:53") && domain.isPartOf(chain2)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, chain2.toString(), QType::DNAME, target.toString(), DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        addRecordToLW(res, "host." + chain2.toString(), QType::CNAME, "host." + target.toString(), DNSResourceRecord::ANSWER, 3600);
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.4:53") && domain.isPartOf(target)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, "host." + target.toString(), QType::A, "192.0.2.10", DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        return 1;
+      }
+      return 0;
+    });
+
+  vector<DNSRecord> ret;
+  int res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 11); // A, 3xCNAME, 3xDNAME, 3xRRSIG DNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 20);
+
+  ret.clear();
+  res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 11); // A, 3xCNAME, 3xDNAME, 3xRRSIG DNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 20);
+}
+
+BOOST_AUTO_TEST_CASE(test_DNAME_chain_with_CNAMEs) {
+  std::unique_ptr<SyncRes> sr;
+  initSR(sr, true);
+
+  setDNSSECValidation(sr, DNSSECMode::ValidateAll);
+
+  primeHints();
+  const DNSName source("example.");
+  const DNSName chain1("chain1.");
+  const DNSName chain2("chain2.");
+  const DNSName target("target.");
+  const DNSName qname("host.example.");
+  testkeysset_t keys;
+
+  auto luaconfsCopy = g_luaconfs.getCopy();
+  luaconfsCopy.dsAnchors.clear();
+  generateKeyMaterial(g_rootdnsname, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys, luaconfsCopy.dsAnchors);
+  generateKeyMaterial(source, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(target, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(chain1, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(chain2, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  g_luaconfs.setState(luaconfsCopy);
+
+  size_t queriesCount = 0;
+
+  sr->setAsyncCallback([source, target, chain1, chain2, qname, keys, &queriesCount](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult* res) {
+      queriesCount++;
+      DNSName auth = domain;
+      auth.chopOff();
+
+      if (type == QType::DS || type == QType::DNSKEY) {
+        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
+      }
+
+      if (isRootServer(ip)) {
+        setLWResult(res, 0, false, false, true);
+        if (domain.isPartOf(source)) {
+          addRecordToLW(res, source.toString(), QType::NS, "ns1." + source.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(source, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + source.toString(), QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(chain1)) {
+          addRecordToLW(res, chain1.toString(), QType::NS, "ns1." + chain1.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(chain1, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + chain1.toString(), QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(chain2)) {
+          addRecordToLW(res, chain2.toString(), QType::NS, "ns1." + chain2.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(chain2, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + chain2.toString(), QType::A, "192.0.2.3", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(target)) {
+          addRecordToLW(res, target.toString(), QType::NS, "ns1." + target.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(target, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + target.toString(), QType::A, "192.0.2.4", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.1:53") && domain.isPartOf(source)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, source.toString(), QType::DNAME, chain1.toString(), DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        addRecordToLW(res, "host." + source.toString() , QType::CNAME, "host." + chain1.toString(), DNSResourceRecord::ANSWER, 3600);
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.2:53") && domain.isPartOf(chain1)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, "host." + chain1.toString(), QType::CNAME, "host." + chain2.toString(), DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.3:53") && domain.isPartOf(chain2)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, "host." + chain2.toString(), QType::CNAME, "host." + target.toString(), DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.4:53") && domain.isPartOf(target)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, "host." + target.toString(), QType::A, "192.0.2.10", DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        return 1;
+      }
+      return 0;
+    });
+
+  vector<DNSRecord> ret;
+  int res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 9); // A, 3xCNAME, DNAME, RRSIG DNAME, 2xRRSIG CNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 18);
+
+  ret.clear();
+  res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 9); // A, 3xCNAME, DNAME, RRSIG DNAME, 2xRRSIG CNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 18);
+}
+
+BOOST_AUTO_TEST_CASE(test_DNAME_chain_bogus) {
+  std::unique_ptr<SyncRes> sr;
+  initSR(sr, true);
+
+  setDNSSECValidation(sr, DNSSECMode::ValidateAll);
+
+  primeHints();
+  const DNSName source("example.");
+  const DNSName chain1("chain1.");
+  const DNSName chain2("chain2.");
+  const DNSName target("target.");
+  const DNSName qname("host.example.");
+  testkeysset_t keys;
+
+  auto luaconfsCopy = g_luaconfs.getCopy();
+  luaconfsCopy.dsAnchors.clear();
+  generateKeyMaterial(g_rootdnsname, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys, luaconfsCopy.dsAnchors);
+  generateKeyMaterial(source, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(target, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(chain1, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(chain2, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  g_luaconfs.setState(luaconfsCopy);
+
+  size_t queriesCount = 0;
+
+  sr->setAsyncCallback([source, target, chain1, chain2, qname, keys, &queriesCount](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult* res) {
+      queriesCount++;
+      DNSName auth = domain;
+      auth.chopOff();
+
+      if (type == QType::DS || type == QType::DNSKEY) {
+        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
+      }
+
+      if (isRootServer(ip)) {
+        setLWResult(res, 0, false, false, true);
+        if (domain.isPartOf(source)) {
+          addRecordToLW(res, source.toString(), QType::NS, "ns1." + source.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(source, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + source.toString(), QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(chain1)) {
+          addRecordToLW(res, chain1.toString(), QType::NS, "ns1." + chain1.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(chain1, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + chain1.toString(), QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(chain2)) {
+          addRecordToLW(res, chain2.toString(), QType::NS, "ns1." + chain2.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(chain2, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + chain2.toString(), QType::A, "192.0.2.3", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(target)) {
+          addRecordToLW(res, target.toString(), QType::NS, "ns1." + target.toString(), DNSResourceRecord::AUTHORITY, 3600);
+          addDS(target, 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1." + target.toString(), QType::A, "192.0.2.4", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.1:53") && domain.isPartOf(source)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, source.toString(), QType::DNAME, chain1.toString(), DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        addRecordToLW(res, "host." + source.toString() , QType::CNAME, "host." + chain1.toString(), DNSResourceRecord::ANSWER, 3600);
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.2:53") && domain.isPartOf(chain1)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, chain1.toString(), QType::DNAME, chain2.toString(), DNSResourceRecord::ANSWER, 3600);
+        // No RRSIG, so DNSSEC validation should fail :)
+        // addRRSIG(keys, res->d_records, auth, 300);
+        addRecordToLW(res, "host." + chain1.toString(), QType::CNAME, "host." + chain2.toString(), DNSResourceRecord::ANSWER, 3600);
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.3:53") && domain.isPartOf(chain2)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, chain2.toString(), QType::DNAME, target.toString(), DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        addRecordToLW(res, "host." + chain2.toString(), QType::CNAME, "host." + target.toString(), DNSResourceRecord::ANSWER, 3600);
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.4:53") && domain.isPartOf(target)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, "host." + target.toString(), QType::A, "192.0.2.10", DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        return 1;
+      }
+      return 0;
+    });
+
+  vector<DNSRecord> ret;
+  int res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(sr->getValidationState(), Bogus);
+  BOOST_CHECK_EQUAL(ret.size(), 10);
+  BOOST_CHECK_EQUAL(queriesCount, 19);
+
+  ret.clear();
+  res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(sr->getValidationState(), Bogus);
+  BOOST_CHECK_EQUAL(ret.size(), 10);
+  BOOST_CHECK_EQUAL(queriesCount, 19);
+}
 /*
 // cerr<<"asyncresolve called to ask "<<ip.toStringWithPort()<<" about "<<domain.toString()<<" / "<<QType(type).getName()<<" over "<<(doTCP ? "TCP" : "UDP")<<" (rd: "<<sendRDQuery<<", EDNS0 level: "<<EDNS0Level<<")"<<endl;
 
