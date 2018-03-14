@@ -10591,9 +10591,6 @@ BOOST_AUTO_TEST_CASE(test_DNAME_A_query_target_NXDOMAIN) {
 
   vector<DNSRecord> ret;
   int res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
-  for (auto const r : ret) {
-    cerr<<"name: "<<r.d_name<<" type:"<<QType(r.d_type).getName()<<endl;
-  }
   BOOST_CHECK_EQUAL(res, RCode::NXDomain);
   BOOST_CHECK_EQUAL(ret.size(), 7); // DNAME, RRSIG DNAME, CNAME, SOA, NSEC, RRSIG SOA, RRSIG NSEC
   BOOST_CHECK_EQUAL(queriesCount, 11);
@@ -10601,9 +10598,6 @@ BOOST_AUTO_TEST_CASE(test_DNAME_A_query_target_NXDOMAIN) {
   ret.clear();
   // And the cache
   res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
-  for (auto const r : ret) {
-    cerr<<"name: "<<r.d_name<<" type:"<<QType(r.d_type).getName()<<endl;
-  }
   BOOST_CHECK_EQUAL(res, RCode::NXDomain);
   BOOST_CHECK_EQUAL(ret.size(), 7); // DNAME, RRSIG DNAME, CNAME, SOA, NSEC, RRSIG SOA, RRSIG NSEC
   BOOST_CHECK_EQUAL(queriesCount, 11);
