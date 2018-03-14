@@ -2550,9 +2550,17 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
   if (!dnameTarget.empty() && !newtarget.empty()) {
     DNSName substTarget = qname.makeRelative(dnameOwner) + dnameTarget;
     if (substTarget != newtarget) {
-      throw ImmediateServFailException("Received wrong DNAME substitution. qname='" + qname.toLogString() +
+      LOG("Received wrong DNAME substitution. qname='" + qname.toLogString() +
           "', DNAME owner='" + dnameOwner.toLogString() + "', DNAME target='" + dnameTarget.toLogString() +
           "', received CNAME='" + newtarget.toLogString() + "', substituted CNAME='" + substTarget.toLogString() + "'");
+      // Fix the CNAME
+      for (auto& r: ret) {
+        if (r.d_name == qname && r.d_type == QType::CNAME) {
+          r.d_content = std::make_shared<CNAMERecordContent>(CNAMERecordContent(substTarget));
+          newtarget = substTarget;
+          break;
+        }
+      }
     }
   }
 

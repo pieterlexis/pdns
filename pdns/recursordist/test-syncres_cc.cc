@@ -10602,6 +10602,98 @@ BOOST_AUTO_TEST_CASE(test_DNAME_A_query_target_NXDOMAIN) {
   BOOST_CHECK_EQUAL(ret.size(), 7); // DNAME, RRSIG DNAME, CNAME, SOA, NSEC, RRSIG SOA, RRSIG NSEC
   BOOST_CHECK_EQUAL(queriesCount, 11);
 }
+
+
+BOOST_AUTO_TEST_CASE(test_DNAME_A_query_bad_cname) {
+  std::unique_ptr<SyncRes> sr;
+  initSR(sr, true);
+
+  setDNSSECValidation(sr, DNSSECMode::ValidateAll);
+
+  primeHints();
+  const DNSName source("example.");
+  const DNSName target("signed.");
+  const DNSName qname("host.example.");
+  testkeysset_t keys;
+  size_t queriesCount = 0;
+
+  auto luaconfsCopy = g_luaconfs.getCopy();
+  luaconfsCopy.dsAnchors.clear();
+  generateKeyMaterial(g_rootdnsname, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys, luaconfsCopy.dsAnchors);
+  generateKeyMaterial(source, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  generateKeyMaterial(target, DNSSECKeeper::ECDSA256, DNSSECKeeper::SHA256, keys);
+  g_luaconfs.setState(luaconfsCopy);
+
+  sr->setAsyncCallback([source, target, qname, keys, &queriesCount](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult* res) {
+      queriesCount++;
+      DNSName auth = domain;
+      auth.chopOff();
+
+      if (type == QType::DS || type == QType::DNSKEY) {
+        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
+      }
+
+      if (isRootServer(ip)) {
+        setLWResult(res, 0, false, false, true);
+        if (domain.isPartOf(DNSName("example."))) {
+          addRecordToLW(res, "example.", QType::NS, "ns1.example.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("example."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.example.", QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        if (domain.isPartOf(DNSName(target))) {
+          addRecordToLW(res, "signed.", QType::NS, "ns1.signed.", DNSResourceRecord::AUTHORITY, 3600);
+          addDS(DNSName("signed."), 300, res->d_records, keys);
+          addRRSIG(keys, res->d_records, DNSName("."), 300);
+          addRecordToLW(res, "ns1.signed.", QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.1:53") && domain.isPartOf(source)) {
+        setLWResult(res, 0, true, false, true);
+        if (domain == qname) {
+          addRecordToLW(res, "example.", QType::DNAME, "signed.", DNSResourceRecord::ANSWER, 3600);
+          addRRSIG(keys, res->d_records, auth, 300);
+          addRecordToLW(res, qname.toString(), QType::CNAME, "host.wrong.", DNSResourceRecord::ANSWER, 3600);
+        }
+        return 1;
+      }
+
+      if (ip == ComboAddress("192.0.2.2:53") && domain.isPartOf(target)) {
+        setLWResult(res, 0, true, false, true);
+        addRecordToLW(res, domain, QType::A, "192.0.2.3", DNSResourceRecord::ANSWER, 3600);
+        addRRSIG(keys, res->d_records, auth, 300);
+        return 1;
+      }
+
+      return 0;
+    });
+
+  vector<DNSRecord> ret;
+  int res;
+
+  res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+
+  for (const auto& r : ret) {
+    cerr<<"name: "<<r.d_name<<" type: "<<QType(r.d_type).getName()<<endl;
+  }
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 5); // A, CNAME, DNAME, RRSIG DNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 10);
+
+  ret.clear();
+  // And the cache, now we have the DNAME in cache, so the CNAME is correct
+  res = sr->beginResolve(qname, QType(QType::A), QClass::IN, ret);
+
+  for (const auto& r : ret) {
+    cerr<<"name: "<<r.d_name<<" type: "<<QType(r.d_type).getName()<<endl;
+  }
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(ret.size(), 5); // A, CNAME, DNAME, RRSIG DNAME, RRSIG A
+  BOOST_CHECK_EQUAL(queriesCount, 10);
+}
+
 /*
 // cerr<<"asyncresolve called to ask "<<ip.toStringWithPort()<<" about "<<domain.toString()<<" / "<<QType(type).getName()<<" over "<<(doTCP ? "TCP" : "UDP")<<" (rd: "<<sendRDQuery<<", EDNS0 level: "<<EDNS0Level<<")"<<endl;
 
