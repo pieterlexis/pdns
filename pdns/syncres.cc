@@ -907,9 +907,12 @@ bool SyncRes::doDNAMECacheCheck(const DNSName &qname, const QType &qtype, vector
   auto labels = qname.getRawLabels();
   DNSName dnameName(g_rootdnsname);
 
-  while(!labels.empty()) {
+  while(true) {
     LOG(prefix<<qname<<": Looking for DNAME cache hit of '"<<dnameName<<"|DNAME"<<"'"<<endl);
     if(t_RC->get(d_now.tv_sec, dnameName, QType(QType::DNAME), d_requireAuthData, &dset, d_cacheRemote, d_doDNSSEC ? &dsignatures : nullptr, d_doDNSSEC ? &dauthorityRecs : nullptr, &d_wasVariable, &state, &wasAuth) > 0) {
+      break;
+    }
+    if (dnameName == qname) {
       break;
     }
     dnameName.prependRawLabel(labels.back());
@@ -918,6 +921,13 @@ bool SyncRes::doDNAMECacheCheck(const DNSName &qname, const QType &qtype, vector
 
   if (dset.empty()) { // no cache hit
     LOG(prefix<<qname<<": No DNAME cache hit found"<<endl);
+    return false;
+  }
+
+  if (dnameName == qname && qtype != QType::DNAME && qtype != QType::CNAME) {
+    // We have a DNAME cache-hit for qname, but DNAME may exist with other types
+    // RFC 6672 section 2.3
+    LOG(prefix<<qname<<": DNAME cache hit found for the exact owner name, but qtype is allowed at the owner name"<<endl);
     return false;
   }
 
