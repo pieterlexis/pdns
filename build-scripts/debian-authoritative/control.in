@@ -61,6 +61,18 @@ Description: debugging symbols for PowerDNS
  This package contains debugging symbols for PowerDNS to assist in
  debugging, such as gdb. It is not required for normal operation.
 
+Package: pdns-ixfrdist
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: An AXFR/IXFR distributor
+ PowerDNS is a versatile nameserver which supports a large number
+ of different backends ranging from simple zonefiles to relational
+ databases and load balancing/failover algorithms.
+ PowerDNS tries to emphasize speed and security.
+ .
+ This package contains a tool that can distribute multiple versions of
+ zones to clients over AXFR and IXFR.
+
 Package: pdns-backend-pipe
 Architecture: any
 Depends: pdns-server (>= ${source:Version}), ${shlibs:Depends}, ${misc:Depends}
