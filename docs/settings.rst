@@ -384,6 +384,17 @@ Only relevant for algorithms with non-fixed keysizes (like RSA).
 Use this soa-edit value for all zones if no
 :ref:`metadata-soa-edit` metadata value is set.
 
+
+.. _setting-default-soa-edit-api
+``default-soa-edit-api``
+------------------------
+
+- String
+- Default 
+
+Sets the default :ref:`metadata-soa-edit-api` metadata on a domain, when it is created via the API.
+
+
 .. _setting-default-soa-edit-signed:
 
 ``default-soa-edit-signed``
