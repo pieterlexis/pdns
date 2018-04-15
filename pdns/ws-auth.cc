@@ -644,7 +644,9 @@ static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& 
   if (account) {
     di.backend->setAccount(zonename, *account);
   }
-
+  if (arg()["default-soa-edit-api"] != "" && !document["soa_edit_api"].is_string()) {
+    di.backend->setDomainMetadataOne(zonename, "SOA-EDIT-API", arg()["default-soa-edit-api"]);
+  }
   if (document["soa_edit_api"].is_string()) {
     di.backend->setDomainMetadataOne(zonename, "SOA-EDIT-API", document["soa_edit_api"].string_value());
   }
