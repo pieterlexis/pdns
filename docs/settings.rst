@@ -795,6 +795,17 @@ The port on which we listen. Only one port possible.
 If set to 'no', informative-only DNS details will not even be sent to
 syslog, improving performance.
 
+.. _setting-log-prefixed:
+
+``log-prefixed``
+----------------
+.. versionadded:: 4.2.0
+
+- Boolean
+- Default: no
+
+Prefix log messages with the log level.
+
 .. _setting-logging-facility:
 
 ``logging-facility``

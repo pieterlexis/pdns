@@ -424,6 +424,7 @@ int main(int argc, char **argv)
     }
 
     g_log.setLoglevel((Logger::Urgency)(::arg().asNum("loglevel")));
+    g_log.setPrefixed(::arg().mustDo("log-prefixed"));
     g_log.disableSyslog(::arg().mustDo("disable-syslog"));
     g_log.setTimestamps(::arg().mustDo("log-timestamp"));
     g_log.toConsole((Logger::Urgency)(::arg().asNum("loglevel")));  

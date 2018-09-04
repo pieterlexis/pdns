@@ -622,6 +622,17 @@ It is recommended not to set this below 3.
 
 Some DNS errors occur rather frequently and are no cause for alarm.
 
+.. _setting-log-prefixed:
+
+``log-prefixed``
+----------------
+.. versionadded:: 4.2.0
+
+- Boolean
+- Default: no
+
+Prefix log messages with the log level.
+
 ``log-rpz-changes``
 ---------------------
 .. versionadded:: 4.1.0

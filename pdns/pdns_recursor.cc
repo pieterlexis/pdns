@@ -3936,6 +3936,7 @@ int main(int argc, char **argv)
     ::arg().set("loglevel","Amount of logging. Higher is more. Do not set below 3")="6";
     ::arg().set("disable-syslog","Disable logging to syslog, useful when running inside a supervisor that logs stdout")="no";
     ::arg().set("log-timestamp","Print timestamps in log lines, useful to disable when running with a tool that timestamps stdout already")="yes";
+    ::arg().set("log-prefixed","Prefix log messages with the level")="no";
     ::arg().set("log-common-errors","If we should log rather common errors")="no";
     ::arg().set("chroot","switch to chroot jail")="";
     ::arg().set("setgid","If set, change group id to this gid for more security")="";
@@ -4123,6 +4124,7 @@ int main(int argc, char **argv)
     }
 
     Logger::Urgency logUrgency = (Logger::Urgency)::arg().asNum("loglevel");
+    g_log.setPrefixed(::arg().mustDo("log-prefixed"));
 
     if (logUrgency < Logger::Error)
       logUrgency = Logger::Error;
