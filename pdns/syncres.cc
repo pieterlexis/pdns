@@ -528,7 +528,7 @@ int SyncRes::doCacheOnlyResolve(const DNSName &qname, const QType &qtype, const 
   LWResult lwr;
   LOG(prefix<<qname<<": Recursion not requested for '"<<qname<<"|"<<qtype.getName()<<"', peeking at auth/forward zones"<<endl);
   DNSName authname(qname);
-  auto const iter=getBestAuthZone(&authname);
+  auto const iter = getBestAuthZone(&authname);
   if(iter != t_sstorage.domainmap->end()) {
     if(iter->second.isAuth()) {
       ret.clear();
@@ -542,7 +542,7 @@ int SyncRes::doCacheOnlyResolve(const DNSName &qname, const QType &qtype, const 
 
     boost::optional<Netmask> nm;
     bool chained = false;
-    res=asyncresolveWrapper(remoteIP, d_doDNSSEC, qname, qtype.getCode(), false, false, &d_now, nm, &lwr, &chained);
+    res = asyncresolveWrapper(remoteIP, d_doDNSSEC, qname, qtype.getCode(), false, false, &d_now, nm, &lwr, &chained);
 
     d_totUsec += lwr.d_usec;
     accountAuthLatency(lwr.d_usec, remoteIP.sin4.sin_family);
@@ -550,12 +550,12 @@ int SyncRes::doCacheOnlyResolve(const DNSName &qname, const QType &qtype, const 
     // filter out the good stuff from lwr.result()
     if (res == 1) {
       for(const auto& rec : lwr.d_records) {
-        if(rec.d_place == DNSResourceRecord::ANSWER)
+        if(rec.d_place == DNSResourceRecord::ANSWER) {
           ret.push_back(rec);
+        }
       }
       return 0;
     }
-
     return RCode::ServFail;
   }
   return res;
