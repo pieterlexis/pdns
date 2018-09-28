@@ -528,7 +528,7 @@ int SyncRes::doCacheOnlyResolve(const DNSName &qname, const QType &qtype, const 
   LWResult lwr;
   LOG(prefix<<qname<<": Recursion not requested for '"<<qname<<"|"<<qtype.getName()<<"', peeking at auth/forward zones"<<endl);
   DNSName authname(qname);
-  domainmap_t::const_iterator iter=getBestAuthZone(&authname);
+  auto const iter=getBestAuthZone(&authname);
   if(iter != t_sstorage.domainmap->end()) {
     if(iter->second.isAuth()) {
       ret.clear();
