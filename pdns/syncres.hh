@@ -791,6 +791,7 @@ private:
   vState getTA(const DNSName& zone, dsmap_t& ds);
   bool haveExactValidationStatus(const DNSName& domain);
   vState getValidationStatus(const DNSName& subdomain, bool allowIndeterminate=true);
+  int doCacheOnlyResolve(const DNSName &qname, const QType &qtype, const string &prefix, vector<DNSRecord>&ret, unsigned int depth);
 
   bool lookForCut(const DNSName& qname, unsigned int depth, const vState existingState, vState& newState);
   void computeZoneCuts(const DNSName& begin, const DNSName& end, unsigned int depth);

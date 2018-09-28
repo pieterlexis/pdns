@@ -523,6 +523,44 @@ int SyncRes::asyncresolveWrapper(const ComboAddress& ip, bool ednsMANDATORY, con
   return ret;
 }
 
+int SyncRes::doCacheOnlyResolve(const DNSName &qname, const QType &qtype, const string &prefix, vector<DNSRecord>&ret, unsigned int depth) {
+  int res = -1;
+  LWResult lwr;
+  LOG(prefix<<qname<<": Recursion not requested for '"<<qname<<"|"<<qtype.getName()<<"', peeking at auth/forward zones"<<endl);
+  DNSName authname(qname);
+  domainmap_t::const_iterator iter=getBestAuthZone(&authname);
+  if(iter != t_sstorage.domainmap->end()) {
+    if(iter->second.isAuth()) {
+      ret.clear();
+      d_wasOutOfBand = doOOBResolve(qname, qtype, ret, depth, res);
+      return res;
+    }
+
+    const vector<ComboAddress>& servers = iter->second.d_servers;
+    const ComboAddress remoteIP = servers.front();
+    LOG(prefix<<qname<<": forwarding query to hardcoded nameserver '"<< remoteIP.toStringWithPort()<<"' for zone '"<<authname<<"'"<<endl);
+
+    boost::optional<Netmask> nm;
+    bool chained = false;
+    res=asyncresolveWrapper(remoteIP, d_doDNSSEC, qname, qtype.getCode(), false, false, &d_now, nm, &lwr, &chained);
+
+    d_totUsec += lwr.d_usec;
+    accountAuthLatency(lwr.d_usec, remoteIP.sin4.sin_family);
+
+    // filter out the good stuff from lwr.result()
+    if (res == 1) {
+      for(const auto& rec : lwr.d_records) {
+        if(rec.d_place == DNSResourceRecord::ANSWER)
+          ret.push_back(rec);
+      }
+      return 0;
+    }
+
+    return RCode::ServFail;
+  }
+  return res;
+}
+
 /*! This function will check the cache and go out to the internet if the answer is not in cache
  *
  * \param qname The name we need an answer for
@@ -552,40 +590,9 @@ int SyncRes::doResolve(const DNSName &qname, const QType &qtype, vector<DNSRecor
   // This is a difficult way of expressing "this is a normal query", i.e. not getRootNS.
   if(!(d_updatingRootNS && qtype.getCode()==QType::NS && qname.isRoot())) {
     if(d_cacheonly) { // very limited OOB support
-      LWResult lwr;
-      LOG(prefix<<qname<<": Recursion not requested for '"<<qname<<"|"<<qtype.getName()<<"', peeking at auth/forward zones"<<endl);
-      DNSName authname(qname);
-      domainmap_t::const_iterator iter=getBestAuthZone(&authname);
-      if(iter != t_sstorage.domainmap->end()) {
-        if(iter->second.isAuth()) {
-          ret.clear();
-          d_wasOutOfBand = doOOBResolve(qname, qtype, ret, depth, res);
-          return res;
-        }
-        else {
-          const vector<ComboAddress>& servers = iter->second.d_servers;
-          const ComboAddress remoteIP = servers.front();
-          LOG(prefix<<qname<<": forwarding query to hardcoded nameserver '"<< remoteIP.toStringWithPort()<<"' for zone '"<<authname<<"'"<<endl);
-
-          boost::optional<Netmask> nm;
-          bool chained = false;
-          res=asyncresolveWrapper(remoteIP, d_doDNSSEC, qname, qtype.getCode(), false, false, &d_now, nm, &lwr, &chained);
-
-          d_totUsec += lwr.d_usec;
-          accountAuthLatency(lwr.d_usec, remoteIP.sin4.sin_family);
-
-          // filter out the good stuff from lwr.result()
-          if (res == 1) {
-            for(const auto& rec : lwr.d_records) {
-              if(rec.d_place == DNSResourceRecord::ANSWER)
-                ret.push_back(rec);
-            }
-            return 0;
-          }
-          else {
-            return RCode::ServFail;
-          }
-        }
+      auto retval = doCacheOnlyResolve(qname, qtype, prefix, ret, depth);
+      if (retval != -1) {
+        return retval;
       }
     }
 
