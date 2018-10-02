@@ -688,15 +688,13 @@ void SyncRes::getBestNSFromCache(const DNSName &qname, const QType& qtype, vecto
     *flawedNSSet = false;
 
     if(t_RC->get(d_now.tv_sec, subdomain, QType(QType::NS), false, &ns, d_cacheRemote) > 0) {
-      for(auto k=ns.cbegin();k!=ns.cend(); ++k) {
-        if(k->d_ttl > (unsigned int)d_now.tv_sec ) {
+      for(const auto& k : ns) {
+        if(k.d_ttl > static_cast<unsigned int>(d_now.tv_sec)) {
           vector<DNSRecord> aset;
-
-          const DNSRecord& dr=*k;
-	  auto nrr = getRR<NSRecordContent>(dr);
+          auto nrr = getRR<NSRecordContent>(k);
           if(nrr && (!nrr->getNS().isPartOf(subdomain) || t_RC->get(d_now.tv_sec, nrr->getNS(), s_doIPv6 ? QType(QType::ADDR) : QType(QType::A),
-                                                                    false, doLog() ? &aset : 0, d_cacheRemote) > 5)) {
-            bestns.push_back(dr);
+                                                                    false, doLog() ? &aset : nullptr, d_cacheRemote) > 5)) {
+            bestns.push_back(k);
             LOG(prefix<<qname<<": NS (with ip, or non-glue) in cache for '"<<subdomain<<"' -> '"<<nrr->getNS()<<"'"<<endl);
             LOG(prefix<<qname<<": within bailiwick: "<< nrr->getNS().isPartOf(subdomain));
             if(!aset.empty()) {
@@ -715,27 +713,25 @@ void SyncRes::getBestNSFromCache(const DNSName &qname, const QType& qtype, vecto
 
       if(!bestns.empty()) {
         GetBestNSAnswer answer;
-        answer.qname=qname;
-	answer.qtype=qtype.getCode();
-	for(const auto& dr : bestns) {
+        answer.qname = qname;
+        answer.qtype = qtype.getCode();
+        for(const auto& dr : bestns) {
           if (auto nsContent = getRR<NSRecordContent>(dr)) {
             answer.bestns.insert(make_pair(dr.d_name, nsContent->getNS()));
           }
         }
 
-        if(beenthere.count(answer)) {
-	  brokeloop=true;
+        if(beenthere.count(answer) > 0) {
+          brokeloop=true;
           LOG(prefix<<qname<<": We have NS in cache for '"<<subdomain<<"' but part of LOOP (already seen "<<answer.qname<<")! Trying less specific NS"<<endl);
-	  ;
           if(doLog())
-            for( set<GetBestNSAnswer>::const_iterator j=beenthere.begin();j!=beenthere.end();++j) {
-	      bool neo = !(*j< answer || answer<*j);
-	      LOG(prefix<<qname<<": beenthere"<<(neo?"*":"")<<": "<<j->qname<<"|"<<DNSRecordContent::NumberToType(j->qtype)<<" ("<<(unsigned int)j->bestns.size()<<")"<<endl);
+            for(const auto &j : beenthere) {
+              bool neo = !(j < answer || answer < j);
+              LOG(prefix<<qname<<": beenthere"<<(neo?"*":"")<<": "<<j.qname<<"|"<<DNSRecordContent::NumberToType(j.qtype)<<" ("<<j.bestns.size()<<")"<<endl);
             }
           bestns.clear();
-        }
-        else {
-	  beenthere.insert(answer);
+        } else {
+          beenthere.insert(answer);
           LOG(prefix<<qname<<": We have NS in cache for '"<<subdomain<<"' (flawedNSSet="<<*flawedNSSet<<")"<<endl);
           return;
         }
