@@ -160,6 +160,7 @@ pdns_recursor_SOURCES = \
 	stable-bloom.hh \
 	syncres.cc syncres.hh \
 	threadname.hh threadname.cc \
+	syncres-authdomain.cc \
 	tsigverifier.cc tsigverifier.hh \
 	ueberbackend.hh \
 	unix_utility.cc \
@@ -243,6 +244,7 @@ testrunner_SOURCES = \
 	sstuff.hh \
 	stable-bloom.hh \
 	syncres.cc syncres.hh \
+	syncres-authdomain.cc \
 	test-arguments_cc.cc \
 	test-base32_cc.cc \
 	test-base64_cc.cc \
