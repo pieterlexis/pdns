@@ -599,29 +599,31 @@ vector<ComboAddress> SyncRes::getAddrs(const DNSName &qname, unsigned int depth,
 
     vState newState = Indeterminate;
     if(!doResolve(qname, type, res,depth+1, beenthere, newState) && !res.empty()) {  // this consults cache, OR goes out
-      for(res_t::const_iterator i=res.begin(); i!= res.end(); ++i) {
-        if(i->d_type == QType::A || i->d_type == QType::AAAA) {
-	  if(auto rec = getRR<ARecordContent>(*i))
-	    ret.push_back(rec->getCA(53));
-	  else if(auto aaaarec = getRR<AAAARecordContent>(*i))
-	    ret.push_back(aaaarec->getCA(53));
+      for(const auto &i : res) {
+        if(i.d_type == QType::A || i.d_type == QType::AAAA) {
+          if(auto rec = getRR<ARecordContent>(i)) {
+            ret.push_back(rec->getCA(53));
+          }
+          if(auto aaaarec = getRR<AAAARecordContent>(i)){
+            ret.push_back(aaaarec->getCA(53));
+          }
           done=true;
         }
       }
     }
     if(done) {
       if(j==1 && s_doIPv6) { // we got an A record, see if we have some AAAA lying around
-	vector<DNSRecord> cset;
-	if(t_RC->get(d_now.tv_sec, qname, QType(QType::AAAA), false, &cset, d_cacheRemote) > 0) {
-	  for(auto k=cset.cbegin();k!=cset.cend();++k) {
-	    if(k->d_ttl > (unsigned int)d_now.tv_sec ) {
-	      if (auto drc = getRR<AAAARecordContent>(*k)) {
-	        ComboAddress ca=drc->getCA(53);
-	        ret.push_back(ca);
-	      }
-	    }
-	  }
-	}
+        vector<DNSRecord> cset;
+        if(t_RC->get(d_now.tv_sec, qname, QType(QType::AAAA), false, &cset, d_cacheRemote) > 0) {
+          for(const auto &k : cset) {
+            if(k.d_ttl > static_cast<unsigned int>(d_now.tv_sec)) {
+              if (auto drc = getRR<AAAARecordContent>(k)) {
+                ComboAddress ca=drc->getCA(53);
+                ret.push_back(ca);
+              }
+            }
+          }
+        }
       }
       break;
     }
@@ -649,7 +651,7 @@ vector<ComboAddress> SyncRes::getAddrs(const DNSName &qname, unsigned int depth,
     stable_sort(ret.begin(), ret.end(), so);
 
     if(doLog()) {
-      string prefix=d_prefix;
+      string prefix = d_prefix;
       prefix.append(depth, ' ');
       LOG(prefix<<"Nameserver "<<qname<<" IPs: ");
       bool first = true;
