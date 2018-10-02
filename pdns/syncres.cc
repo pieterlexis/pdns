@@ -883,13 +883,13 @@ DNSName SyncRes::getBestNSNamesFromCache(const DNSName &qname, const QType& qtyp
   DNSName subdomain(qname);
   DNSName authdomain(qname);
 
-  domainmap_t::const_iterator iter=getBestAuthZone(&authdomain);
-  if(iter!=t_sstorage.domainmap->end()) {
-    if( iter->second.isAuth() )
+  auto const iter = getBestAuthZone(&authdomain);
+  if(iter != t_sstorage.domainmap->end()) {
+    if(iter->second.isAuth()) {
       // this gets picked up in doResolveAt, the empty DNSName, combined with the
       // empty vector means 'we are auth for this zone'
       nsset.insert({DNSName(), {{}, false}});
-    else {
+    } else {
       // Again, picked up in doResolveAt. An empty DNSName, combined with a
       // non-empty vector of ComboAddresses means 'this is a forwarded domain'
       // This is actually picked up in retrieveAddressesForNS called from doResolveAt.
@@ -901,13 +901,14 @@ DNSName SyncRes::getBestNSNamesFromCache(const DNSName &qname, const QType& qtyp
   vector<DNSRecord> bestns;
   getBestNSFromCache(subdomain, qtype, bestns, flawedNSSet, depth, beenthere);
 
-  for(auto k=bestns.cbegin() ; k != bestns.cend(); ++k) {
+  for(auto const &k : bestns) {
     // The actual resolver code will not even look at the ComboAddress or bool
-    const auto nsContent = getRR<NSRecordContent>(*k);
-    if (nsContent) {
+    const auto nsContent = getRR<NSRecordContent>(k);
+    if (nsContent != nullptr) {
       nsset.insert({nsContent->getNS(), {{}, false}});
-      if(k==bestns.cbegin())
-        subdomain=k->d_name;
+      if(bestns.front() == k) {
+        subdomain = k.d_name;
+      }
     }
   }
   return subdomain;
