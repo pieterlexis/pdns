@@ -30,11 +30,16 @@ BuildRequires: protobuf-devel
 BuildRequires: protobuf-compiler
 BuildRequires: p11-kit-devel
 BuildRequires: libcurl-devel
+
+BuildRequires: boost-devel
+BuildRequires: luajit-devel
+%else
+BuildRequires: boost148-devel
+BuildRequires: lua-devel
 %endif
 
 Requires(pre): shadow-utils
-BuildRequires: luajit-devel
-BuildRequires: boost-devel
+
 BuildRequires: libsodium-devel
 BuildRequires: bison
 BuildRequires: openssl-devel
@@ -192,6 +197,9 @@ This package contains the ixfrdist program.
 
 %build
 export CPPFLAGS="-DLDAP_DEPRECATED"
+%if %{?rhel} == 6
+export LIBRARY_PATH='/usr/lib64/boost148'
+%endif
 
 %configure \
   --sysconfdir=%{_sysconfdir}/%{name} \
@@ -199,21 +207,21 @@ export CPPFLAGS="-DLDAP_DEPRECATED"
   --disable-dependency-tracking \
   --disable-silent-rules \
   --with-modules='' \
-  --with-lua=luajit \
   --with-dynmodules='%{backends} random' \
   --enable-tools \
   --enable-libsodium \
   --enable-unit-tests \
 %if 0%{?rhel} >= 7
+  --with-lua=luajit \
   --enable-lua-records \
   --enable-experimental-pkcs11 \
   --enable-systemd \
   --enable-ixfrdist
 %else
   --disable-lua-records \
-  --without-protobuf
+  --without-protobuf \
+  --with-boost=/usr/include/boost148 || (cat config.log; exit 1)
 %endif
-
 make %{?_smp_mflags}
 
 %install
