@@ -164,7 +164,8 @@ Package: pdns-backend-mysql
 Architecture: any
 Depends: pdns-server (= ${binary:Version}),
          ${misc:Depends},
-         ${shlibs:Depends}
+         ${shlibs:Depends},
+         ucf
 Suggests: default-mysql-server
 Provides: pdns-backend
 Description: generic MySQL backend for PowerDNS
@@ -195,7 +196,8 @@ Package: pdns-backend-pgsql
 Architecture: any
 Depends: pdns-server (= ${binary:Version}),
          ${misc:Depends},
-         ${shlibs:Depends}
+         ${shlibs:Depends},
+         ucf
 Suggests: postgresql
 Provides: pdns-backend
 Description: generic PostgreSQL backend for PowerDNS
@@ -211,7 +213,8 @@ Package: pdns-backend-sqlite3
 Architecture: any
 Depends: pdns-server (= ${binary:Version}),
          ${misc:Depends},
-         ${shlibs:Depends}
+         ${shlibs:Depends},
+         ucf
 Provides: pdns-backend
 Description: sqlite 3 backend for PowerDNS
  PowerDNS is a versatile nameserver which supports a large number

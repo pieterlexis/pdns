@@ -1,0 +1,29 @@
+# First do the builds
+@INCLUDE Dockerfile.target.debian-stretch
+
+FROM debian:stretch as test-base
+ARG APT_URL
+RUN apt-get update && apt-get -y dist-upgrade
+
+COPY --from=package-builder /dist /dist
+
+@IF [ ! -z "$M_authoritative" ]
+RUN mkdir /pdns
+# Note: validns errors out
+RUN apt install -y ruby moreutils ldnsutils unbound-host bind9utils libnet-dns-perl validns jq default-jre wget python sqlite3
+run wget https://www.monshouwer.eu/download/3rd_party/jdnssec-tools-0.13.ecdsafix.tar.gz
+run tar xfz jdnssec-tools-0.13.ecdsafix.tar.gz --strip-components=1 -C /
+RUN apt install -y /dist/pdns-server*.deb /dist/pdns-backend-*.deb /dist/pdns-tools*.deb
+@EXEC sdist_dirs=(modules regression-tests regression-tests.rootzone regression-tests.api regression-tests.nobackend)
+@EXEC for d in ${sdist_dirs[@]} ; do echo "COPY $d/ /pdns/$d/" ; done
+ADD regression-tests /pdns
+ADD build-scripts /pdns/build-scripts
+WORKDIR /pdns
+RUN ./build-scripts/test-auth
+@ENDIF
+
+@IF [ ! -z "$M_recursor" ]
+@ENDIF
+
+@IF [ ! -z "$M_dnsdist" ]
+@ENDIF

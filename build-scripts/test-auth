@@ -48,8 +48,8 @@ done
 
 # Symlink the modules on the system
 cd regression-tests/modules
-for backend in *.so; do
-  ln -sf $MODULES/$backend $backend
+for backend in $MODULES/*.so; do
+  ln -sf $backend $(basename $backend)
 done
 
 cd ..
