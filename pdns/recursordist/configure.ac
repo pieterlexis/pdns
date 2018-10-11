@@ -56,11 +56,13 @@ AC_DEFUN([PDNS_SELECT_CONTEXT_IMPL], [
     AC_MSG_NOTICE([checking whether the Boost context library actually links...])
     if test $boost_major_version -ge 161; then
       BOOST_FIND_HEADER([boost/context/detail/fcontext.hpp], [ : ], [
-        BOOST_FIND_LIB([context], [$1], [boost/context/detail/fcontext.hpp], [[]])
+        BOOST_FIND_LIB([context], [$1], [boost/context/detail/fcontext.hpp], [[]],
+                       [], [], [optional])
       ])
     else
       BOOST_FIND_HEADER([boost/context/fcontext.hpp], [ : ], [
-        BOOST_FIND_LIB([context], [$1], [boost/context/fcontext.hpp], [[]])
+        BOOST_FIND_LIB([context], [$1], [boost/context/fcontext.hpp], [[]],
+                       [], [], [optional])
       ])
     fi
     case $boost_cv_lib_context in

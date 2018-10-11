@@ -22,7 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 m4_define([_BOOST_SERIAL], [m4_translit([
-# serial 27
+# serial 28
 ], [#
 ], [])])
 
@@ -288,7 +288,7 @@ fi
 
 # BOOST_FIND_LIBS([COMPONENT-NAME], [CANDIDATE-LIB-NAMES],
 #                 [PREFERRED-RT-OPT], [HEADER-NAME], [CXX-TEST],
-#                 [CXX-PROLOGUE])
+#                 [CXX-PROLOGUE], [OPTIONAL])
 # --------------------------------------------------------------
 # Look for the Boost library COMPONENT-NAME (e.g., `thread', for
 # libboost_thread) under the possible CANDIDATE-LIB-NAMES (e.g.,
@@ -337,7 +337,11 @@ case $Boost_lib in #(
     AC_SUBST(AS_TR_CPP([BOOST_$1_LIBS]), [$Boost_lib_LIBS])dnl
     ;;
   (no) _AC_MSG_LOG_CONFTEST
-    AC_MSG_ERROR([cannot find flags to link with the Boost $1 library (libboost-$1)])
+    if test x"$7" != xoptional; then
+      AC_MSG_ERROR([cannot find flags to link with the Boost $1 library (libboost-$1)])
+    else
+      AC_MSG_NOTICE([cannot find flags to link with the Boost $1 library (libboost-$1)])
+    fi
     ;;
 esac
 CPPFLAGS=$boost_save_CPPFLAGS
@@ -361,7 +365,7 @@ AC_DEFUN([BOOST_FIND_LIB],
 
 # _BOOST_FIND_LIBS([LIB-NAME], [CANDIDATE-LIB-NAMES],
 #                 [PREFERRED-RT-OPT], [HEADER-NAME], [CXX-TEST],
-#                 [CXX-PROLOGUE])
+#                 [CXX-PROLOGUE], [?????], [OPTIONAL])
 # --------------------------------------------------------------
 # Real implementation of BOOST_FIND_LIBS: rely on these local macros:
 # Boost_lib, Boost_lib_LDFLAGS, Boost_lib_LDPATH, Boost_lib_LIBS
@@ -636,7 +640,7 @@ LDFLAGS=$boost_filesystem_save_LDFLAGS
 ])# BOOST_CHRONO
 
 
-# BOOST_CONTEXT([PREFERRED-RT-OPT])
+# BOOST_CONTEXT([PREFERRED-RT-OPT], [OPTIONAL])
 # -----------------------------------
 # Look for Boost.Context.  For the documentation of PREFERRED-RT-OPT, see the
 # documentation of BOOST_FIND_LIB above.
@@ -709,7 +713,7 @@ static void f(intptr_t i) {
     ctx::jump_fcontext(&fc, fcm, i * 2);
 }
 #endif
-])
+], [ ], [ ], [$2])
 LIBS=$boost_context_save_LIBS
 LDFLAGS=$boost_context_save_LDFLAGS
 ])# BOOST_CONTEXT
