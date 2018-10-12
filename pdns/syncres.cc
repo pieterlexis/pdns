@@ -227,7 +227,7 @@ bool SyncRes::doOOBResolve(const DNSName &qname, const QType &qtype, vector<DNSR
   }
 
   DNSName authdomain(qname);
-  domainmap_t::const_iterator iter=getBestAuthZone(&authdomain);
+  domainmap_t::const_iterator iter=getBestAuthZone(authdomain);
   if(iter==t_sstorage.domainmap->end() || !iter->second.isAuth()) {
     LOG(prefix<<qname<<": auth storage has no zone for this query!"<<endl);
     return false;
@@ -415,7 +415,7 @@ int SyncRes::doCacheOnlyResolve(const DNSName &qname, const QType &qtype, const 
   LWResult lwr;
   LOG(prefix<<qname<<": Recursion not requested for '"<<qname<<"|"<<qtype.getName()<<"', peeking at auth/forward zones"<<endl);
   DNSName authname(qname);
-  auto const iter = getBestAuthZone(&authname);
+  auto const iter = getBestAuthZone(authname);
   if(iter != t_sstorage.domainmap->end()) {
     if(iter->second.isAuth()) {
       ret.clear();
@@ -487,7 +487,7 @@ int SyncRes::doResolve(const DNSName &qname, const QType &qtype, vector<DNSRecor
     bool wasForwardedOrAuthZone = false;
     bool wasAuthZone = false;
     bool wasForwardRecurse = false;
-    domainmap_t::const_iterator iter = getBestAuthZone(&authname);
+    domainmap_t::const_iterator iter = getBestAuthZone(authname);
     if(iter != t_sstorage.domainmap->end()) {
       const auto& domain = iter->second;
       wasForwardedOrAuthZone = true;
@@ -751,14 +751,15 @@ void SyncRes::getBestNSFromCache(const DNSName &qname, const QType& qtype, vecto
   } while(subdomain.chopOff());
 }
 
-SyncRes::domainmap_t::const_iterator SyncRes::getBestAuthZone(DNSName* qname) const
+SyncRes::domainmap_t::const_iterator SyncRes::getBestAuthZone(DNSName &qname) const
 {
   SyncRes::domainmap_t::const_iterator ret;
   do {
-    ret=t_sstorage.domainmap->find(*qname);
-    if(ret!=t_sstorage.domainmap->end())
-      break;
-  }while(qname->chopOff());
+    ret = t_sstorage.domainmap->find(qname);
+    if(ret != t_sstorage.domainmap->end()) {
+      return ret;
+    }
+  } while(qname.chopOff());
   return ret;
 }
 
@@ -768,7 +769,7 @@ DNSName SyncRes::getBestNSNamesFromCache(const DNSName &qname, const QType& qtyp
   DNSName subdomain(qname);
   DNSName authdomain(qname);
 
-  auto const iter = getBestAuthZone(&authdomain);
+  auto const iter = getBestAuthZone(authdomain);
   if(iter != t_sstorage.domainmap->end()) {
     if(iter->second.isAuth()) {
       // this gets picked up in doResolveAt, the empty DNSName, combined with the
@@ -1945,7 +1946,7 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
         if (!t_sstorage.domainmap->empty()) {
           // Check if we are authoritative for a zone in this answer
           DNSName tmp_qname(rec.d_name);
-          auto auth_domain_iter=getBestAuthZone(&tmp_qname);
+          auto auth_domain_iter=getBestAuthZone(tmp_qname);
           if(auth_domain_iter!=t_sstorage.domainmap->end() &&
              auth.countLabels() <= auth_domain_iter->first.countLabels()) {
             if (auth_domain_iter->first != auth) {
