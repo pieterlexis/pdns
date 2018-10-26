@@ -595,7 +595,7 @@ test_auth() {
 
   ### Lua rec tests ###
   run "cd regression-tests.auth-py"
-  run "./runtests"
+  run "./runtests -v || (cat pdns.log; false)"
   run "cd .."
 
   run "rm -f regression-tests/zones/*-slave.*" #FIXME
@@ -643,7 +643,6 @@ run "sudo apt-get -qq --no-install-recommends install \
   libluajit-5.1-dev \
   libedit-dev \
   libprotobuf-dev \
-  pandoc\
   protobuf-compiler"
 
 run "cd .."
