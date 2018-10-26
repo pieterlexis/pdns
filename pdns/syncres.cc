@@ -175,27 +175,31 @@ bool SyncRes::doSpecialNamesResolve(const DNSName &qname, const QType &qtype, co
   if ((qname == arpa || qname == ip6_arpa) &&
       qclass == QClass::IN) {
     handled = true;
-    if (qtype == QType::PTR || qtype == QType::ANY)
+    if (qtype == QType::PTR || qtype == QType::ANY) {
       answers.push_back({QType::PTR, "localhost."});
+    }
   }
 
-  if (qname == localhost &&
-      qclass == QClass::IN) {
+  if (qname == localhost && qclass == QClass::IN) {
     handled = true;
-    if (qtype == QType::A || qtype == QType::ANY)
+    if (qtype == QType::A || qtype == QType::ANY) {
       answers.push_back({QType::A, "127.0.0.1"});
-    if (qtype == QType::AAAA || qtype == QType::ANY)
+    }
+    if (qtype == QType::AAAA || qtype == QType::ANY) {
       answers.push_back({QType::AAAA, "::1"});
+    }
   }
 
   if ((qname == versionbind || qname == idserver || qname == versionpdns) &&
       qclass == QClass::CHAOS) {
     handled = true;
     if (qtype == QType::TXT || qtype == QType::ANY) {
-      if(qname == versionbind || qname == versionpdns)
+      if(qname == versionbind || qname == versionpdns) {
         answers.push_back({QType::TXT, "\""+::arg()["version-string"]+"\""});
-      else if (s_serverID != "disabled")
+      }
+      else if (s_serverID != "disabled") {
         answers.push_back({QType::TXT, "\""+s_serverID+"\""});
+      }
     }
   }
 
