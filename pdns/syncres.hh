@@ -78,6 +78,14 @@ public:
     d_ttl=60;
     d_last_clean=time(0);
   }
+
+  struct entry
+  {
+    time_t ttd;
+    unsigned int count;
+  };
+  typedef map<Thing,entry> cont_t;
+
   bool shouldThrottle(time_t now, const Thing& t)
   {
     if(now > d_last_clean + 300 ) {
@@ -120,20 +128,20 @@ public:
     return (unsigned int)d_cont.size();
   }
 
+  const cont_t& getThrottleMap() const
+  {
+    return d_cont;
+  }
+
   void clear()
   {
     d_cont.clear();
   }
+
 private:
   unsigned int d_limit;
   time_t d_ttl;
   time_t d_last_clean;
-  struct entry
-  {
-    time_t ttd;
-    unsigned int count;
-  };
-  typedef map<Thing,entry> cont_t;
   cont_t d_cont;
 };
 
@@ -266,7 +274,7 @@ class SyncRes : public boost::noncopyable
 {
 public:
   enum LogMode { LogNone, Log, Store};
-  typedef std::function<int(const ComboAddress& ip, const DNSName& qdomain, int qtype, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, std::shared_ptr<RemoteLogger> outgoingLogger, LWResult *lwr, bool* chained)> asyncresolve_t;
+  typedef std::function<int(const ComboAddress& ip, const DNSName& qdomain, int qtype, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, LWResult *lwr, bool* chained)> asyncresolve_t;
 
   struct EDNSStatus
   {
@@ -391,8 +399,9 @@ public:
   {
     s_lm = lm;
   }
-  static void doEDNSDumpAndClose(int fd);
+  static uint64_t doEDNSDump(int fd);
   static uint64_t doDumpNSSpeeds(int fd);
+  static uint64_t doDumpThrottleMap(int fd);
   static int getRootNS(struct timeval now, asyncresolve_t asyncCallback);
   static void clearDelegationOnly()
   {
@@ -650,9 +659,9 @@ public:
     d_initialRequestId = initialRequestId;
   }
 
-  void setOutgoingProtobufServer(std::shared_ptr<RemoteLogger>& server)
+  void setOutgoingProtobufServers(std::shared_ptr<std::vector<std::unique_ptr<RemoteLogger>>>& servers)
   {
-    d_outgoingProtobufServer = server;
+    d_outgoingProtobufServers = servers;
   }
 #endif
 
@@ -746,8 +755,8 @@ private:
   bool doOOBResolve(const AuthDomain& domain, const DNSName &qname, const QType &qtype, vector<DNSRecord>&ret, int& res);
   bool doOOBResolve(const DNSName &qname, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, int &res);
   domainmap_t::const_iterator getBestAuthZone(DNSName* qname) const;
-  bool doCNAMECacheCheck(const DNSName &qname, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, int &res, vState& state, bool wasAuthZone);
-  bool doCacheCheck(const DNSName &qname, const DNSName& authname, bool wasForwardedOrAuthZone, bool wasAuthZone, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, int &res, vState& state);
+  bool doCNAMECacheCheck(const DNSName &qname, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, int &res, vState& state, bool wasAuthZone, bool wasForwardRecurse);
+  bool doCacheCheck(const DNSName &qname, const DNSName& authname, bool wasForwardedOrAuthZone, bool wasAuthZone, bool wasForwardRecurse, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, int &res, vState& state);
   void getBestNSFromCache(const DNSName &qname, const QType &qtype, vector<DNSRecord>&bestns, bool* flawedNSSet, unsigned int depth, set<GetBestNSAnswer>& beenthere);
   DNSName getBestNSNamesFromCache(const DNSName &qname, const QType &qtype, NsSet& nsset, bool* flawedNSSet, unsigned int depth, set<GetBestNSAnswer>&beenthere);
 
@@ -795,7 +804,7 @@ private:
   ostringstream d_trace;
   shared_ptr<RecursorLua4> d_pdl;
   boost::optional<Netmask> d_outgoingECSNetwork;
-  std::shared_ptr<RemoteLogger> d_outgoingProtobufServer{nullptr};
+  std::shared_ptr<std::vector<std::unique_ptr<RemoteLogger>>> d_outgoingProtobufServers{nullptr};
 #ifdef HAVE_PROTOBUF
   boost::optional<const boost::uuids::uuid&> d_initialRequestId;
 #endif
@@ -905,6 +914,7 @@ struct RecursorStats
   std::atomic<uint64_t> clientParseError;
   std::atomic<uint64_t> serverParseError;
   std::atomic<uint64_t> tooOldDrops;
+  std::atomic<uint64_t> truncatedDrops;
   std::atomic<uint64_t> queryPipeFullDrops;
   std::atomic<uint64_t> unexpectedCount;
   std::atomic<uint64_t> caseMismatchCount;
@@ -920,6 +930,7 @@ struct RecursorStats
   std::atomic<uint64_t> packetCacheHits;
   std::atomic<uint64_t> noPacketError;
   std::atomic<uint64_t> ignoredCount;
+  std::atomic<uint64_t> emptyQueriesCount;
   time_t startupTime;
   std::atomic<uint64_t> dnssecQueries;
   unsigned int maxMThreadStackUsage;
@@ -939,12 +950,13 @@ public:
   {
     return d_fd;
   }
+
+  std::string data;
+  const ComboAddress d_remote;
+  size_t queriesCount{0};
   enum stateenum {BYTE0, BYTE1, GETQUESTION, DONE} state{BYTE0};
   uint16_t qlen{0};
   uint16_t bytesread{0};
-  const ComboAddress d_remote;
-  char data[65535]; // damn
-  size_t queriesCount{0};
 
   static unsigned int getCurrentConnections() { return s_currentConnections; }
 private:
@@ -961,14 +973,15 @@ public:
 };
 
 typedef boost::circular_buffer<ComboAddress> addrringbuf_t;
-extern thread_local std::unique_ptr<addrringbuf_t> t_servfailremotes, t_largeanswerremotes, t_remotes;
+extern thread_local std::unique_ptr<addrringbuf_t> t_servfailremotes, t_largeanswerremotes, t_remotes, t_bogusremotes, t_timeouts;
 
-extern thread_local std::unique_ptr<boost::circular_buffer<pair<DNSName,uint16_t> > > t_queryring, t_servfailqueryring;
+extern thread_local std::unique_ptr<boost::circular_buffer<pair<DNSName,uint16_t> > > t_queryring, t_servfailqueryring, t_bogusqueryring;
 extern thread_local std::shared_ptr<NetmaskGroup> t_allowFrom;
 string doQueueReloadLuaScript(vector<string>::const_iterator begin, vector<string>::const_iterator end);
 string doTraceRegex(vector<string>::const_iterator begin, vector<string>::const_iterator end);
 void parseACLs();
 extern RecursorStats g_stats;
+extern unsigned int g_networkTimeoutMsec;
 extern unsigned int g_numThreads;
 extern uint16_t g_outgoingEDNSBufsize;
 extern std::atomic<uint32_t> g_maxCacheEntries, g_maxPacketCacheEntries;

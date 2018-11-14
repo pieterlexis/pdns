@@ -44,6 +44,7 @@
 #include "zoneparser-tng.hh"
 #include "common_startup.hh"
 #include "auth-caches.hh"
+#include "threadname.hh"
 
 using json11::Json;
 
@@ -75,6 +76,7 @@ void AuthWebServer::go()
 void AuthWebServer::statThread()
 {
   try {
+    setThreadName("pdns/statHelper");
     for(;;) {
       d_queries.submit(S.read("udp-queries"));
       d_cachehits.submit(S.read("packetcache-hit"));
@@ -287,7 +289,7 @@ void AuthWebServer::indexfunction(HttpRequest* req, HttpResponse* resp)
 /** Helper to build a record content as needed. */
 static inline string makeRecordContent(const QType& qtype, const string& content, bool noDot) {
   // noDot: for backend storage, pass true. for API users, pass false.
-  auto drc = DNSRecordContent::makeunique(qtype.getCode(), QClass::IN, content);
+  auto drc = DNSRecordContent::mastermake(qtype.getCode(), QClass::IN, content);
   return drc->getZoneRepresentation(noDot);
 }
 
@@ -374,6 +376,9 @@ static void fillZone(const DNSName& zonename, HttpResponse* resp, bool doRRSets)
         records.push_back(rr);
       }
       sort(records.begin(), records.end(), [](const DNSResourceRecord& a, const DNSResourceRecord& b) {
+              /* if you ever want to update this comparison function,
+                 please be aware that you will also need to update the conditions in the code merging
+                 the records and comments below */
               if (a.qname == b.qname) {
                   return b.qtype < a.qtype;
               }
@@ -389,6 +394,9 @@ static void fillZone(const DNSName& zonename, HttpResponse* resp, bool doRRSets)
         comments.push_back(comment);
       }
       sort(comments.begin(), comments.end(), [](const Comment& a, const Comment& b) {
+              /* if you ever want to update this comparison function,
+                 please be aware that you will also need to update the conditions in the code merging
+                 the records and comments below */
               if (a.qname == b.qname) {
                   return b.qtype < a.qtype;
               }
@@ -407,7 +415,8 @@ static void fillZone(const DNSName& zonename, HttpResponse* resp, bool doRRSets)
     auto cit = comments.begin();
 
     while (rit != records.end() || cit != comments.end()) {
-      if (cit == comments.end() || (rit != records.end() && (cit->qname.toString() <= rit->qname.toString() || cit->qtype < rit->qtype || cit->qtype == rit->qtype))) {
+      // if you think this should be rit < cit instead of cit < rit, note the b < a instead of a < b in the sort comparison functions above
+      if (cit == comments.end() || (rit != records.end() && (rit->qname == cit->qname ? (cit->qtype < rit->qtype || cit->qtype == rit->qtype) : cit->qname < rit->qname))) {
         current_qname = rit->qname;
         current_qtype = rit->qtype;
         ttl = rit->ttl;
@@ -785,7 +794,7 @@ static void apiZoneMetadata(HttpRequest* req, HttpResponse *resp) {
     }
 
     resp->setBody(document);
-  } else if (req->method == "POST" && !::arg().mustDo("api-readonly")) {
+  } else if (req->method == "POST") {
     auto document = req->json();
     string kind;
     vector<string> entries;
@@ -868,7 +877,7 @@ static void apiZoneMetadataKind(HttpRequest* req, HttpResponse* resp) {
 
     document["metadata"] = entries;
     resp->setBody(document);
-  } else if (req->method == "PUT" && !::arg().mustDo("api-readonly")) {
+  } else if (req->method == "PUT") {
     auto document = req->json();
 
     if (!isValidMetadataKind(kind, false))
@@ -895,7 +904,7 @@ static void apiZoneMetadataKind(HttpRequest* req, HttpResponse* resp) {
     };
 
     resp->setBody(key);
-  } else if (req->method == "DELETE" && !::arg().mustDo("api-readonly")) {
+  } else if (req->method == "DELETE") {
     if (!isValidMetadataKind(kind, false))
       throw ApiException("Unsupported metadata kind '" + kind + "'");
 
@@ -904,6 +913,21 @@ static void apiZoneMetadataKind(HttpRequest* req, HttpResponse* resp) {
       throw ApiException("Could not delete metadata for domain '" + zonename.toString() + "' (" + kind + ")");
   } else
     throw HttpMethodNotAllowedException();
+}
+
+// Throws 404 if the key with inquireKeyId does not exist
+static void apiZoneCryptoKeysCheckKeyExists(DNSName zonename, int inquireKeyId, DNSSECKeeper *dk) {
+  DNSSECKeeper::keyset_t keyset=dk->getKeys(zonename, false);
+  bool found = false;
+  for(const auto& value : keyset) {
+    if (value.second.id == (unsigned) inquireKeyId) {
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    throw HttpNotFoundException();
+  }
 }
 
 static void apiZoneCryptokeysGET(DNSName zonename, int inquireKeyId, HttpResponse *resp, DNSSECKeeper *dk) {
@@ -965,14 +989,16 @@ static void apiZoneCryptokeysGET(DNSName zonename, int inquireKeyId, HttpRespons
  * It deletes a key from :zone_name specified by :cryptokey_id.
  * Server Answers:
  * Case 1: the backend returns true on removal. This means the key is gone.
- *      The server returns 200 OK, no body.
+ *      The server returns 204 No Content, no body.
  * Case 2: the backend returns false on removal. An error occurred.
- *      The sever returns 422 Unprocessable Entity with message "Could not DELETE :cryptokey_id".
+ *      The server returns 422 Unprocessable Entity with message "Could not DELETE :cryptokey_id".
+ * Case 3: the key or zone does not exist.
+ *      The server returns 404 Not Found
  * */
 static void apiZoneCryptokeysDELETE(DNSName zonename, int inquireKeyId, HttpRequest *req, HttpResponse *resp, DNSSECKeeper *dk) {
   if (dk->removeKey(zonename, inquireKeyId)) {
     resp->body = "";
-    resp->status = 200;
+    resp->status = 204;
   } else {
     resp->setErrorResult("Could not DELETE " + req->parameters["key_id"], 422);
   }
@@ -1153,17 +1179,18 @@ static void apiZoneCryptokeys(HttpRequest *req, HttpResponse *resp) {
   int inquireKeyId = -1;
   if (req->parameters.count("key_id")) {
     inquireKeyId = std::stoi(req->parameters["key_id"]);
+    apiZoneCryptoKeysCheckKeyExists(zonename, inquireKeyId, &dk);
   }
 
   if (req->method == "GET") {
     apiZoneCryptokeysGET(zonename, inquireKeyId, resp, &dk);
-  } else if (req->method == "DELETE" && !::arg().mustDo("api-readonly")) {
+  } else if (req->method == "DELETE") {
     if (inquireKeyId == -1)
       throw HttpBadRequestException();
     apiZoneCryptokeysDELETE(zonename, inquireKeyId, req, resp, &dk);
-  } else if (req->method == "POST" && !::arg().mustDo("api-readonly")) {
+  } else if (req->method == "POST") {
     apiZoneCryptokeysPOST(zonename, req, resp, &dk);
-  } else if (req->method == "PUT" && !::arg().mustDo("api-readonly")) {
+  } else if (req->method == "PUT") {
     if (inquireKeyId == -1)
       throw HttpBadRequestException();
     apiZoneCryptokeysPUT(zonename, inquireKeyId, req, resp, &dk);
@@ -1205,9 +1232,8 @@ static void gatherRecordsFromZone(const std::string& zonestring, vector<DNSResou
 static void checkDuplicateRecords(vector<DNSResourceRecord>& records) {
   sort(records.begin(), records.end(),
     [](const DNSResourceRecord& rec_a, const DNSResourceRecord& rec_b) -> bool {
-      return rec_a.qname.toString() > rec_b.qname.toString() || \
-        rec_a.qtype.getCode() > rec_b.qtype.getCode() || \
-        rec_a.content < rec_b.content;
+      /* we need _strict_ weak ordering */
+      return std::tie(rec_a.qname, rec_a.qtype, rec_a.content) < std::tie(rec_b.qname, rec_b.qtype, rec_b.content);
     }
   );
   DNSResourceRecord previous;
@@ -1222,7 +1248,7 @@ static void checkDuplicateRecords(vector<DNSResourceRecord>& records) {
 static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
   UeberBackend B;
   DNSSECKeeper dk(&B);
-  if (req->method == "POST" && !::arg().mustDo("api-readonly")) {
+  if (req->method == "POST") {
     DomainInfo di;
     auto document = req->json();
     DNSName zonename = apiNameToDNSName(stringFromJson(document, "name"));
@@ -1390,7 +1416,19 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
     throw HttpMethodNotAllowedException();
 
   vector<DomainInfo> domains;
-  B.getAllDomains(&domains, true); // incl. disabled
+
+  if (req->getvars.count("zone")) {
+    string zone = req->getvars["zone"];
+    apiCheckNameAllowedCharacters(zone);
+    DNSName zonename = apiNameToDNSName(zone);
+    zonename.makeUsLowerCase();
+    DomainInfo di;
+    if (B.getDomainInfo(zonename, di)) {
+      domains.push_back(di);
+    }
+  } else {
+    B.getAllDomains(&domains, true); // incl. disabled
+  }
 
   Json::array doc;
   for(const DomainInfo& di : domains) {
@@ -1408,7 +1446,7 @@ static void apiServerZoneDetail(HttpRequest* req, HttpResponse* resp) {
     throw HttpNotFoundException();
   }
 
-  if(req->method == "PUT" && !::arg().mustDo("api-readonly")) {
+  if(req->method == "PUT") {
     // update domain settings
 
     updateDomainSettingsFromDocument(B, di, zonename, req->json());
@@ -1417,7 +1455,7 @@ static void apiServerZoneDetail(HttpRequest* req, HttpResponse* resp) {
     resp->status = 204; // No Content, but indicate success
     return;
   }
-  else if(req->method == "DELETE" && !::arg().mustDo("api-readonly")) {
+  else if(req->method == "DELETE") {
     // delete domain
     if(!di.backend->deleteDomain(zonename))
       throw ApiException("Deleting domain '"+zonename.toString()+"' failed: backend delete failed/unsupported");
@@ -1426,7 +1464,7 @@ static void apiServerZoneDetail(HttpRequest* req, HttpResponse* resp) {
     resp->body = "";
     resp->status = 204; // No Content: declare that the zone is gone now
     return;
-  } else if (req->method == "PATCH" && !::arg().mustDo("api-readonly")) {
+  } else if (req->method == "PATCH") {
     patchZone(req, resp);
     return;
   } else if (req->method == "GET") {
@@ -1460,6 +1498,7 @@ static void apiServerZoneExport(HttpRequest* req, HttpResponse* resp) {
     ss <<
       rr.qname.toString() << "\t" <<
       rr.ttl << "\t" <<
+      "IN" << "\t" <<
       rr.qtype.getName() << "\t" <<
       makeApiRecordContent(rr.qtype, rr.content) <<
       endl;
@@ -1476,7 +1515,7 @@ static void apiServerZoneExport(HttpRequest* req, HttpResponse* resp) {
 static void apiServerZoneAxfrRetrieve(HttpRequest* req, HttpResponse* resp) {
   DNSName zonename = apiZoneIdToName(req->parameters["id"]);
 
-  if(req->method != "PUT" || ::arg().mustDo("api-readonly"))
+  if(req->method != "PUT")
     throw HttpMethodNotAllowedException();
 
   UeberBackend B;
@@ -1496,7 +1535,7 @@ static void apiServerZoneAxfrRetrieve(HttpRequest* req, HttpResponse* resp) {
 static void apiServerZoneNotify(HttpRequest* req, HttpResponse* resp) {
   DNSName zonename = apiZoneIdToName(req->parameters["id"]);
 
-  if(req->method != "PUT" || ::arg().mustDo("api-readonly"))
+  if(req->method != "PUT")
     throw HttpMethodNotAllowedException();
 
   UeberBackend B;
@@ -1634,6 +1673,8 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
     di.backend->getDomainMetadataOne(zonename, "SOA-EDIT", soa_edit_kind);
     bool soa_edit_done = false;
 
+    set<pair<DNSName, QType>> seen;
+
     for (const auto& rrset : rrsets.array_items()) {
       string changetype = toUpper(stringFromJson(rrset, "changetype"));
       DNSName qname = apiNameToDNSName(stringFromJson(rrset, "name"));
@@ -1643,6 +1684,12 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
       if (qtype.getCode() == 0) {
         throw ApiException("RRset "+qname.toString()+" IN "+stringFromJson(rrset, "type")+": unknown type given");
       }
+
+      if(seen.count({qname, qtype}))
+      {
+        throw ApiException("Duplicate RRset "+qname.toString()+" IN "+qtype.getName());
+      }
+      seen.insert({qname, qtype});
 
       if (changetype == "DELETE") {
         // delete all matching qname/qtype RRs (and, implicitly comments).
@@ -1676,6 +1723,13 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
             if (rr.qtype.getCode() == QType::SOA && rr.qname==zonename) {
               soa_edit_done = increaseSOARecord(rr, soa_edit_api_kind, soa_edit_kind);
             }
+
+            // Check if the DNSNames that should be hostnames, are hostnames
+            try {
+              checkHostnameCorrectness(rr);
+            } catch (const std::exception& e) {
+              throw ApiException("RRset "+qname.toString()+" IN "+qtype.getName() + " " + e.what());
+            }
           }
           checkDuplicateRecords(new_records);
         }
@@ -1689,9 +1743,13 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
         }
 
         if (replace_records) {
+          bool ent_present = false;
           di.backend->lookup(QType(QType::ANY), qname);
           DNSResourceRecord rr;
           while (di.backend->get(rr)) {
+            if (qtype.getCode() == 0) {
+              ent_present = true;
+            }
             if (qtype.getCode() == QType::CNAME && rr.qtype.getCode() != QType::CNAME) {
               throw ApiException("RRset "+qname.toString()+" IN "+qtype.getName()+": Conflicts with pre-existing non-CNAME RRset");
             } else if (qtype.getCode() != QType::CNAME && rr.qtype.getCode() == QType::CNAME) {
@@ -1699,6 +1757,12 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
             }
           }
 
+          if (!new_records.empty() && ent_present) {
+            QType qt_ent{0};
+            if (!di.backend->replaceRRSet(di.id, qname, qt_ent, new_records)) {
+              throw ApiException("Hosting backend does not support editing records.");
+            }
+          }
           if (!di.backend->replaceRRSet(di.id, qname, qtype, new_records)) {
             throw ApiException("Hosting backend does not support editing records.");
           }
@@ -1843,7 +1907,7 @@ static void apiServerSearchData(HttpRequest* req, HttpResponse* resp) {
 }
 
 void apiServerCacheFlush(HttpRequest* req, HttpResponse* resp) {
-  if(req->method != "PUT" || ::arg().mustDo("api-readonly"))
+  if(req->method != "PUT")
     throw HttpMethodNotAllowedException();
 
   DNSName canon = apiNameToDNSName(req->getvars["domain"]);
@@ -1894,10 +1958,10 @@ void AuthWebServer::cssfunction(HttpRequest* req, HttpResponse* resp)
 void AuthWebServer::webThread()
 {
   try {
+    setThreadName("pdns/webserver");
     if(::arg().mustDo("api")) {
       d_ws->registerApiHandler("/api/v1/servers/localhost/cache/flush", &apiServerCacheFlush);
       d_ws->registerApiHandler("/api/v1/servers/localhost/config", &apiServerConfig);
-      d_ws->registerApiHandler("/api/v1/servers/localhost/search-log", &apiServerSearchLog);
       d_ws->registerApiHandler("/api/v1/servers/localhost/search-data", &apiServerSearchData);
       d_ws->registerApiHandler("/api/v1/servers/localhost/statistics", &apiServerStatistics);
       d_ws->registerApiHandler("/api/v1/servers/localhost/zones/<id>/axfr-retrieve", &apiServerZoneAxfrRetrieve);

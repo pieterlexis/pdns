@@ -1,6 +1,7 @@
 JSON11_LIBS = $(top_srcdir)/ext/json11/libjson11.la
+PROBDS_LIBS = $(top_srcdir)/ext/probds/libprobds.la
 
-AM_CPPFLAGS = $(LUA_CFLAGS) $(YAHTTP_CFLAGS) $(BOOST_CPPFLAGS) $(BOTAN_CFLAGS) $(LIBSODIUM_CFLAGS) $(NET_SNMP_CFLAGS) $(SANITIZER_FLAGS) -O3 -Wall -pthread -DSYSCONFDIR=\"${sysconfdir}\" $(SYSTEMD_CFLAGS)
+AM_CPPFLAGS = $(LUA_CFLAGS) $(YAHTTP_CFLAGS) $(BOOST_CPPFLAGS) $(LIBSODIUM_CFLAGS) $(NET_SNMP_CFLAGS) $(SANITIZER_FLAGS) -O3 -Wall -pthread -DSYSCONFDIR=\"${sysconfdir}\" $(SYSTEMD_CFLAGS)
 
 AM_CPPFLAGS += \
 	-I$(top_srcdir)/ext/json11 \
@@ -11,6 +12,11 @@ AM_CXXFLAGS = \
 	-DSYSCONFDIR=\"$(sysconfdir)\" \
 	-DPKGLIBDIR=\"$(pkglibdir)\" \
 	-DLOCALSTATEDIR=\"$(socketdir)\"
+
+if NOD_ENABLED
+AM_CXXFLAGS += \
+	-DNODCACHEDIR=\"$(nodcachedir)\"
+endif
 
 AM_LDFLAGS = \
 	$(PROGRAM_LDFLAGS) \
@@ -36,11 +42,8 @@ AM_CPPFLAGS +=$(LUA_CFLAGS)
 endif
 
 EXTRA_DIST = \
-	NOTICE \
-	.version \
-	botansigners.cc \
-	build-aux/gen-version \
 	contrib/* \
+	COPYING \
 	devpollmplexer.cc \
 	dnslabeltext.cc \
 	dnslabeltext.rl \
@@ -53,13 +56,15 @@ EXTRA_DIST = \
 	mkpubsuffixcc \
 	mtasker.cc \
 	mtasker_fcontext.cc mtasker_ucontext.cc \
+	NOTICE \
 	opensslsigners.hh opensslsigners.cc \
 	portsmplexer.cc \
 	rrd/* \
 	html incfiles \
 	test_libcrypto \
 	pdns-recursor.service.in \
-	RECURSOR-MIB.txt
+	RECURSOR-MIB.txt \
+	builder-support/gen-version
 
 dist-hook:
 	for file in $$(find $(distdir)/docs -type l); do \
@@ -154,7 +159,9 @@ pdns_recursor_SOURCES = \
 	snmp-agent.hh snmp-agent.cc \
 	sortlist.cc sortlist.hh \
 	sstuff.hh \
+	stable-bloom.hh \
 	syncres.cc syncres.hh \
+	threadname.hh threadname.cc \
 	tsigverifier.cc tsigverifier.hh \
 	ueberbackend.hh \
 	unix_utility.cc \
@@ -180,10 +187,21 @@ pdns_recursor_LDADD = \
 	$(BOOST_CONTEXT_LIBS) \
 	$(NET_SNMP_LIBS) \
 	$(SYSTEMD_LIBS) \
-	$(RT_LIBS)
+	$(RT_LIBS) \
+	$(BOOST_SYSTEM_LIBS) \
+	$(PROBDS_LIBS)
 
 pdns_recursor_LDFLAGS = $(AM_LDFLAGS) \
-	$(LIBCRYPTO_LDFLAGS) $(BOOST_CONTEXT_LDFLAGS)
+	$(LIBCRYPTO_LDFLAGS) $(BOOST_CONTEXT_LDFLAGS) \
+	$(BOOST_SYSTEM_LDFLAGS)
+
+if NOD_ENABLED
+pdns_recursor_SOURCES += nod.hh nod.cc
+pdns_recursor_LDADD += \
+	$(BOOST_FILESYSTEM_LIBS)
+pdns_recursor_LDFLAGS += \
+	$(BOOST_FILESYSTEM_LDFLAGS)
+endif
 
 testrunner_SOURCES = \
 	arguments.cc \
@@ -225,6 +243,7 @@ testrunner_SOURCES = \
 	sillyrecords.cc \
 	sholder.hh \
 	sstuff.hh \
+	stable-bloom.hh \
 	syncres.cc syncres.hh \
 	test-arguments_cc.cc \
 	test-base32_cc.cc \
@@ -240,8 +259,8 @@ testrunner_SOURCES = \
 	test-ixfr_cc.cc \
 	test-misc_hh.cc \
 	test-mtasker.cc \
-	test-nmtree.cc \
 	test-negcache_cc.cc \
+	test-packetcache_hh.cc \
 	test-rcpgenerator_cc.cc \
 	test-recpacketcache_cc.cc \
 	test-recursorcache_cc.cc \
@@ -250,6 +269,7 @@ testrunner_SOURCES = \
 	test-tsig.cc \
 	test-xpf_cc.cc \
 	testrunner.cc \
+	threadname.hh threadname.cc \
 	tsigverifier.cc tsigverifier.hh \
 	unix_utility.cc \
 	validate.cc validate.hh \
@@ -261,21 +281,25 @@ testrunner_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	$(BOOST_CONTEXT_LDFLAGS) \
 	$(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
-	$(LIBCRYPTO_LDFLAGS)
+	$(LIBCRYPTO_LDFLAGS) \
+	$(BOOST_SYSTEM_LDFLAGS)
 
 testrunner_LDADD = \
 	$(BOOST_CONTEXT_LIBS) \
 	$(BOOST_UNIT_TEST_FRAMEWORK_LIBS) \
 	$(LIBCRYPTO_LIBS) \
-	$(RT_LIBS)
+	$(RT_LIBS) \
+	$(BOOST_SYSTEM_LIBS) \
+	$(PROBDS_LIBS)
 
-if BOTAN
-pdns_recursor_SOURCES += \
-	botansigners.cc
-pdns_recursor_LDADD += $(BOTAN_LIBS)
-testrunner_SOURCES += \
-	botansigners.cc
-testrunner_LDADD += $(BOTAN_LIBS)
+if NOD_ENABLED
+testrunner_SOURCES +=   nod.hh nod.cc \
+			test-nod_cc.cc
+
+testrunner_LDADD += \
+	$(BOOST_FILESYSTEM_LIBS)
+testrunner_LDFLAGS += \
+	$(BOOST_FILESYSTEM_LDFLAGS)
 endif
 
 if LIBSODIUM

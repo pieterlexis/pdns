@@ -127,7 +127,6 @@ shared_ptr<DNSCryptoKeyEngine> DNSCryptoKeyEngine::makeFromISCString(DNSKEYRecor
 
 std::string DNSCryptoKeyEngine::convertToISC() const
 {
-  typedef map<string, string> stormap_t;
   storvector_t stormap = this->convertToISCVector();
   ostringstream ret;
   ret<<"Private-key-format: v1.2\n";
@@ -449,7 +448,7 @@ DSRecordContent makeDSFromDNSKey(const DNSName& qname, const DNSKEYRecordContent
     dsrc.d_digest = dpk->hash(toHash);
   }
   catch(const std::exception& e) {
-    throw std::runtime_error("Asked to a DS of unknown digest type " + std::to_string(digest)+"\n");
+    throw std::runtime_error("Asked to create (C)DS record of unknown digest type " + std::to_string(digest));
   }
   
   dsrc.d_algorithm = drc.d_algorithm;

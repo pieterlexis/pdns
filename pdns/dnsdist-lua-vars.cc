@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "dnsdist.hh"
+#include "ednsoptions.hh"
 
 void setupLuaVars()
 {
@@ -32,6 +33,7 @@ void setupLuaVars()
       {"HeaderModify", (int)DNSAction::Action::HeaderModify},
       {"Pool", (int)DNSAction::Action::Pool},
       {"None",(int)DNSAction::Action::None},
+      {"NoOp",(int)DNSAction::Action::NoOp},
       {"Delay", (int)DNSAction::Action::Delay},
       {"Truncate", (int)DNSAction::Action::Truncate},
       {"ServFail", (int)DNSAction::Action::ServFail}
@@ -68,6 +70,20 @@ void setupLuaVars()
       {"Additional",3 }
     });
 
+  g_lua.writeVariable("EDNSOptionCode", std::unordered_map<string,int>{
+      {"NSID",         EDNSOptionCode::NSID },
+      {"DAU",          EDNSOptionCode::DAU },
+      {"DHU",          EDNSOptionCode::DHU },
+      {"N3U",          EDNSOptionCode::N3U },
+      {"ECS",          EDNSOptionCode::ECS },
+      {"EXPIRE",       EDNSOptionCode::EXPIRE },
+      {"COOKIE",       EDNSOptionCode::COOKIE },
+      {"TCPKEEPALIVE", EDNSOptionCode::TCPKEEPALIVE },
+      {"PADDING",      EDNSOptionCode::PADDING },
+      {"CHAIN",        EDNSOptionCode::CHAIN },
+      {"KEYTAG",       EDNSOptionCode::KEYTAG }
+    });
+
   vector<pair<string, int> > rcodes = {{"NOERROR",  RCode::NoError  },
                                        {"FORMERR",  RCode::FormErr  },
                                        {"SERVFAIL", RCode::ServFail },
@@ -102,4 +118,17 @@ void setupLuaVars()
         { "VERSION2", DNSCryptExchangeVersion::VERSION2 },
     });
 #endif
+
+  g_lua.writeVariable("EDNSOptionCode", std::unordered_map<string, uint8_t>{
+      { "NSID", EDNSOptionCode::NSID },
+      { "DAU", EDNSOptionCode::DAU },
+      { "DHU", EDNSOptionCode::DHU },
+      { "N3U", EDNSOptionCode::N3U },
+      { "ECS", EDNSOptionCode::ECS },
+      { "EXPIRE", EDNSOptionCode::EXPIRE },
+      { "COOKIE", EDNSOptionCode::COOKIE },
+      { "TCPKEEPALIVE", EDNSOptionCode::TCPKEEPALIVE },
+      { "PADDING", EDNSOptionCode::PADDING },
+      { "CHAIN", EDNSOptionCode::CHAIN }
+    });
 }

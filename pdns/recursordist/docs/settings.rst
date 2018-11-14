@@ -80,7 +80,8 @@ Static pre-shared authentication key for access to the REST API.
 
 ``api-readonly``
 ----------------
-.. versionadded:: 4.0.0
+.. versionchanged:: 4.2.0
+  This setting has been removed.
 
 -  Boolean
 -  Default: no
@@ -91,7 +92,8 @@ Disallow data modification through the REST API when set.
 
 ``api-logfile``
 ---------------
-.. versionadded:: 4.0.0
+.. versionchanged:: 4.2.0
+  This setting has been removed.
 
 -  Path
 -  Default: unset
@@ -134,6 +136,16 @@ DNSSEC is not supported. Example:
 If sending carbon updates, this is the interval between them in seconds.
 See :doc:`metrics`.
 
+.. _setting-carbon-namespace:
+
+``carbon-namespace``
+--------------------
+.. versionadded:: 4.2.0
+
+-  String
+
+Change the namespace or first string of the metric key. The default is pdns.
+
 .. _setting-carbon-ourname:
 
 ``carbon-ourname``
@@ -143,6 +155,16 @@ See :doc:`metrics`.
 If sending carbon updates, if set, this will override our hostname.
 Be careful not to include any dots in this setting, unless you know what you are doing.
 See :ref:`metricscarbon`.
+
+.. _setting-carbon-instance:
+
+``carbon-instance``
+--------------------
+.. versionadded:: 4.2.0
+
+-  String
+
+Change the instance or third string of the metric key. The default is recursor.
 
 .. _setting-carbon-server:
 
@@ -219,6 +241,10 @@ The number of worker threads is determined by the :ref:`setting-threads` setting
 If :ref:`setting-pdns-distributes-queries` is set, an additional thread is started, assigned the id 0,
 and is the only one listening on client sockets and accepting queries, distributing them to the other worker threads afterwards.
 
+Starting with version 4.2.0, the thread handling the control channel, the webserver and other internal stuff has been assigned
+id 0 and more than one distributor thread can be started using the :ref:`setting-distributor-threads` setting, so the distributor
+threads if any are assigned id 1 and counting, and the other threads follow behind.
+
 This parameter is only available on OS that provides the `pthread_setaffinity_np()` function.
 
 .. _setting-daemon:
@@ -262,6 +288,19 @@ not be cached.
 Do not log to syslog, only to stdout.
 Use this setting when running inside a supervisor that handles logging (like systemd).
 **Note**: do not use this setting in combination with `daemon`_ as all logging will disappear.
+
+.. _setting-distributor-threads:
+
+``distributor-threads``
+-----------------------
+.. versionadded:: 4.2.0
+
+-  Integer
+-  Default: 1 if `pdns-distributes-queries`_ is set, 0 otherwise
+
+If `pdns-distributes-queries`_ is set, spawn this number of distributor threads on startup. Distributor threads
+handle incoming queries and distribute them to other threads based on a hash of the query, to maximize the cache hit
+ratio.
 
 .. _setting-dnssec:
 
@@ -325,7 +364,7 @@ Queries to addresses for zones as configured in any of the settings `forward-zon
 .. _setting-ecs-add-for:
 
 ``ecs-add-for``
---------------------------
+---------------
 .. versionadded:: 4.2.0
 
 -  Comma separated list of netmasks
@@ -604,7 +643,7 @@ It is recommended not to set this below 3.
 Some DNS errors occur rather frequently and are no cause for alarm.
 
 ``log-rpz-changes``
----------------------
+-------------------
 .. versionadded:: 4.1.0
 
 -  Boolean
@@ -651,6 +690,19 @@ See :doc:`lua-config/index` for the options that can be set in this file.
 -  Default: unset
 
 Path to a lua file to manipulate the Recursor's answers. See :doc:`lua-scripting/index` for more information.
+
+.. _setting-maintenance-interval:
+
+``lua-maintenance-interval``
+----------------------------
+.. versionadded:: 4.1.4
+
+-  Integer
+-  Default: 1
+
+
+The interval between calls to the Lua user defined `maintenance()` function in seconds.
+See :ref:`hooks-maintenance-callback`
 
 .. _setting-max-cache-entries:
 
@@ -768,6 +820,21 @@ Maximum number of DNS queries in a TCP connection.
 
 Total maximum number of milliseconds of wallclock time the server may use to answer a single query.
 
+.. _setting-max-udp-queries-per-round:
+
+``max-udp-queries-per-round``
+----------------------------------
+.. versionadded:: 4.1.4
+
+-  Integer
+-  Default: 10000
+
+Under heavy load the recursor might be busy processing incoming UDP queries for a long while before there is no more of these, and might therefore
+neglect scheduling new ``mthreads``, handling responses from authoritative servers or responding to :doc:`rec_control <manpages/rec_control.1>`
+requests.
+This setting caps the maximum number of incoming UDP DNS queries processed in a single round of looping on ``recvmsg()`` after being woken up by the multiplexer, before
+returning back to normal processing and handling other events.
+
 .. _setting-minimum-ttl-override:
 
 ``minimum-ttl-override``
@@ -778,6 +845,179 @@ Total maximum number of milliseconds of wallclock time the server may use to ans
 This setting artificially raises all TTLs to be at least this long.
 While this is a gross hack, and violates RFCs, under conditions of DoS, it may enable you to continue serving your customers.
 Can be set at runtime using ``rec_control set-minimum-ttl 3600``.
+
+.. _setting-new-domain-tracking:
+
+``new-domain-tracking``
+-----------------------
+- Boolean
+- Default: no (disabled)
+
+Whether to track newly observed domains, i.e. never seen before. This
+is a probablistic algorithm, using a stable bloom filter to store
+records of previously seen domains. When enabled for the first time,
+all domains will appear to be newly observed, so the feature is best
+left enabled for e.g. a week or longer before using the results. Note
+that this feature is optional and must be enabled at compile-time,
+thus it may not be available in all pre-built packages.
+If protobuf is enabled and configured, then the newly observed domain
+status will appear as a flag in Response messages.
+
+.. _setting-new-domain-log:
+
+``new-domain-log``
+------------------
+- Boolean
+- Default: yes (enabled)
+
+If a newly observed domain is detected, log that domain in the
+recursor log file. The log line looks something like:
+
+Jul 18 11:31:25 Newly observed domain nod=sdfoijdfio.com
+
+.. _setting-new-domain-lookup:
+
+``new-domain-lookup``
+---------------------
+- Domain Name
+- Example: nod.powerdns.com
+
+If a domain is specified, then each time a newly observed domain is
+detected, the recursor will perform an A record lookup of "<newly
+observed domain>.<lookup domain>". For example if 'new-domain-lookup'
+is configured as 'nod.powerdns.com', and a new domain 'xyz123.tv' is
+detected, then an A record lookup will be made for
+'xyz123.tv.nod.powerdns.com'. This feature gives a way to share the
+newly observed domain with partners, vendors or security teams. The
+result of the DNS lookup will be ignored by the recursor.
+
+.. _setting-new-domain-db-size:
+
+``new-domain-db-size``
+---------------------
+- Integer
+- Example: 67108864
+
+The default size of the stable bloom filter used to store previously
+observed domains is 67108864. To change the number of cells, use this
+setting. For each cell, the SBF uses 1 bit of memory, and one byte of
+disk for the persistent file.
+If there are already persistent files saved to disk, this setting will 
+have no effect unless you remove the existing files.
+
+.. _setting-new-domain-history-dir:
+
+``new-domain-history-dir``
+--------------------------
+- Path
+- Default: /var/lib/pdns-recursor/nod
+
+This setting controls which directory is used to store the on-disk
+cache of previously observed domains.
+
+The newly observed domain feature uses a stable bloom filter to store
+a history of previously observed domains. The data structure is
+synchronized to disk every 10 minutes, and is also initialized from
+disk on startup. This ensures that previously observed domains are
+preserved across recursor restarts.
+If you change the new-domain-db-size setting, you must remove any files 
+from this directory.
+
+.. _setting-new-domain-whitelist:
+
+``new-domain-whitelist``
+------------------------
+- List of Domain Names, comma separated
+- Example: xyz.com, abc.com
+
+This setting is a list of all domains (and implicitly all subdomains)
+that will never be considered a new domain. For example, if the domain
+'xyz123.tv' is in the list, then 'foo.bar.xyz123.tv' will never be
+considered a new domain. One use-case for the whitelist is to never
+reveal details of internal subdomains via the new-domain-lookup
+feature.
+
+.. _setting-new-domain-pb-tag:
+
+``new-domain-pb-tag``
+------------------------
+- String
+- Default: pnds-nod
+
+If protobuf is configured, then this tag will be added to all protobuf response messages when
+a new domain is observed. 
+
+.. _setting-unique-response-tracking:
+
+``unique-response-tracking``
+-----------------------
+- Boolean
+- Default: no (disabled)
+
+Whether to track unique DNS responses, i.e. never seen before combinations
+of the triplet (query name, query type, RR[rrname, rrtype, rrdata]).
+This can be useful for tracking potentially suspicious domains and 
+behaviour, e.g. DNS fast-flux.
+If protobuf is enabled and configured, then the Protobuf Response message
+will contain a flag with udr set to true for each RR that is considered
+unique, i.e. never seen before.
+This feature uses a probabilistic data structure (stable bloom filter) to
+track unique responses, which can have false positives as well as false
+negatives, thus it is a best-effort feature. Increasing the number of cells
+in the SBF using the unique-response-db-size setting can reduce FPs and FNs.
+
+.. _setting-unique-response-log:
+
+``unique-response-log``
+-----------------------
+- Boolean
+- Default: no (disabled)
+
+Whether to log when a unique response is detected. The log line
+looks something like:
+
+Oct 24 12:11:27 Unique response observed: qname=foo.com qtype=A rrtype=AAAA rrname=foo.com rrcontent=1.2.3.4
+
+.. _setting-unique-response-db-size:
+
+``unique-response-db-size``
+---------------------
+- Integer
+- Example: 67108864
+
+The default size of the stable bloom filter used to store previously
+observed responses is 67108864. To change the number of cells, use this
+setting. For each cell, the SBF uses 1 bit of memory, and one byte of
+disk for the persistent file.
+If there are already persistent files saved to disk, this setting will 
+have no effect unless you remove the existing files.
+
+.. _setting-unique-response-history-dir:
+
+``unique-response-history-dir``
+--------------------------
+- Path
+- Default: /var/lib/pdns-recursor/udr
+
+This setting controls which directory is used to store the on-disk
+cache of previously observed responses.
+
+The newly observed domain feature uses a stable bloom filter to store
+a history of previously observed responses. The data structure is
+synchronized to disk every 10 minutes, and is also initialized from
+disk on startup. This ensures that previously observed responses are
+preserved across recursor restarts. If you change the 
+unique-response-db-size, you must remove any files from this directory.
+
+.. _setting-unique-response-pb-tag:
+
+``unique-response-pb-tag``
+------------------------
+- String
+- Default: pnds-udr
+
+If protobuf is configured, then this tag will be added to all protobuf response messages when
+a unique DNS response is observed. 
 
 .. _setting-network-timeout:
 
@@ -828,8 +1068,11 @@ Maximum number of seconds to cache a 'server failure' answer in the packet cache
 ``pdns-distributes-queries``
 ----------------------------
 -  Boolean
+-  Default: yes
 
-If set, PowerDNS will have only 1 thread listening on client sockets, and distribute work by itself over threads.
+If set, PowerDNS will have only 1 thread listening on client sockets, and distribute work by itself over threads by using a hash of the query,
+maximizing the cache hit ratio. Starting with version 4.2.0, more than one distributing thread can be started using the `distributor-threads`_
+setting.
 Improves performance on Linux.
 
 .. _setting-query-local-address:
@@ -872,6 +1115,7 @@ If ``SO_REUSEPORT`` support is available, allows multiple processes to open a li
 Since 4.1.0, when ``pdns-distributes-queries`` is set to false and ``reuseport`` is enabled, every thread will open a separate listening socket to let the kernel distribute the incoming queries, avoiding any thundering herd issue as well as the distributor thread being a bottleneck, thus leading to much higher performance on multi-core boxes.
 
 .. _setting-rng:
+
 ``rng``
 -------
 
@@ -951,14 +1195,18 @@ Throttle a server that has failed to respond `server-down-max-fails`_ times for 
 -  String
 -  Default: The hostname of the server
 
-The PowerDNS recursor by replies to a query for 'id.server' with its hostname, useful for in clusters.
-Use this setting to override the answer it gives.
+The reply given by The PowerDNS recursor to a query for 'id.server' with its hostname, useful for in clusters.
+When a query contains the :rfc:`NSID EDNS0 Option <5001>`, this value is returned in the response as the NSID value.
+
+This setting can be used to override the answer given to these queries.
+Set to "disabled" to disable NSID and 'id.server' answers.
 
 Query example (where 192.0.2.14 is your server):
 
 .. code-block:: sh
 
     dig @192.0.2.14 CHAOS TXT id.server.
+    dig @192.0.2.14 example.com IN A +nsid
 
 ``setgid``, ``setuid``
 ----------------------
@@ -967,6 +1215,21 @@ Query example (where 192.0.2.14 is your server):
 
 PowerDNS can change its user and group id after binding to its socket.
 Can be used for better :doc:`security <security>`.
+
+.. _setting-signature-inception-skew:
+
+``signature-inception-skew``
+----------------------------------
+.. versionadded:: 4.1.5
+
+-  Integer
+-  Default: 60
+
+Allow the signature inception to be off by this number of seconds. Negative values are not allowed.
+
+.. versionchanged:: 4.2.0
+
+    Default is now 60, was 0 before.
 
 .. _setting-single-socket:
 
@@ -1245,7 +1508,7 @@ should be done on the proxy.
 .. _setting-xpf-rr-code:
 
 ``xpf-rr-code``
--------------------
+---------------
 .. versionadded:: 4.2.0
 
 -  Integer

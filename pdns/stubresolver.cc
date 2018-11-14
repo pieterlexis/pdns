@@ -23,7 +23,8 @@
 // s_resolversForStub contains the ComboAddresses that are used by
 // stubDoResolve
 static vector<ComboAddress> s_resolversForStub;
-static pthread_mutex_t s_resolversForStubLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_rwlock_t s_resolversForStubLock = PTHREAD_RWLOCK_INITIALIZER;
+static bool s_stubResolvConfigured = false;
 
 // /etc/resolv.conf last modification time
 static time_t s_localResolvConfMtime = 0;
@@ -34,6 +35,7 @@ static time_t s_localResolvConfLastCheck = 0;
  */
 bool resolversDefined()
 {
+  ReadLock l(&s_resolversForStubLock);
   if (s_resolversForStub.empty()) {
     g_log<<Logger::Warning<<"No upstream resolvers configured, stub resolving (including secpoll and ALIAS) impossible."<<endl;
     return false;
@@ -44,60 +46,49 @@ bool resolversDefined()
 /*
  * Parse /etc/resolv.conf and add those nameservers to s_resolversForStub
  */
-static void parseLocalResolvConf()
+static void parseLocalResolvConf_locked(const time_t& now)
 {
-  const time_t now = time(nullptr);
   struct stat st;
-
-  if ((s_localResolvConfLastCheck + LOCAL_RESOLV_CONF_MAX_CHECK_INTERVAL) >  now)
-    return ;
   s_localResolvConfLastCheck = now;
 
   if (stat(LOCAL_RESOLV_CONF_PATH, &st) != -1) {
     if (st.st_mtime != s_localResolvConfMtime) {
-      ifstream ifs(LOCAL_RESOLV_CONF_PATH);
-      string line;
-      Lock l(&s_resolversForStubLock);
+      std::vector<ComboAddress> resolvers = getResolvers(LOCAL_RESOLV_CONF_PATH);
 
       s_localResolvConfMtime = st.st_mtime;
-      if(!ifs)
+
+      if (resolvers.empty()) {
         return;
-
-      s_resolversForStub.clear();
-      while(std::getline(ifs, line)) {
-        boost::trim_right_if(line, is_any_of(" \r\n\x1a"));
-        boost::trim_left(line); // leading spaces, let's be nice
-
-        string::size_type tpos = line.find_first_of(";#");
-        if(tpos != string::npos)
-          line.resize(tpos);
-
-        if(boost::starts_with(line, "nameserver ") || boost::starts_with(line, "nameserver\t")) {
-          vector<string> parts;
-          stringtok(parts, line, " \t,"); // be REALLY nice
-          for(vector<string>::const_iterator iter = parts.begin()+1; iter != parts.end(); ++iter) {
-            try {
-              s_resolversForStub.push_back(ComboAddress(*iter, 53));
-            }
-            catch(...)
-            {
-            }
-          }
-        }
       }
+
+      s_resolversForStub = std::move(resolvers);
     }
   }
 }
+
+static void parseLocalResolvConf()
+{
+  const time_t now = time(nullptr);
+  if ((s_localResolvConfLastCheck + LOCAL_RESOLV_CONF_MAX_CHECK_INTERVAL) > now)
+    return ;
+
+  WriteLock wl(&s_resolversForStubLock);
+  parseLocalResolvConf_locked(now);
+}
+
 
 /*
  * Fill the s_resolversForStub vector with addresses for the upstream resolvers.
  * First, parse the `resolver` configuration option for IP addresses to use.
  * If that doesn't work, parse /etc/resolv.conf and add those nameservers to
  * s_resolversForStub.
+ *
+ * mainthread() calls this so you don't have to.
  */
 void stubParseResolveConf()
 {
   if(::arg().mustDo("resolver")) {
+    WriteLock wl(&s_resolversForStubLock);
     vector<string> parts;
     stringtok(parts, ::arg()["resolver"], " ,\t");
     for (const auto& addr : parts)
@@ -109,11 +100,16 @@ void stubParseResolveConf()
   }
   // Emit a warning if there are no stubs.
   resolversDefined();
+  s_stubResolvConfigured = true;
 }
 
 // s_resolversForStub contains the ComboAddresses that are used to resolve the
 int stubDoResolve(const DNSName& qname, uint16_t qtype, vector<DNSZoneRecord>& ret)
 {
+  // ensure resolver gets always configured
+  if (!s_stubResolvConfigured) {
+    stubParseResolveConf();
+  }
   // only check if resolvers come from local resolv.conf in the first place
   if (s_localResolvConfMtime != 0) {
         parseLocalResolvConf();
@@ -121,6 +117,7 @@ int stubDoResolve(const DNSName& qname, uint16_t qtype, vector<DNSZoneRecord>& r
   if (!resolversDefined())
     return RCode::ServFail;
 
+  ReadLock l(&s_resolversForStubLock);
   vector<uint8_t> packet;
 
   DNSPacketWriter pw(packet, qname, qtype);

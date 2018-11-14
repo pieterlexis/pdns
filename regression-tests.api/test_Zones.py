@@ -217,18 +217,57 @@ class AuthZones(ApiTestCase, AuthZonesHelperMixin):
 
     def test_create_zone_with_comments(self):
         name = unique_zone_name()
-        rrset = {
-            "name": name,
-            "type": "soa",  # test uppercasing of type, too.
-            "comments": [{
-                "account": "test1",
-                "content": "blah blah",
-                "modified_at": 11112,
-            }],
-        }
-        name, payload, data = self.create_zone(name=name, rrsets=[rrset])
+        rrsets = [
+              {
+                  "name": name,
+                  "type": "soa",  # test uppercasing of type, too.
+                  "comments": [{
+                      "account": "test1",
+                      "content": "blah blah",
+                      "modified_at": 11112,
+                  }],
+              },
+              {
+                  "name": name,
+                  "type": "AAAA",
+                  "ttl": 3600,
+                  "records": [{
+                      "content": "2001:DB8::1",
+                      "disabled": False,
+                  }],
+                  "comments": [{
+                      "account": "test AAAA",
+                      "content": "blah blah AAAA",
+                      "modified_at": 11112,
+                  }],
+              },
+              {
+                  "name": name,
+                  "type": "TXT",
+                  "ttl": 3600,
+                  "records": [{
+                      "content": "\"test TXT\"",
+                      "disabled": False,
+                  }],
+              },
+              {
+                  "name": name,
+                  "type": "A",
+                  "ttl": 3600,
+                  "records": [{
+                      "content": "192.0.2.1",
+                      "disabled": False,
+                  }],
+              },
+          ]
+        name, payload, data = self.create_zone(name=name, rrsets=rrsets)
+        # NS records have been created
+        self.assertEquals(len(data['rrsets']), len(rrsets) + 1)
         # check our comment has appeared
-        self.assertEquals(get_rrset(data, name, 'SOA')['comments'], rrset['comments'])
+        self.assertEquals(get_rrset(data, name, 'SOA')['comments'], rrsets[0]['comments'])
+        self.assertEquals(get_rrset(data, name, 'A')['comments'], [])
+        self.assertEquals(get_rrset(data, name, 'TXT')['comments'], [])
+        self.assertEquals(get_rrset(data, name, 'AAAA')['comments'], rrsets[1]['comments'])
 
     def test_create_zone_uncanonical_nameservers(self):
         name = unique_zone_name()
@@ -603,6 +642,14 @@ class AuthZones(ApiTestCase, AuthZonesHelperMixin):
         self.assertEqual(data['serial'], 0)
         self.assertEqual(data['rrsets'], [])
 
+    def test_find_zone_by_name(self):
+        name = 'foo/' + unique_zone_name()
+        name, payload, data = self.create_zone(name=name)
+        r = self.session.get(self.url("/api/v1/servers/localhost/zones?zone=" + name))
+        data = r.json()
+        print(data)
+        self.assertEquals(data[0]['name'], name)
+
     def test_delete_slave_zone(self):
         name, payload, data = self.create_zone(kind='Slave', nameservers=None, masters=['127.0.0.2'])
         r = self.session.delete(self.url("/api/v1/servers/localhost/zones/" + data['id']))
@@ -828,9 +875,9 @@ fred   IN  A      192.168.0.4
         self.assert_success_json(r)
         data = r.json()
         self.assertIn('zone', data)
-        expected_data = [name + '\t3600\tNS\tns1.foo.com.',
-                         name + '\t3600\tNS\tns2.foo.com.',
-                         name + '\t3600\tSOA\ta.misconfigured.powerdns.server. hostmaster.' + name +
+        expected_data = [name + '\t3600\tIN\tNS\tns1.foo.com.',
+                         name + '\t3600\tIN\tNS\tns2.foo.com.',
+                         name + '\t3600\tIN\tSOA\ta.misconfigured.powerdns.server. hostmaster.' + name +
                          ' 0 10800 3600 604800 3600']
         self.assertEquals(data['zone'].strip().split('\n'), expected_data)
 
@@ -842,9 +889,9 @@ fred   IN  A      192.168.0.4
             headers={'accept': '*/*'}
         )
         data = r.text.strip().split("\n")
-        expected_data = [name + '\t3600\tNS\tns1.foo.com.',
-                         name + '\t3600\tNS\tns2.foo.com.',
-                         name + '\t3600\tSOA\ta.misconfigured.powerdns.server. hostmaster.' + name +
+        expected_data = [name + '\t3600\tIN\tNS\tns1.foo.com.',
+                         name + '\t3600\tIN\tNS\tns2.foo.com.',
+                         name + '\t3600\tIN\tSOA\ta.misconfigured.powerdns.server. hostmaster.' + name +
                          ' 0 10800 3600 604800 3600']
         self.assertEquals(data, expected_data)
 
@@ -938,6 +985,31 @@ fred   IN  A      192.168.0.4
         data = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name)).json()
         self.assertEquals(get_rrset(data, name, 'MX')['records'], rrset['records'])
 
+    def test_zone_rr_update_invalid_mx(self):
+        name, payload, zone = self.create_zone()
+        # do a replace (= update)
+        rrset = {
+            'changetype': 'replace',
+            'name': name,
+            'type': 'MX',
+            'ttl': 3600,
+            'records': [
+                {
+                    "content": "10 mail@mx.example.org.",
+                    "disabled": False
+                }
+            ]
+        }
+        payload = {'rrsets': [rrset]}
+        r = self.session.patch(
+            self.url("/api/v1/servers/localhost/zones/" + name),
+            data=json.dumps(payload),
+            headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 422)
+        self.assertIn('non-hostname content', r.json()['error'])
+        data = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name)).json()
+        self.assertIsNone(get_rrset(data, name, 'MX'))
+
     def test_zone_rr_update_opt(self):
         name, payload, zone = self.create_zone()
         # do a replace (= update)
@@ -1021,6 +1093,40 @@ fred   IN  A      192.168.0.4
             headers={'content-type': 'application/json'})
         self.assertEquals(r.status_code, 422)
         self.assertIn('Duplicate record in RRset', r.json()['error'])
+
+    def test_zone_rr_update_duplicate_rrset(self):
+        name, payload, zone = self.create_zone()
+        rrset1 = {
+            'changetype': 'replace',
+            'name': name,
+            'type': 'NS',
+            'ttl': 3600,
+            'records': [
+                {
+                    "content": "ns9999.example.com.",
+                    "disabled": False
+                }
+            ]
+        }
+        rrset2 = {
+            'changetype': 'replace',
+            'name': name,
+            'type': 'NS',
+            'ttl': 3600,
+            'records': [
+                {
+                    "content": "ns9998.example.com.",
+                    "disabled": False
+                }
+            ]
+        }
+        payload = {'rrsets': [rrset1, rrset2]}
+        r = self.session.patch(
+            self.url("/api/v1/servers/localhost/zones/" + name),
+            data=json.dumps(payload),
+            headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 422)
+        self.assertIn('Duplicate RRset', r.json()['error'])
 
     def test_zone_rr_delete(self):
         name, payload, zone = self.create_zone()
@@ -1476,15 +1582,15 @@ fred   IN  A      192.168.0.4
         print(r.json())
         self.assertEquals(r.json(), [
             {u'object_type': u'zone', u'name': name, u'zone_id': name},
-            {u'content': u'a.misconfigured.powerdns.server. hostmaster.'+name+' 22 10800 3600 604800 3600',
-             u'zone_id': name, u'zone': name, u'object_type': u'record', u'disabled': False,
-             u'ttl': 3600, u'type': u'SOA', u'name': name},
             {u'content': u'ns1.example.com.',
              u'zone_id': name, u'zone': name, u'object_type': u'record', u'disabled': False,
              u'ttl': 3600, u'type': u'NS', u'name': name},
             {u'content': u'ns2.example.com.',
              u'zone_id': name, u'zone': name, u'object_type': u'record', u'disabled': False,
              u'ttl': 3600, u'type': u'NS', u'name': name},
+            {u'content': u'a.misconfigured.powerdns.server. hostmaster.'+name+' 22 10800 3600 604800 3600',
+             u'zone_id': name, u'zone': name, u'object_type': u'record', u'disabled': False,
+             u'ttl': 3600, u'type': u'SOA', u'name': name},
         ])
 
     def test_search_rr_substring(self):
@@ -1525,6 +1631,41 @@ fred   IN  A      192.168.0.4
         print(r.json())
         # should return zone, SOA, ns1, ns2, sub.sub A (but not the ENT)
         self.assertEquals(len(r.json()), 5)
+
+    def test_cname_at_ent_place(self):
+        name, payload, zone = self.create_zone(api_rectify=True)
+        rrset = {
+            'changetype': 'replace',
+            'name': 'sub2.sub1.' + name,
+            'type': "A",
+            'ttl': 3600,
+            'records': [{
+                'content': "4.3.2.1",
+                'disabled': False,
+            }],
+        }
+        payload = {'rrsets': [rrset]}
+        r = self.session.patch(
+            self.url("/api/v1/servers/localhost/zones/" + zone['id']),
+            data=json.dumps(payload),
+            headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 204)
+        rrset = {
+            'changetype': 'replace',
+            'name': 'sub1.' + name,
+            'type': "CNAME",
+            'ttl': 3600,
+            'records': [{
+                'content': "www.example.org.",
+                'disabled': False,
+            }],
+        }
+        payload = {'rrsets': [rrset]}
+        r = self.session.patch(
+            self.url("/api/v1/servers/localhost/zones/" + zone['id']),
+            data=json.dumps(payload),
+            headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 204)
 
     def test_rrset_parameter_post_false(self):
         name = unique_zone_name()

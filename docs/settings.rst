@@ -177,6 +177,20 @@ Also AXFR a zone from a master with a lower serial.
 
 Seconds to store packets in the :ref:`packet-cache`.
 
+.. _setting-carbon-namespace:
+
+``carbon-namespace``
+--------------------
+
+-  String
+-  Default: pdns
+
+.. versionadded:: 4.2.0
+
+Set the namespace or first string of the metric key. Be careful not to include
+any dots in this setting, unless you know what you are doing.
+See :ref:`metricscarbon`
+
 .. _setting-carbon-ourname:
 
 ``carbon-ourname``
@@ -188,6 +202,20 @@ Seconds to store packets in the :ref:`packet-cache`.
 If sending carbon updates, if set, this will override our hostname. Be
 careful not to include any dots in this setting, unless you know what
 you are doing. See :ref:`metricscarbon`
+
+.. _setting-carbon-instance:
+
+``carbon-instance``
+-------------------
+
+-  String
+-  Default: auth
+
+.. versionadded:: 4.2.0
+
+Set the instance or third string of the metric key. Be careful not to include
+any dots in this setting, unless you know what you are doing.
+See :ref:`metricscarbon`
 
 .. _setting-carbon-server:
 
@@ -288,17 +316,13 @@ The algorithm that should be used for the KSK when running
 :doc:`pdnsutil secure-zone <manpages/pdnsutil.1>` or using the :doc:`Zone API endpoint <http-api/cryptokey>`
 to enable DNSSEC. Must be one of:
 
-* rsamd5
-* dh
-* dsa
-* ecc
 * rsasha1
 * rsasha256
 * rsasha512
-* ecc-gost
 * ecdsa256 (ECDSA P-256 with SHA256)
 * ecdsa384 (ECDSA P-384 with SHA384)
 * ed25519
+* ed448
 
 .. note::
   Actual supported algorithms depend on the crypto-libraries
@@ -384,17 +408,13 @@ The algorithm that should be used for the ZSK when running
 :doc:`pdnsutil secure-zone <manpages/pdnsutil.1>` or using the :doc:`Zone API endpoint <http-api/cryptokey>`
 to enable DNSSEC. Must be one of:
 
-* rsamd5
-* dh
-* dsa
-* ecc
 * rsasha1
 * rsasha256
 * rsasha512
-* ecc-gost
 * ecdsa256 (ECDSA P-256 with SHA256)
 * ecdsa384 (ECDSA P-384 with SHA384)
 * ed25519
+* ed448
 
 .. note::
   Actual supported algorithms depend on the crypto-libraries
@@ -420,8 +440,8 @@ Only relevant for algorithms with non-fixed keysizes (like RSA).
 -  Boolean
 -  Default: no
 
-Read additional ZSKs from the records table/your BIND zonefile. If not
-set, DNSKEY records in the zonefiles are ignored.
+Read additional DNSKEY, CDS and CDNSKEY records from the records table/your BIND zonefile. If not
+set, DNSKEY, CDS and CDNSKEY records in the zonefiles are ignored.
 
 .. _setting-disable-axfr:
 
@@ -547,7 +567,7 @@ Enables EDNS subnet processing, for backends that support it.
 .. _setting-enable-lua-records:
 
 ``enable-lua-records``
---------------------------
+----------------------
 
 -  Boolean
 -  Default: no
@@ -811,7 +831,8 @@ Do not pass names like 'local0'!
 -  Integer
 -  Default: 4
 
-Amount of logging. Higher is more. Do not set below 3
+Amount of logging. Higher is more. Do not set below 3. Corresponds to "syslog" level values,
+e.g. error = 3, warning = 4, notice = 5, info = 6
 
 .. _setting-log-dns-queries:
 
@@ -1029,6 +1050,7 @@ restarts, but it may also mask configuration issues and for this reason
 it is disabled by default.
 
 .. _setting-rng:
+
 ``rng``
 -------
 
@@ -1085,6 +1107,11 @@ of this setting, the IP addresses or netmasks configured with
 :ref:`setting-also-notify` and ``ALSO-NOTIFY`` domain metadata
 always receive AXFR NOTIFYs.
 
+IP addresses and netmasks can be excluded by prefixing them with a ``!``.
+To notify all IP addresses apart from the 192.168.0.0/24 subnet use the following::
+
+  only-notify=0.0.0.0/0, ::/0, !192.168.0.0/24
+
 .. note::
   Even if NOTIFYs are limited by a netmask, PowerDNS first has to
   resolve all the hostnames to check their IP addresses against the
@@ -1095,6 +1122,16 @@ always receive AXFR NOTIFYs.
   :ref:`setting-only-notify` to an empty value and specify the notification targets
   explicitly using :ref:`setting-also-notify` and/or
   :ref:`metadata-also-notify` domain metadata to avoid this potential bottleneck.
+
+.. note::
+  If your slaves support Internet Protocol version, which your master does not, 
+  then set ``only-notify`` to include only supported protocol version. 
+  Otherwise there will be error trying to resolve address.
+  
+  For example, slaves support both IPv4 and IPv6, but PowerDNS master have only IPv4, 
+  so allow only IPv4 with ``only-notify``::
+  
+    only-notify=0.0.0.0/0
 
 .. _setting-out-of-zone-additional-processing:
 
@@ -1248,6 +1285,20 @@ resolvers.
 
 Number of AXFR slave threads to start.
 
+.. _setting-send-signed-notify:
+
+``send-signed-notify``
+----------------------
+
+-  Boolean
+-  Default: yes
+
+If yes, outgoing NOTIFYs will be signed if a TSIG key is configured for the zone.
+If there are multiple TSIG keys configured for a domain, PowerDNS will use the
+first one retrieved from the backend, which may not be the correct one for the
+respective slave. Hence, in setups with multiple slaves with different TSIG keys
+it may be required to send NOTIFYs unsigned.
+
 .. _setting-setgid:
 
 ``setgid``
@@ -1370,14 +1421,14 @@ and :doc:`Virtual Hosting <guides/virtual-instances>` how this can differ.
 .. _setting-supermaster:
 
 ``supermaster``
-------------
+---------------
 
 -  Boolean
 -  Default: no
 
 .. versionadded:: 4.2.0
 
-Turn on supermaster support. See :ref:`supemaster-operation`.
+Turn on supermaster support. See :ref:`supermaster-operation`.
 
 .. _setting-tcp-control-address:
 

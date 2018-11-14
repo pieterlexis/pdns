@@ -22,24 +22,29 @@
 #pragma once
 #include "config.h"
 #include "ext/luawrapper/include/LuaContext.hpp"
-#include <time.h>
-#include "misc.hh"
-#include "mplexer.hh"
-#include "iputils.hh"
-#include "dnsname.hh"
+
 #include <atomic>
-#include <boost/variant.hpp>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <time.h>
 #include <unistd.h>
-#include "sholder.hh"
+#include <unordered_map>
+
+#include <boost/circular_buffer.hpp>
+#include <boost/variant.hpp>
+
+#include "bpf-filter.hh"
 #include "dnscrypt.hh"
 #include "dnsdist-cache.hh"
-#include "gettime.hh"
 #include "dnsdist-dynbpf.hh"
-#include "bpf-filter.hh"
-#include <string>
-#include <unordered_map>
+#include "dnsname.hh"
+#include "ednsoptions.hh"
+#include "gettime.hh"
+#include "iputils.hh"
+#include "misc.hh"
+#include "mplexer.hh"
+#include "sholder.hh"
 #include "tcpiohandler.hh"
 
 #include <boost/uuid/uuid.hpp>
@@ -59,20 +64,23 @@ typedef std::unordered_map<string, string> QTag;
 
 struct DNSQuestion
 {
-  DNSQuestion(const DNSName* name, uint16_t type, uint16_t class_, const ComboAddress* lc, const ComboAddress* rem, struct dnsheader* header, size_t bufferSize, uint16_t queryLen, bool isTcp, const struct timespec* queryTime_):
-    qname(name), qtype(type), qclass(class_), local(lc), remote(rem), dh(header), size(bufferSize), len(queryLen), ecsPrefixLength(rem->sin4.sin_family == AF_INET ? g_ECSSourcePrefixV4 : g_ECSSourcePrefixV6), tempFailureTTL(boost::none), tcp(isTcp), queryTime(queryTime_), ecsOverride(g_ECSOverride) { }
+  DNSQuestion(const DNSName* name, uint16_t type, uint16_t class_, unsigned int consumed_, const ComboAddress* lc, const ComboAddress* rem, struct dnsheader* header, size_t bufferSize, uint16_t queryLen, bool isTcp, const struct timespec* queryTime_):
+    qname(name), qtype(type), qclass(class_), local(lc), remote(rem), dh(header), size(bufferSize), consumed(consumed_), len(queryLen), ecsPrefixLength(rem->sin4.sin_family == AF_INET ? g_ECSSourcePrefixV4 : g_ECSSourcePrefixV6), tempFailureTTL(boost::none), tcp(isTcp), queryTime(queryTime_), ecsOverride(g_ECSOverride) { }
 
 #ifdef HAVE_PROTOBUF
   boost::optional<boost::uuids::uuid> uniqueId;
 #endif
+  Netmask ecs;
   const DNSName* qname;
   const uint16_t qtype;
   const uint16_t qclass;
   const ComboAddress* local;
   const ComboAddress* remote;
   std::shared_ptr<QTag> qTag{nullptr};
+  std::shared_ptr<std::map<uint16_t, EDNSOptionView> > ednsOptions;
   struct dnsheader* dh;
   size_t size;
+  unsigned int consumed{0};
   uint16_t len;
   uint16_t ecsPrefixLength;
   boost::optional<uint32_t> tempFailureTTL;
@@ -82,12 +90,13 @@ struct DNSQuestion
   bool ecsOverride;
   bool useECS{true};
   bool addXPF{true};
+  bool ecsSet{false};
 };
 
 struct DNSResponse : DNSQuestion
 {
-  DNSResponse(const DNSName* name, uint16_t type, uint16_t class_, const ComboAddress* lc, const ComboAddress* rem, struct dnsheader* header, size_t bufferSize, uint16_t responseLen, bool isTcp, const struct timespec* queryTime_):
-    DNSQuestion(name, type, class_, lc, rem, header, bufferSize, responseLen, isTcp, queryTime_) { }
+  DNSResponse(const DNSName* name, uint16_t type, uint16_t class_, unsigned int consumed, const ComboAddress* lc, const ComboAddress* rem, struct dnsheader* header, size_t bufferSize, uint16_t responseLen, bool isTcp, const struct timespec* queryTime_):
+    DNSQuestion(name, type, class_, consumed, lc, rem, header, bufferSize, responseLen, isTcp, queryTime_) { }
 };
 
 /* so what could you do:
@@ -102,7 +111,38 @@ struct DNSResponse : DNSQuestion
 class DNSAction
 {
 public:
-  enum class Action { Drop, Nxdomain, Refused, Spoof, Allow, HeaderModify, Pool, Delay, Truncate, ServFail, None};
+  enum class Action { Drop, Nxdomain, Refused, Spoof, Allow, HeaderModify, Pool, Delay, Truncate, ServFail, None, NoOp };
+  static std::string typeToString(const Action& action)
+  {
+    switch(action) {
+    case Action::Drop:
+      return "Drop";
+    case Action::Nxdomain:
+      return "Send NXDomain";
+    case Action::Refused:
+      return "Send Refused";
+    case Action::Spoof:
+      return "Spoof an answer";
+    case Action::Allow:
+      return "Allow";
+    case Action::HeaderModify:
+      return "Modify the header";
+    case Action::Pool:
+      return "Route to a pool";
+    case Action::Delay:
+      return "Delay";
+    case Action::Truncate:
+      return "Truncate over UDP";
+    case Action::ServFail:
+      return "Send ServFail";
+    case Action::None:
+    case Action::NoOp:
+      return "Do nothing";
+    }
+
+    return "Unknown";
+  }
+
   virtual Action operator()(DNSQuestion*, string* ruleresult) const =0;
   virtual ~DNSAction()
   {
@@ -127,15 +167,15 @@ public:
 
 struct DynBlock
 {
-  DynBlock(): action(DNSAction::Action::None)
+  DynBlock(): action(DNSAction::Action::None), warning(false)
   {
   }
 
-  DynBlock(const std::string& reason_, const struct timespec& until_, const DNSName& domain_, DNSAction::Action action_): reason(reason_), until(until_), domain(domain_), action(action_)
+  DynBlock(const std::string& reason_, const struct timespec& until_, const DNSName& domain_, DNSAction::Action action_): reason(reason_), until(until_), domain(domain_), action(action_), warning(false)
   {
   }
 
-  DynBlock(const DynBlock& rhs): reason(rhs.reason), until(rhs.until), domain(rhs.domain), action(rhs.action)
+  DynBlock(const DynBlock& rhs): reason(rhs.reason), until(rhs.until), domain(rhs.domain), action(rhs.action), warning(rhs.warning)
   {
     blocks.store(rhs.blocks);
   }
@@ -147,6 +187,7 @@ struct DynBlock
     domain=rhs.domain;
     action=rhs.action;
     blocks.store(rhs.blocks);
+    warning=rhs.warning;
     return *this;
   }
 
@@ -155,6 +196,7 @@ struct DynBlock
   DNSName domain;
   DNSAction::Action action;
   mutable std::atomic<unsigned int> blocks;
+  bool warning;
 };
 
 extern GlobalStateHolder<NetmaskTree<DynBlock>> g_dynblockNMG;
@@ -229,7 +271,96 @@ struct DNSDistStats
   };
 };
 
+// Metric types for Prometheus
+enum class PrometheusMetricType: int {
+    counter = 1,
+    gauge = 2
+};
 
+// Keeps additional information about metrics
+struct MetricDefinition {
+  MetricDefinition(PrometheusMetricType prometheusType, const std::string& description) {
+    this->prometheusType = prometheusType;
+    this->description = description;
+  }
+ 
+  MetricDefinition() = default;
+
+  // Metric description
+  std::string description;
+  // Metric type for Prometheus
+  PrometheusMetricType prometheusType;
+};
+
+struct MetricDefinitionStorage {
+  // Return metric definition by name
+  bool getMetricDetails(std::string metricName, MetricDefinition& metric) {
+  auto metricDetailsIter = metrics.find(metricName);
+
+  if (metricDetailsIter == metrics.end()) {
+    return false;
+  }
+
+  metric = metricDetailsIter->second;
+    return true;
+  };
+
+  // Return string representation of Prometheus metric type
+  std::string getPrometheusStringMetricType(PrometheusMetricType metricType) {
+    switch (metricType) { 
+      case PrometheusMetricType::counter:
+        return "counter";
+        break;
+      case PrometheusMetricType::gauge:
+        return "gauge";
+        break;
+      default:
+        return "";
+        break;
+    }
+  };
+
+  std::map<std::string, MetricDefinition> metrics = {
+    { "responses",              MetricDefinition(PrometheusMetricType::counter, "Number of responses received from backends") },
+    { "servfail-responses",     MetricDefinition(PrometheusMetricType::counter, "Number of SERVFAIL answers received from backends") },
+    { "queries",                MetricDefinition(PrometheusMetricType::counter, "Number of received queries")},
+    { "acl-drops",              MetricDefinition(PrometheusMetricType::counter, "Number of packets dropped because of the ACL")},
+    { "rule-drop",              MetricDefinition(PrometheusMetricType::counter, "Number of queries dropped because of a rule")},
+    { "rule-nxdomain",          MetricDefinition(PrometheusMetricType::counter, "Number of NXDomain answers returned because of a rule")},
+    { "rule-refused",           MetricDefinition(PrometheusMetricType::counter, "Number of Refused answers returned because of a rule")},
+    { "rule-servfail",          MetricDefinition(PrometheusMetricType::counter, "Number of SERVFAIL answers received because of a rule")},
+    { "self-answered",          MetricDefinition(PrometheusMetricType::counter, "Number of self-answered responses")},
+    { "downstream-timeouts",    MetricDefinition(PrometheusMetricType::counter, "Number of queries not answered in time by a backend")},
+    { "downstream-send-errors", MetricDefinition(PrometheusMetricType::counter, "Number of errors when sending a query to a backend")},
+    { "trunc-failures",         MetricDefinition(PrometheusMetricType::counter, "Number of errors encountered while truncating an answer")},
+    { "no-policy",              MetricDefinition(PrometheusMetricType::counter, "Number of queries dropped because no server was available")},
+    { "latency0-1",             MetricDefinition(PrometheusMetricType::counter, "Number of queries answered in less than 1ms")},
+    { "latency1-10",            MetricDefinition(PrometheusMetricType::counter, "Number of queries answered in 1-10 ms")},
+    { "latency10-50",           MetricDefinition(PrometheusMetricType::counter, "Number of queries answered in 10-50 ms")},
+    { "latency50-100",          MetricDefinition(PrometheusMetricType::counter, "Number of queries answered in 50-100 ms")},
+    { "latency100-1000",        MetricDefinition(PrometheusMetricType::counter, "Number of queries answered in 100-1000 ms")},
+    { "latency-slow",           MetricDefinition(PrometheusMetricType::counter, "Number of queries answered in more than 1 second")},
+    { "latency-avg100",         MetricDefinition(PrometheusMetricType::gauge,   "Average response latency in microseconds of the last 100 packets")},
+    { "latency-avg1000",        MetricDefinition(PrometheusMetricType::gauge,   "Average response latency in microseconds of the last 1000 packets")},
+    { "latency-avg10000",       MetricDefinition(PrometheusMetricType::gauge,   "Average response latency in microseconds of the last 10000 packets")},
+    { "latency-avg1000000",     MetricDefinition(PrometheusMetricType::gauge,   "Average response latency in microseconds of the last 1000000 packets")},
+    { "uptime",                 MetricDefinition(PrometheusMetricType::gauge,   "Uptime of the dnsdist process in seconds")},
+    { "real-memory-usage",      MetricDefinition(PrometheusMetricType::gauge,   "Current memory usage in bytes")},
+    { "noncompliant-queries",   MetricDefinition(PrometheusMetricType::counter, "Number of queries dropped as non-compliant")},
+    { "noncompliant-responses", MetricDefinition(PrometheusMetricType::counter, "Number of answers from a backend dropped as non-compliant")},
+    { "rdqueries",              MetricDefinition(PrometheusMetricType::counter, "Number of received queries with the recursion desired bit set")},
+    { "empty-queries",          MetricDefinition(PrometheusMetricType::counter, "Number of empty queries received from clients")},
+    { "cache-hits",             MetricDefinition(PrometheusMetricType::counter, "Number of times an answer was retrieved from cache")},
+    { "cache-misses",           MetricDefinition(PrometheusMetricType::counter, "Number of times an answer not found in the cache")},
+    { "cpu-user-msec",          MetricDefinition(PrometheusMetricType::counter, "Milliseconds spent by dnsdist in the user state")},
+    { "cpu-sys-msec",           MetricDefinition(PrometheusMetricType::counter, "Milliseconds spent by dnsdist in the system state")},
+    { "fd-usage",               MetricDefinition(PrometheusMetricType::gauge,   "Number of currently used file descriptors")},
+    { "dyn-blocked",            MetricDefinition(PrometheusMetricType::counter, "Number of queries dropped because of a dynamic block")},
+    { "dyn-block-nmg-size",     MetricDefinition(PrometheusMetricType::gauge,   "Number of dynamic blocks entries") },
+  };
+};
+
+extern MetricDefinitionStorage g_metricDefinitions;
 extern struct DNSDistStats g_stats;
 void doLatencyStats(double udiff);
 
@@ -272,28 +403,69 @@ struct StopWatch
 
 };
 
-class QPSLimiter
+class BasicQPSLimiter
 {
 public:
-  QPSLimiter()
+  BasicQPSLimiter()
   {
   }
 
-  QPSLimiter(unsigned int rate, unsigned int burst) : d_rate(rate), d_burst(burst), d_tokens(burst)
+  BasicQPSLimiter(unsigned int burst): d_tokens(burst)
   {
-    d_passthrough=false;
+    d_prev.start();
+  }
+
+  bool check(unsigned int rate, unsigned int burst) const // this is not quite fair
+  {
+    auto delta = d_prev.udiffAndSet();
+
+    d_tokens += 1.0 * rate * (delta/1000000.0);
+
+    if(d_tokens > burst) {
+      d_tokens = burst;
+    }
+
+    bool ret=false;
+    if(d_tokens >= 1.0) { // we need this because burst=1 is weird otherwise
+      ret=true;
+      --d_tokens;
+    }
+
+    return ret;
+  }
+
+  bool seenSince(const struct timespec& cutOff) const
+  {
+    return cutOff < d_prev.d_start;
+  }
+
+protected:
+  mutable StopWatch d_prev;
+  mutable double d_tokens;
+};
+
+class QPSLimiter : public BasicQPSLimiter
+{
+public:
+  QPSLimiter(): BasicQPSLimiter()
+  {
+  }
+
+  QPSLimiter(unsigned int rate, unsigned int burst): BasicQPSLimiter(burst), d_rate(rate), d_burst(burst), d_passthrough(false)
+  {
     d_prev.start();
   }
 
   unsigned int getRate() const
   {
-    return d_passthrough? 0 : d_rate;
+    return d_passthrough ? 0 : d_rate;
   }
 
   int getPassed() const
   {
     return d_passed;
   }
+
   int getBlocked() const
   {
     return d_blocked;
@@ -301,34 +473,26 @@ public:
 
   bool check() const // this is not quite fair
   {
-    if(d_passthrough)
+    if (d_passthrough) {
       return true;
-    auto delta = d_prev.udiffAndSet();
+    }
 
-    d_tokens += 1.0*d_rate * (delta/1000000.0);
-
-    if(d_tokens > d_burst)
-      d_tokens = d_burst;
-
-    bool ret=false;
-    if(d_tokens >= 1.0) { // we need this because burst=1 is weird otherwise
-      ret=true;
-      --d_tokens;
+    bool ret = BasicQPSLimiter::check(d_rate, d_burst);
+    if (ret) {
       d_passed++;
     }
-    else
+    else {
       d_blocked++;
+    }
 
     return ret;
   }
 private:
-  bool d_passthrough{true};
-  unsigned int d_rate;
-  unsigned int d_burst;
-  mutable double d_tokens;
-  mutable StopWatch d_prev;
   mutable unsigned int d_passed{0};
   mutable unsigned int d_blocked{0};
+  unsigned int d_rate;
+  unsigned int d_burst;
+  bool d_passthrough{true};
 };
 
 struct ClientState;
@@ -336,16 +500,15 @@ struct ClientState;
 struct IDState
 {
   IDState() : origFD(-1), sentTime(true), delayMsec(0), tempFailureTTL(boost::none) { origDest.sin4.sin_family = 0;}
-  IDState(const IDState& orig): origRemote(orig.origRemote), origDest(orig.origDest)
+  IDState(const IDState& orig): origRemote(orig.origRemote), origDest(orig.origDest), age(orig.age)
   {
-    origFD = orig.origFD;
+    origFD.store(orig.origFD.load());
     origID = orig.origID;
     delayMsec = orig.delayMsec;
     tempFailureTTL = orig.tempFailureTTL;
-    age.store(orig.age.load());
   }
 
-  int origFD;  // set to <0 to indicate this state is empty   // 4
+  std::atomic<int> origFD;  // set to <0 to indicate this state is empty   // 4
 
   ComboAddress origRemote;                                    // 28
   ComboAddress origDest;                                      // 28
@@ -357,11 +520,12 @@ struct IDState
 #ifdef HAVE_PROTOBUF
   boost::optional<boost::uuids::uuid> uniqueId;
 #endif
+  boost::optional<Netmask> subnet{boost::none};
   std::shared_ptr<DNSDistPacketCache> packetCache{nullptr};
   std::shared_ptr<QTag> qTag{nullptr};
   const ClientState* cs{nullptr};
   uint32_t cacheKey;                                          // 8
-  std::atomic<uint16_t> age;                                  // 4
+  uint16_t age;                                               // 4
   uint16_t qtype;                                             // 2
   uint16_t qclass;                                            // 2
   uint16_t origID;                                            // 2
@@ -372,6 +536,7 @@ struct IDState
   bool ecsAdded{false};
   bool skipCache{false};
   bool destHarvested{false}; // if true, origDest holds the original dest addr, otherwise the listening addr
+  bool dnssecOK{false};
 };
 
 typedef std::unordered_map<string, unsigned int> QueryCountRecords;
@@ -433,10 +598,10 @@ class TCPClientCollection {
   std::atomic<uint64_t> d_numthreads{0};
   std::atomic<uint64_t> d_pos{0};
   std::atomic<uint64_t> d_queued{0};
-  uint64_t d_maxthreads{0};
+  const uint64_t d_maxthreads{0};
   std::mutex d_mutex;
   int d_singlePipe[2];
-  bool d_useSinglePipe;
+  const bool d_useSinglePipe;
 public:
 
   TCPClientCollection(size_t maxThreads, bool useSinglePipe=false): d_maxthreads(maxThreads), d_singlePipe{-1,-1}, d_useSinglePipe(useSinglePipe)
@@ -485,7 +650,7 @@ extern std::shared_ptr<TCPClientCollection> g_tcpclientthreads;
 
 struct DownstreamState
 {
-  typedef std::function<std::tuple<DNSName, uint16_t, uint16_t>(const DNSName&, uint16_t, uint16_t, dnsheader*)> checkfunc_t;
+   typedef std::function<std::tuple<DNSName, uint16_t, uint16_t>(const DNSName&, uint16_t, uint16_t, dnsheader*)> checkfunc_t;
 
   DownstreamState(const ComboAddress& remote_, const ComboAddress& sourceAddr_, unsigned int sourceItf, size_t numberOfSockets);
   DownstreamState(const ComboAddress& remote_): DownstreamState(remote_, ComboAddress(), 0, 1) {}
@@ -498,15 +663,18 @@ struct DownstreamState
       }
     }
   }
-
+  boost::uuids::uuid id;
+  std::set<unsigned int> hashes;
+  mutable pthread_rwlock_t d_lock;
   std::vector<int> sockets;
   std::mutex socketsLock;
+  std::mutex connectLock;
   std::unique_ptr<FDMultiplexer> mplexer{nullptr};
   std::thread tid;
-  ComboAddress remote;
+  const ComboAddress remote;
   QPSLimiter qps;
   vector<IDState> idStates;
-  ComboAddress sourceAddr;
+  const ComboAddress sourceAddr;
   checkfunc_t checkFunction;
   DNSName checkName{"a.root-servers.net."};
   QType checkType{QType::A};
@@ -531,7 +699,7 @@ struct DownstreamState
   int tcpConnectTimeout{5};
   int tcpRecvTimeout{30};
   int tcpSendTimeout{30};
-  unsigned int sourceItf{0};
+  const unsigned int sourceItf{0};
   uint16_t retries{5};
   uint16_t xpfRRCode{0};
   uint8_t currentCheckFailures{0};
@@ -544,8 +712,10 @@ struct DownstreamState
   bool useECS{false};
   bool setCD{false};
   std::atomic<bool> connected{false};
+  std::atomic_flag threadStarted;
   bool tcpFastOpen{false};
   bool ipBindAddrNoPort{true};
+
   bool isUp() const
   {
     if(availability == Availability::Down)
@@ -580,7 +750,10 @@ struct DownstreamState
       status = (upStatus ? "up" : "down");
     return status;
   }
-  void reconnect();
+  bool reconnect();
+  void hash();
+  void setId(const boost::uuids::uuid& newId);
+  void setWeight(int newWeight);
 };
 using servers_t =vector<std::shared_ptr<DownstreamState>>;
 
@@ -610,6 +783,9 @@ struct ServerPolicy
   string name;
   policyfunc_t policy;
   bool isLua;
+  std::string toString() const {
+    return string("ServerPolicy") + (isLua ? " (Lua)" : "") + " \"" + name + "\"";
+  }
 };
 
 struct ServerPool
@@ -707,7 +883,9 @@ void removeServerFromPool(pools_t& pools, const string& poolName, std::shared_pt
 struct CarbonConfig
 {
   ComboAddress server;
+  std::string namespace_name;
   std::string ourname;
+  std::string instance_name;
   unsigned int interval;
 };
 
@@ -721,6 +899,7 @@ struct DNSDistRuleAction
   std::shared_ptr<DNSRule> d_rule;
   std::shared_ptr<DNSAction> d_action;
   boost::uuids::uuid d_id;
+  uint64_t d_creationOrder;
 };
 
 struct DNSDistResponseRuleAction
@@ -728,6 +907,7 @@ struct DNSDistResponseRuleAction
   std::shared_ptr<DNSRule> d_rule;
   std::shared_ptr<DNSResponseAction> d_action;
   boost::uuids::uuid d_id;
+  uint64_t d_creationOrder;
 };
 
 extern GlobalStateHolder<SuffixMatchTree<DynBlock>> g_dynblockSMT;
@@ -771,6 +951,7 @@ extern uint32_t g_hashperturb;
 extern bool g_useTCPSinglePipe;
 extern std::atomic<uint16_t> g_downstreamTCPCleanupInterval;
 extern size_t g_udpVectorSize;
+extern bool g_preserveTrailingData;
 
 #ifdef HAVE_EBPF
 extern shared_ptr<BPFFilter> g_defaultBPFFilter;
@@ -807,10 +988,22 @@ std::shared_ptr<DownstreamState> firstAvailable(const NumberedServerVector& serv
 std::shared_ptr<DownstreamState> leastOutstanding(const NumberedServerVector& servers, const DNSQuestion* dq);
 std::shared_ptr<DownstreamState> wrandom(const NumberedServerVector& servers, const DNSQuestion* dq);
 std::shared_ptr<DownstreamState> whashed(const NumberedServerVector& servers, const DNSQuestion* dq);
+std::shared_ptr<DownstreamState> chashed(const NumberedServerVector& servers, const DNSQuestion* dq);
 std::shared_ptr<DownstreamState> roundrobin(const NumberedServerVector& servers, const DNSQuestion* dq);
-int getEDNSZ(const char* packet, unsigned int len);
-uint16_t getEDNSOptionCode(const char * packet, size_t len);
-void dnsdistWebserverThread(int sock, const ComboAddress& local, const string& password, const string& apiKey, const boost::optional<std::map<std::string, std::string> >&);
+
+struct WebserverConfig
+{
+  std::string password;
+  std::string apiKey;
+  boost::optional<std::map<std::string, std::string> > customHeaders;
+  std::mutex lock;
+};
+
+void setWebserverAPIKey(const boost::optional<std::string> apiKey);
+void setWebserverPassword(const std::string& password);
+void setWebserverCustomHeaders(const boost::optional<std::map<std::string, std::string> > customHeaders);
+
+void dnsdistWebserverThread(int sock, const ComboAddress& local);
 bool getMsgLen32(int fd, uint32_t* len);
 bool putMsgLen32(int fd, uint32_t len);
 void* tcpAcceptorThread(void* p);
@@ -820,9 +1013,10 @@ void setLuaSideEffect();   // set to report a side effect, cancelling all _no_ s
 bool getLuaNoSideEffect(); // set if there were only explicit declarations of _no_ side effect
 void resetLuaSideEffect(); // reset to indeterminate state
 
-bool responseContentMatches(const char* response, const uint16_t responseLen, const DNSName& qname, const uint16_t qtype, const uint16_t qclass, const ComboAddress& remote);
+bool responseContentMatches(const char* response, const uint16_t responseLen, const DNSName& qname, const uint16_t qtype, const uint16_t qclass, const ComboAddress& remote, unsigned int& consumed);
 bool processQuery(LocalHolders& holders, DNSQuestion& dq, string& poolname, int* delayMsec, const struct timespec& now);
 bool processResponse(LocalStateHolder<vector<DNSDistResponseRuleAction> >& localRespRulactions, DNSResponse& dr, int* delayMsec);
+bool fixUpQueryTurnedResponse(DNSQuestion& dq, const uint16_t origFlags);
 bool fixUpResponse(char** response, uint16_t* responseLen, size_t* responseSize, const DNSName& qname, uint16_t origFlags, bool ednsAdded, bool ecsAdded, std::vector<uint8_t>& rewrittenResponse, uint16_t addRoom);
 void restoreFlags(struct dnsheader* dh, uint16_t origFlags);
 bool checkQueryHeaders(const struct dnsheader* dh);
@@ -836,8 +1030,13 @@ int handleDNSCryptQuery(char* packet, uint16_t len, std::shared_ptr<DNSCryptQuer
 
 bool addXPF(DNSQuestion& dq, uint16_t optionCode);
 
+uint16_t getRandomDNSID();
+
 #include "dnsdist-snmp.hh"
 
 extern bool g_snmpEnabled;
 extern bool g_snmpTrapsEnabled;
 extern DNSDistSNMPAgent* g_snmpAgent;
+extern bool g_addEDNSToSelfGeneratedResponses;
+
+static const size_t s_udpIncomingBufferSize{1500};

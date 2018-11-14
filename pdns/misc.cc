@@ -351,7 +351,7 @@ int waitForRWData(int fd, bool waitForRead, int seconds, int useconds, bool* err
 }
 
 // returns -1 in case of error, 0 if no data is available, 1 if there is. In the first two cases, errno is set
-int waitForMultiData(const set<int>& fds, const int seconds, const int useconds, int* fd) {
+int waitForMultiData(const set<int>& fds, const int seconds, const int useconds, int* fdOut) {
   set<int> realFDs;
   for (const auto& fd : fds) {
     if (fd >= 0 && realFDs.count(fd) == 0) {
@@ -384,7 +384,7 @@ int waitForMultiData(const set<int>& fds, const int seconds, const int useconds,
   }
   set<int>::const_iterator it(pollinFDs.begin());
   advance(it, random() % pollinFDs.size());
-  *fd = *it;
+  *fdOut = *it;
   return 1;
 }
 
@@ -1412,4 +1412,40 @@ int mapThreadToCPUList(pthread_t tid, const std::set<int>& cpus)
 #else
   return ENOSYS;
 #endif /* HAVE_PTHREAD_SETAFFINITY_NP */
+}
+
+std::vector<ComboAddress> getResolvers(const std::string& resolvConfPath)
+{
+  std::vector<ComboAddress> results;
+
+  ifstream ifs(resolvConfPath);
+  if (!ifs) {
+    return results;
+  }
+
+  string line;
+  while(std::getline(ifs, line)) {
+    boost::trim_right_if(line, is_any_of(" \r\n\x1a"));
+    boost::trim_left(line); // leading spaces, let's be nice
+
+    string::size_type tpos = line.find_first_of(";#");
+    if (tpos != string::npos) {
+      line.resize(tpos);
+    }
+
+    if (boost::starts_with(line, "nameserver ") || boost::starts_with(line, "nameserver\t")) {
+      vector<string> parts;
+      stringtok(parts, line, " \t,"); // be REALLY nice
+      for(vector<string>::const_iterator iter = parts.begin() + 1; iter != parts.end(); ++iter) {
+        try {
+          results.emplace_back(*iter, 53);
+        }
+        catch(...)
+        {
+        }
+      }
+    }
+  }
+
+  return results;
 }

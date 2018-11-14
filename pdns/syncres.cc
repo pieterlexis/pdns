@@ -37,6 +37,7 @@
 #include "validate-recursor.hh"
 
 thread_local SyncRes::ThreadLocalStorage SyncRes::t_sstorage;
+thread_local std::unique_ptr<addrringbuf_t> t_timeouts;
 
 std::unordered_set<DNSName> SyncRes::s_delegationOnly;
 std::unique_ptr<NetmaskGroup> SyncRes::s_dontQuery{nullptr};
@@ -128,8 +129,11 @@ int SyncRes::beginResolve(const DNSName &qname, const QType &qtype, uint16_t qcl
     return 0;                          // so do check before updating counters (we do now)
   }
 
-  if( (qtype.getCode() == QType::AXFR) || (qtype.getCode() == QType::IXFR) || (qtype.getCode() == QType::RRSIG) || (qtype.getCode() == QType::NSEC3))
+  auto qtypeCode = qtype.getCode();
+  /* rfc6895 section 3.1 */
+  if ((qtypeCode >= 128 && qtypeCode <= 254) || qtypeCode == QType::RRSIG || qtypeCode == QType::NSEC3 || qtypeCode == QType::OPT || qtypeCode == 65535) {
     return -1;
+  }
 
   if(qclass==QClass::ANY)
     qclass=QClass::IN;
@@ -193,7 +197,7 @@ bool SyncRes::doSpecialNamesResolve(const DNSName &qname, const QType &qtype, co
     if (qtype == QType::TXT || qtype == QType::ANY) {
       if(qname == versionbind || qname == versionpdns)
         answers.push_back({QType::TXT, "\""+::arg()["version-string"]+"\""});
-      else
+      else if (s_serverID != "disabled")
         answers.push_back({QType::TXT, "\""+s_serverID+"\""});
     }
   }
@@ -349,18 +353,21 @@ bool SyncRes::doOOBResolve(const DNSName &qname, const QType &qtype, vector<DNSR
   return doOOBResolve(iter->second, qname, qtype, ret, res);
 }
 
-void SyncRes::doEDNSDumpAndClose(int fd)
+uint64_t SyncRes::doEDNSDump(int fd)
 {
-  FILE* fp=fdopen(fd, "w");
+  FILE* fp=fdopen(dup(fd), "w");
   if (!fp) {
-    return;
+    return 0;
   }
-  fprintf(fp,"IP Address\tMode\tMode last updated at\n");
+  uint64_t count = 0;
+
+  fprintf(fp,"; edns from thread follows\n;\n");
   for(const auto& eds : t_sstorage.ednsstatus) {
+    count++;
     fprintf(fp, "%s\t%d\t%s", eds.first.toString().c_str(), (int)eds.second.mode, ctime(&eds.second.modeSetAt));
   }
-
   fclose(fp);
+  return count;
 }
 
 uint64_t SyncRes::doDumpNSSpeeds(int fd)
@@ -383,6 +390,26 @@ uint64_t SyncRes::doDumpNSSpeeds(int fd)
       fprintf(fp, "%s/%f ", j.first.toString().c_str(), j.second.peek());
     }
     fprintf(fp, "\n");
+  }
+  fclose(fp);
+  return count;
+}
+
+uint64_t SyncRes::doDumpThrottleMap(int fd)
+{
+  FILE* fp=fdopen(dup(fd), "w");
+  if(!fp)
+    return 0;
+  fprintf(fp, "; throttle map dump follows\n");
+  fprintf(fp, "; remote IP\tqname\tqtype\tcount\tttd\n");
+  uint64_t count=0;
+
+  const auto& throttleMap = t_sstorage.throttle.getThrottleMap();
+  for(const auto& i : throttleMap)
+  {
+    count++;
+    // remote IP, dns name, qtype, count, ttd
+    fprintf(fp, "%s\t%s\t%d\t%u\t%s", i.first.get<0>().toString().c_str(), i.first.get<1>().toLogString().c_str(), i.first.get<2>(), i.second.count, ctime(&i.second.ttd));
   }
   fclose(fp);
   return count;
@@ -418,7 +445,7 @@ int SyncRes::asyncresolveWrapper(const ComboAddress& ip, bool ednsMANDATORY, con
      0) UNKNOWN Unknown state 
      1) EDNS: Honors EDNS0
      2) EDNSIGNORANT: Ignores EDNS0, gives replies without EDNS0
-     3) NOEDNS: Generates FORMERR/NOTIMP on EDNS queries
+     3) NOEDNS: Generates FORMERR on EDNS queries
 
      Everybody starts out assumed to be '0'.
      If '0', send out EDNS0
@@ -464,10 +491,10 @@ int SyncRes::asyncresolveWrapper(const ComboAddress& ip, bool ednsMANDATORY, con
       sendQname.makeUsLowerCase();
 
     if (d_asyncResolve) {
-      ret = d_asyncResolve(ip, sendQname, type, doTCP, sendRDQuery, EDNSLevel, now, srcmask, ctx, d_outgoingProtobufServer, res, chained);
+      ret = d_asyncResolve(ip, sendQname, type, doTCP, sendRDQuery, EDNSLevel, now, srcmask, ctx, res, chained);
     }
     else {
-      ret=asyncresolve(ip, sendQname, type, doTCP, sendRDQuery, EDNSLevel, now, srcmask, ctx, d_outgoingProtobufServer, res, chained);
+      ret=asyncresolve(ip, sendQname, type, doTCP, sendRDQuery, EDNSLevel, now, srcmask, ctx, d_outgoingProtobufServers, luaconfsLocal->outgoingProtobufExportConfig.exportTypes, res, chained);
     }
     if(ret < 0) {
       return ret; // transport error, nothing to learn here
@@ -477,7 +504,7 @@ int SyncRes::asyncresolveWrapper(const ComboAddress& ip, bool ednsMANDATORY, con
       return ret;
     }
     else if(mode==EDNSStatus::UNKNOWN || mode==EDNSStatus::EDNSOK || mode == EDNSStatus::EDNSIGNORANT ) {
-      if(res->d_rcode == RCode::FormErr || res->d_rcode == RCode::NotImp)  {
+      if(res->d_validpacket && !res->d_haveEDNS && res->d_rcode == RCode::FormErr)  {
 	//	cerr<<"Downgrading to NOEDNS because of "<<RCode::to_s(res->d_rcode)<<" for query to "<<ip.toString()<<" for '"<<domain<<"'"<<endl;
         mode = EDNSStatus::NOEDNS;
         continue;
@@ -485,7 +512,7 @@ int SyncRes::asyncresolveWrapper(const ComboAddress& ip, bool ednsMANDATORY, con
       else if(!res->d_haveEDNS) {
         if(mode != EDNSStatus::EDNSIGNORANT) {
           mode = EDNSStatus::EDNSIGNORANT;
-	  //	  cerr<<"We find that "<<ip.toString()<<" is an EDNS-ignorer for '"<<domain<<"', moving to mode 3"<<endl;
+	  //	  cerr<<"We find that "<<ip.toString()<<" is an EDNS-ignorer for '"<<domain<<"', moving to mode 2"<<endl;
 	}
       }
       else {
@@ -571,21 +598,25 @@ int SyncRes::doResolve(const DNSName &qname, const QType &qtype, vector<DNSRecor
     DNSName authname(qname);
     bool wasForwardedOrAuthZone = false;
     bool wasAuthZone = false;
+    bool wasForwardRecurse = false;
     domainmap_t::const_iterator iter = getBestAuthZone(&authname);
     if(iter != t_sstorage.domainmap->end()) {
+      const auto& domain = iter->second;
       wasForwardedOrAuthZone = true;
-      const vector<ComboAddress>& servers = iter->second.d_servers;
-      if(servers.empty()) {
+
+      if (domain.isAuth()) {
         wasAuthZone = true;
+      } else if (domain.shouldRecurse()) {
+        wasForwardRecurse = true;
       }
     }
 
-    if(!d_skipCNAMECheck && doCNAMECacheCheck(qname, qtype, ret, depth, res, state, wasAuthZone)) { // will reroute us if needed
+    if(!d_skipCNAMECheck && doCNAMECacheCheck(qname, qtype, ret, depth, res, state, wasAuthZone, wasForwardRecurse)) { // will reroute us if needed
       d_wasOutOfBand = wasAuthZone;
       return res;
     }
 
-    if(doCacheCheck(qname, authname, wasForwardedOrAuthZone, wasAuthZone, qtype, ret, depth, res, state)) {
+    if(doCacheCheck(qname, authname, wasForwardedOrAuthZone, wasAuthZone, wasForwardRecurse, qtype, ret, depth, res, state)) {
       // we done
       d_wasOutOfBand = wasAuthZone;
       return res;
@@ -881,7 +912,7 @@ DNSName SyncRes::getBestNSNamesFromCache(const DNSName &qname, const QType& qtyp
   return subdomain;
 }
 
-bool SyncRes::doCNAMECacheCheck(const DNSName &qname, const QType &qtype, vector<DNSRecord>& ret, unsigned int depth, int &res, vState& state, bool wasAuthZone)
+bool SyncRes::doCNAMECacheCheck(const DNSName &qname, const QType &qtype, vector<DNSRecord>& ret, unsigned int depth, int &res, vState& state, bool wasAuthZone, bool wasForwardRecurse)
 {
   string prefix;
   if(doLog()) {
@@ -900,7 +931,8 @@ bool SyncRes::doCNAMECacheCheck(const DNSName &qname, const QType &qtype, vector
   vector<std::shared_ptr<RRSIGRecordContent>> signatures;
   vector<std::shared_ptr<DNSRecord>> authorityRecs;
   bool wasAuth;
-  if(t_RC->get(d_now.tv_sec, qname, QType(QType::CNAME), d_requireAuthData, &cset, d_cacheRemote, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &state, &wasAuth) > 0) {
+  /* we don't require auth data for forward-recurse lookups */
+  if(t_RC->get(d_now.tv_sec, qname, QType(QType::CNAME), !wasForwardRecurse && d_requireAuthData, &cset, d_cacheRemote, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &state, &wasAuth) > 0) {
 
     for(auto j=cset.cbegin() ; j != cset.cend() ; ++j) {
       if (j->d_class != QClass::IN) {
@@ -935,6 +967,7 @@ bool SyncRes::doCNAMECacheCheck(const DNSName &qname, const QType &qtype, vector
 
         DNSRecord dr=*j;
         dr.d_ttl-=d_now.tv_sec;
+        ret.reserve(ret.size() + 1 + signatures.size() + authorityRecs.size());
         ret.push_back(dr);
 
         for(const auto& signature : signatures) {
@@ -1076,7 +1109,7 @@ void SyncRes::computeNegCacheValidationStatus(const NegCache::NegCacheEntry* ne,
   }
 }
 
-bool SyncRes::doCacheCheck(const DNSName &qname, const DNSName& authname, bool wasForwardedOrAuthZone, bool wasAuthZone, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, int &res, vState& state)
+bool SyncRes::doCacheCheck(const DNSName &qname, const DNSName& authname, bool wasForwardedOrAuthZone, bool wasAuthZone, bool wasForwardRecurse, const QType &qtype, vector<DNSRecord>&ret, unsigned int depth, int &res, vState& state)
 {
   bool giveNegative=false;
 
@@ -1154,7 +1187,7 @@ bool SyncRes::doCacheCheck(const DNSName &qname, const DNSName& authname, bool w
   vector<std::shared_ptr<DNSRecord>> authorityRecs;
   uint32_t ttl=0;
   bool wasCachedAuth;
-  if(t_RC->get(d_now.tv_sec, sqname, sqt, d_requireAuthData, &cset, d_cacheRemote, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &cachedState, &wasCachedAuth) > 0) {
+  if(t_RC->get(d_now.tv_sec, sqname, sqt, !wasForwardRecurse && d_requireAuthData, &cset, d_cacheRemote, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &cachedState, &wasCachedAuth) > 0) {
 
     LOG(prefix<<sqname<<": Found cache hit for "<<sqt.getName()<<": ");
 
@@ -1205,6 +1238,8 @@ bool SyncRes::doCacheCheck(const DNSName &qname, const DNSName& authname, bool w
         expired=true;
       }
     }
+
+    ret.reserve(ret.size() + signatures.size() + authorityRecs.size());
 
     for(const auto& signature : signatures) {
       DNSRecord dr;
@@ -2103,7 +2138,7 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
     }
 
     vState recordState = getValidationStatus(i->first.name, false);
-    LOG(d_prefix<<": got initial zone status "<<vStates[recordState]<<" for record "<<i->first.name<<endl);
+    LOG(d_prefix<<": got initial zone status "<<vStates[recordState]<<" for record "<<i->first.name<<"|"<<DNSRecordContent::NumberToType(i->first.type)<<endl);
 
     if (shouldValidate() && recordState == Secure) {
       vState initialState = recordState;
@@ -2235,7 +2270,7 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
       */
       if(!wasVariable() && newtarget.empty()) {
         t_sstorage.negcache.add(ne);
-        if(s_rootNXTrust && ne.d_auth.isRoot() && auth.isRoot()) {
+        if(s_rootNXTrust && ne.d_auth.isRoot() && auth.isRoot() && lwr.d_aabit) {
           ne.d_name = ne.d_name.getLastLabel();
           t_sstorage.negcache.add(ne);
         }
@@ -2447,6 +2482,9 @@ bool SyncRes::doResolveAtThisIP(const std::string& prefix, const DNSName& qname,
         s_outgoing4timeouts++;
       else
         s_outgoing6timeouts++;
+
+      if(t_timeouts)
+        t_timeouts->push_back(remoteIP);
     }
     else if(resolveret == -2) {
       /* OS resource limit reached */
@@ -2870,7 +2908,26 @@ int directResolve(const DNSName& qname, const QType& qtype, int qclass, vector<D
   gettimeofday(&now, 0);
 
   SyncRes sr(now);
-  int res = sr.beginResolve(qname, QType(qtype), qclass, ret); 
+  int res = -1;
+  try {
+    res = sr.beginResolve(qname, QType(qtype), qclass, ret);
+  }
+  catch(const PDNSException& e) {
+    g_log<<Logger::Error<<"Failed to resolve "<<qname.toLogString()<<", got pdns exception: "<<e.reason<<endl;
+    ret.clear();
+  }
+  catch(const ImmediateServFailException& e) {
+    g_log<<Logger::Error<<"Failed to resolve "<<qname.toLogString()<<", got ImmediateServFailException: "<<e.reason<<endl;
+    ret.clear();
+  }
+  catch(const std::exception& e) {
+    g_log<<Logger::Error<<"Failed to resolve "<<qname.toLogString()<<", got STL error: "<<e.what()<<endl;
+    ret.clear();
+  }
+  catch(...) {
+    g_log<<Logger::Error<<"Failed to resolve "<<qname.toLogString()<<", got an exception"<<endl;
+    ret.clear();
+  }
   
   return res;
 }

@@ -36,7 +36,7 @@ class RemoteLoggerInterface
 public:
   virtual ~RemoteLoggerInterface() {};
   virtual void queueData(const std::string& data) = 0;
-  virtual std::string toString() = 0;
+  virtual std::string toString() const = 0;
 };
 
 class RemoteLogger : public RemoteLoggerInterface
@@ -45,21 +45,13 @@ public:
   RemoteLogger(const ComboAddress& remote, uint16_t timeout=2, uint64_t maxQueuedEntries=100, uint8_t reconnectWaitTime=1, bool asyncConnect=false);
   virtual ~RemoteLogger();
   virtual void queueData(const std::string& data) override;
-  virtual std::string toString() override
+  virtual std::string toString() const override
   {
     return "RemoteLogger to " + d_remote.toStringWithPort();
   }
   void stop()
   {
     d_exiting = true;
-  }
-  uint64_t getGeneration() const
-  {
-    return d_generation;
-  }
-  void setGeneration(uint64_t newGeneration)
-  {
-    d_generation = newGeneration;
   }
 private:
   void busyReconnectLoop();
@@ -71,7 +63,6 @@ private:
   std::condition_variable d_queueCond;
   ComboAddress d_remote;
   uint64_t d_maxQueuedEntries;
-  uint64_t d_generation{0};
   int d_socket{-1};
   uint16_t d_timeout;
   uint8_t d_reconnectWaitTime;

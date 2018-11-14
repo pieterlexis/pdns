@@ -189,9 +189,19 @@ static uint64_t* pleaseDump(int fd)
   return new uint64_t(t_RC->doDump(fd) + dumpNegCache(SyncRes::t_sstorage.negcache, fd) + t_packetCache->doDump(fd));
 }
 
+static uint64_t* pleaseDumpEDNSMap(int fd)
+{
+  return new uint64_t(SyncRes::doEDNSDump(fd));
+}
+
 static uint64_t* pleaseDumpNSSpeeds(int fd)
 {
   return new uint64_t(SyncRes::doDumpNSSpeeds(fd));
+}
+
+static uint64_t* pleaseDumpThrottleMap(int fd)
+{
+  return new uint64_t(SyncRes::doDumpThrottleMap(fd));
 }
 
 template<typename T>
@@ -259,10 +269,14 @@ string doDumpEDNSStatus(T begin, T end)
   int fd=open(fname.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0660);
   if(fd < 0) 
     return "Error opening dump file for writing: "+string(strerror(errno))+"\n";
+  uint64_t total = 0;
+  try {
+    total = broadcastAccFunction<uint64_t>(boost::bind(pleaseDumpEDNSMap, fd));
+  }
+  catch(...){}
 
-  SyncRes::doEDNSDumpAndClose(fd);
-
-  return "done\n";
+  close(fd);
+  return "dumped "+std::to_string(total)+" records\n";
 }
 
 template<typename T>
@@ -303,6 +317,28 @@ string doDumpRPZ(T begin, T end)
   fclose(fp);
 
   return "done\n";
+}
+
+template<typename T>
+string doDumpThrottleMap(T begin, T end)
+{
+  T i=begin;
+  string fname;
+
+  if(i!=end)
+    fname=*i;
+
+  int fd=open(fname.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0660);
+  if(fd < 0)
+    return "Error opening dump file for writing: "+string(strerror(errno))+"\n";
+  uint64_t total = 0;
+  try {
+    total = broadcastAccFunction<uint64_t>(boost::bind(pleaseDumpThrottleMap, fd));
+  }
+  catch(...){}
+
+  close(fd);
+  return "dumped "+std::to_string(total)+" records\n";
 }
 
 uint64_t* pleaseWipeCache(const DNSName& canon, bool subtree)
@@ -369,6 +405,20 @@ string doSetCarbonServer(T begin, T end)
   if(begin != end) {
     ::arg().set("carbon-ourname")=*begin;
     ret+="set carbon-ourname to '"+*begin+"'\n";
+  } else {
+    return ret;
+  }
+  ++begin;
+  if(begin != end) {
+    ::arg().set("carbon-namespace")=*begin;
+    ret+="set carbon-namespace to '"+*begin+"'\n";
+  } else {
+    return ret;
+  }
+  ++begin;
+  if(begin != end) {
+    ::arg().set("carbon-instance")=*begin;
+    ret+="set carbon-instance to '"+*begin+"'\n";
   }
   return ret;
 }
@@ -435,7 +485,9 @@ string doAddNTA(T begin, T end)
   g_luaconfs.modify([who, why](LuaConfigItems& lci) {
       lci.negAnchors[who] = why;
       });
+  broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, who, true));
   broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, who, true));
+  broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, who, true));
   return "Added Negative Trust Anchor for " + who.toLogString() + " with reason '" + why + "'\n";
 }
 
@@ -481,7 +533,9 @@ string doClearNTA(T begin, T end)
     g_luaconfs.modify([entry](LuaConfigItems& lci) {
         lci.negAnchors.erase(entry);
       });
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, entry, true));
     broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, entry, true));
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, entry, true));
     if (!first) {
       first = false;
       removed += ",";
@@ -533,10 +587,12 @@ string doAddTA(T begin, T end)
   try {
     g_log<<Logger::Warning<<"Adding Trust Anchor for "<<who<<" with data '"<<what<<"', requested via control channel";
     g_luaconfs.modify([who, what](LuaConfigItems& lci) {
-      auto ds = unique_ptr<DSRecordContent>(dynamic_cast<DSRecordContent*>(DSRecordContent::make(what)));
+      auto ds=std::dynamic_pointer_cast<DSRecordContent>(DSRecordContent::make(what));
       lci.dsAnchors[who].insert(*ds);
       });
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, who, true));
     broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, who, true));
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, who, true));
     g_log<<Logger::Warning<<endl;
     return "Added Trust Anchor for " + who.toStringRootDot() + " with data " + what + "\n";
   }
@@ -580,7 +636,9 @@ string doClearTA(T begin, T end)
     g_luaconfs.modify([entry](LuaConfigItems& lci) {
         lci.dsAnchors.erase(entry);
       });
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, entry, true));
     broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, entry, true));
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, entry, true));
     if (!first) {
       first = false;
       removed += ",";
@@ -657,19 +715,23 @@ static uint64_t calculateUptime()
 static string* pleaseGetCurrentQueries()
 {
   ostringstream ostr;
+  struct timeval now;
+  gettimeofday(&now, 0);
 
   ostr << getMT()->d_waiters.size() <<" currently outstanding questions\n";
 
-  boost::format fmt("%1% %|40t|%2% %|47t|%3% %|63t|%4% %|68t|%5%\n");
+  boost::format fmt("%1% %|40t|%2% %|47t|%3% %|63t|%4% %|68t|%5% %|78t|%6%\n");
 
-  ostr << (fmt % "qname" % "qtype" % "remote" % "tcp" % "chained");
+  ostr << (fmt % "qname" % "qtype" % "remote" % "tcp" % "chained" % "spent(ms)");
   unsigned int n=0;
   for(const auto& mthread : getMT()->d_waiters) {
     const PacketID& pident = mthread.key;
+    const double spent = g_networkTimeoutMsec - (DiffTime(now, mthread.ttd) * 1000);
     ostr << (fmt 
              % pident.domain.toLogString() /* ?? */ % DNSRecordContent::NumberToType(pident.type) 
              % pident.remote.toString() % (pident.sock ? 'Y' : 'n')
              % (pident.fd == -1 ? 'Y' : 'n')
+             % (spent > 0 ? spent : '0')
              );
     ++n;
     if (n >= 100)
@@ -870,6 +932,7 @@ void registerAllStats()
   addGetStat("client-parse-errors", &g_stats.clientParseError);
   addGetStat("server-parse-errors", &g_stats.serverParseError);
   addGetStat("too-old-drops", &g_stats.tooOldDrops);
+  addGetStat("truncated-drops", &g_stats.truncatedDrops);
   addGetStat("query-pipe-full-drops", &g_stats.queryPipeFullDrops);
 
   addGetStat("answers0-1", &g_stats.answers0_1);
@@ -913,6 +976,7 @@ void registerAllStats()
   addGetStat("no-packet-error", &g_stats.noPacketError);
   addGetStat("dlg-only-drops", &SyncRes::s_nodelegated);
   addGetStat("ignored-packets", &g_stats.ignoredCount);
+  addGetStat("empty-queries", &g_stats.emptyQueriesCount);
   addGetStat("max-mthread-stack", &g_stats.maxMThreadStackUsage);
   
   addGetStat("negcache-entries", boost::bind(getNegCacheSize));
@@ -1032,6 +1096,18 @@ vector<pair<DNSName,uint16_t> >* pleaseGetServfailQueryRing()
   }
   return ret;
 }
+vector<pair<DNSName,uint16_t> >* pleaseGetBogusQueryRing()
+{
+  typedef pair<DNSName,uint16_t> query_t;
+  vector<query_t>* ret = new vector<query_t>();
+  if(!t_bogusqueryring)
+    return ret;
+  ret->reserve(t_bogusqueryring->size());
+  for(const query_t& q :  *t_bogusqueryring) {
+    ret->push_back(q);
+  }
+  return ret;
+}
 
 
 
@@ -1063,6 +1139,18 @@ vector<ComboAddress>* pleaseGetServfailRemotes()
   return ret;
 }
 
+vector<ComboAddress>* pleaseGetBogusRemotes()
+{
+  vector<ComboAddress>* ret = new vector<ComboAddress>();
+  if(!t_bogusremotes)
+    return ret;
+  ret->reserve(t_bogusremotes->size());
+  for(const ComboAddress& ca :  *t_bogusremotes) {
+    ret->push_back(ca);
+  }
+  return ret;
+}
+
 vector<ComboAddress>* pleaseGetLargeAnswerRemotes()
 {
   vector<ComboAddress>* ret = new vector<ComboAddress>();
@@ -1070,6 +1158,18 @@ vector<ComboAddress>* pleaseGetLargeAnswerRemotes()
     return ret;
   ret->reserve(t_largeanswerremotes->size());
   for(const ComboAddress& ca :  *t_largeanswerremotes) {
+    ret->push_back(ca);
+  }
+  return ret;
+}
+
+vector<ComboAddress>* pleaseGetTimeouts()
+{
+  vector<ComboAddress>* ret = new vector<ComboAddress>();
+  if(!t_timeouts)
+    return ret;
+  ret->reserve(t_timeouts->size());
+  for(const ComboAddress& ca :  *t_timeouts) {
     ret->push_back(ca);
   }
   return ret;
@@ -1186,7 +1286,7 @@ string doGenericTopQueries(pleasequeryfunc_t func, boost::function<DNSName(const
   int limit=0, accounted=0;
   if(total) {
     for(rcounts_t::const_iterator i=rcounts.begin(); i != rcounts.end() && limit < 20; ++i, ++limit) {
-      ret<< fmt % (-100.0*i->first/total) % (i->second.first.toString()+"|"+DNSRecordContent::NumberToType(i->second.second));
+      ret<< fmt % (-100.0*i->first/total) % (i->second.first.toLogString()+"|"+DNSRecordContent::NumberToType(i->second.second));
       accounted+= -i->first;
     }
     ret<< '\n' << fmt % (100.0*(total-accounted)/total) % "rest";
@@ -1225,6 +1325,7 @@ string RecursorControlParser::getAnswer(const string& question, RecursorControlP
 "dump-edns [status] <filename>    dump EDNS status to the named file\n"
 "dump-nsspeeds <filename>         dump nsspeeds statistics to the named file\n"
 "dump-rpz <zone name> <filename>  dump the content of a RPZ zone to the named file\n"
+"dump-throttlemap <filename>      dump the contents of the throttle to the named file\n"
 "get [key1] [key2] ..             get specific statistics\n"
 "get-all                          get all statistics\n"
 "get-ntas                         get all configured Negative Trust Anchors\n"
@@ -1250,9 +1351,13 @@ string RecursorControlParser::getAnswer(const string& question, RecursorControlP
 "top-queries                      show top queries\n"
 "top-pub-queries                  show top queries grouped by public suffix list\n"
 "top-remotes                      show top remotes\n"
+"top-timeouts                     show top downstream timeouts\n"
 "top-servfail-queries             show top queries receiving servfail answers\n"
+"top-bogus-queries                show top queries validating as bogus\n"
 "top-pub-servfail-queries         show top queries receiving servfail answers grouped by public suffix list\n"
+"top-pub-bogus-queries            show top queries validating as bogus grouped by public suffix list\n"
 "top-servfail-remotes             show top remotes receiving servfail answers\n"
+"top-bogus-remotes                show top remotes receiving bogus answers\n"
 "unload-lua-script                unload Lua script\n"
 "version                          return Recursor version number\n"
 "wipe-cache domain0 [domain1] ..  wipe domain data from cache\n";
@@ -1293,6 +1398,9 @@ string RecursorControlParser::getAnswer(const string& question, RecursorControlP
     return doDumpRPZ(begin, end);
   }
 
+  if(cmd=="dump-throttlemap")
+   return doDumpThrottleMap(begin, end);
+
   if(cmd=="wipe-cache" || cmd=="flushname")
     return doWipeCache(begin, end);
 
@@ -1304,7 +1412,9 @@ string RecursorControlParser::getAnswer(const string& question, RecursorControlP
       ::arg().set("lua-config-file") = *begin;
 
     try {
-      loadRecursorLuaConfig(::arg()["lua-config-file"], false);
+      luaConfigDelayedThreads delayedLuaThreads;
+      loadRecursorLuaConfig(::arg()["lua-config-file"], delayedLuaThreads);
+      startLuaConfigDelayedThreads(delayedLuaThreads, g_luaconfs.getCopy().generation);
       g_log<<Logger::Warning<<"Reloaded Lua configuration file '"<<::arg()["lua-config-file"]<<"', requested via control channel"<<endl;
       return "Reloaded Lua configuration file '"+::arg()["lua-config-file"]+"'\n";
     }
@@ -1366,12 +1476,24 @@ string RecursorControlParser::getAnswer(const string& question, RecursorControlP
   if(cmd=="top-pub-servfail-queries")
     return doGenericTopQueries(pleaseGetServfailQueryRing, getRegisteredName);
 
+  if(cmd=="top-bogus-queries")
+    return doGenericTopQueries(pleaseGetBogusQueryRing);
+
+  if(cmd=="top-pub-bogus-queries")
+    return doGenericTopQueries(pleaseGetBogusQueryRing, getRegisteredName);
+
 
   if(cmd=="top-servfail-remotes")
     return doGenericTopRemotes(pleaseGetServfailRemotes);
 
+  if(cmd=="top-bogus-remotes")
+    return doGenericTopRemotes(pleaseGetBogusRemotes);
+
   if(cmd=="top-largeanswer-remotes")
     return doGenericTopRemotes(pleaseGetLargeAnswerRemotes);
+
+  if(cmd=="top-timeouts")
+    return doGenericTopRemotes(pleaseGetTimeouts);
 
 
   if(cmd=="current-queries")

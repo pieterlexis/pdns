@@ -7,6 +7,7 @@
 #include "rec-lua-conf.hh"
 #include "rpzloader.hh"
 #include "zoneparser-tng.hh"
+#include "threadname.hh"
 
 static Netmask makeNetmaskFromRPZ(const DNSName& name)
 {
@@ -175,7 +176,7 @@ void RPZRecordToPolicy(const DNSRecord& dr, std::shared_ptr<DNSFilterEngine::Zon
   }
 }
 
-shared_ptr<SOARecordContent> loadRPZFromServer(const ComboAddress& master, const DNSName& zoneName, std::shared_ptr<DNSFilterEngine::Zone> zone, boost::optional<DNSFilterEngine::Policy> defpol, uint32_t maxTTL, const TSIGTriplet& tt, size_t maxReceivedBytes, const ComboAddress& localAddress, uint16_t axfrTimeout)
+static shared_ptr<SOARecordContent> loadRPZFromServer(const ComboAddress& master, const DNSName& zoneName, std::shared_ptr<DNSFilterEngine::Zone> zone, boost::optional<DNSFilterEngine::Policy> defpol, uint32_t maxTTL, const TSIGTriplet& tt, size_t maxReceivedBytes, const ComboAddress& localAddress, uint16_t axfrTimeout)
 {
   g_log<<Logger::Warning<<"Loading RPZ zone '"<<zoneName<<"' from "<<master.toStringWithPort()<<endl;
   if(!tt.name.empty())
@@ -213,7 +214,7 @@ shared_ptr<SOARecordContent> loadRPZFromServer(const ComboAddress& master, const
       throw PDNSException("Total AXFR time exceeded!");
     }
     if(last != time(0)) {
-      g_log<<Logger::Info<<"Loaded & indexed "<<nrecords<<" policy records so far"<<endl;
+      g_log<<Logger::Info<<"Loaded & indexed "<<nrecords<<" policy records so far for RPZ zone '"<<zoneName<<"'"<<endl;
       last=time(0);
     }
   }
@@ -337,8 +338,9 @@ static bool dumpZoneToDisk(const DNSName& zoneName, const std::shared_ptr<DNSFil
   return true;
 }
 
-void RPZIXFRTracker(const ComboAddress& master, boost::optional<DNSFilterEngine::Policy> defpol, uint32_t maxTTL, size_t zoneIdx, const TSIGTriplet& tt, size_t maxReceivedBytes, const ComboAddress& localAddress, const uint16_t axfrTimeout, std::shared_ptr<SOARecordContent> sr, std::string dumpZoneFileName, uint64_t configGeneration)
+void RPZIXFRTracker(const std::vector<ComboAddress> masters, boost::optional<DNSFilterEngine::Policy> defpol, uint32_t maxTTL, size_t zoneIdx, const TSIGTriplet& tt, size_t maxReceivedBytes, const ComboAddress& localAddress, const uint16_t axfrTimeout, std::shared_ptr<SOARecordContent> sr, std::string dumpZoneFileName, uint64_t configGeneration)
 {
+  setThreadName("pdns-r/RPZIXFR");
   bool isPreloaded = sr != nullptr;
   auto luaconfsLocal = g_luaconfs.getLocal();
   /* we can _never_ modify this zone directly, we need to do a full copy then replace the existing zone */
@@ -356,29 +358,34 @@ void RPZIXFRTracker(const ComboAddress& master, boost::optional<DNSFilterEngine:
 
     /* full copy, as promised */
     std::shared_ptr<DNSFilterEngine::Zone> newZone = std::make_shared<DNSFilterEngine::Zone>(*oldZone);
-    try {
-      sr=loadRPZFromServer(master, zoneName, newZone, defpol, maxTTL, tt, maxReceivedBytes, localAddress, axfrTimeout);
-      if(refresh == 0) {
-        refresh = sr->d_st.refresh;
-      }
-      newZone->setSerial(sr->d_st.serial);
-      setRPZZoneNewState(polName, sr->d_st.serial, newZone->size(), true);
+    for (const auto& master : masters) {
+      try {
+        sr = loadRPZFromServer(master, zoneName, newZone, defpol, maxTTL, tt, maxReceivedBytes, localAddress, axfrTimeout);
+        if(refresh == 0) {
+          refresh = sr->d_st.refresh;
+        }
+        newZone->setSerial(sr->d_st.serial);
+        setRPZZoneNewState(polName, sr->d_st.serial, newZone->size(), true);
 
-      g_luaconfs.modify([zoneIdx, &newZone](LuaConfigItems& lci) {
-        lci.dfe.setZone(zoneIdx, newZone);
-      });
+        g_luaconfs.modify([zoneIdx, &newZone](LuaConfigItems& lci) {
+            lci.dfe.setZone(zoneIdx, newZone);
+          });
 
-      if (!dumpZoneFileName.empty()) {
-        dumpZoneToDisk(zoneName, newZone, dumpZoneFileName);
+        if (!dumpZoneFileName.empty()) {
+          dumpZoneToDisk(zoneName, newZone, dumpZoneFileName);
+        }
+
+        /* no need to try another master */
+        break;
       }
-    }
-    catch(const std::exception& e) {
-      g_log<<Logger::Warning<<"Unable to load RPZ zone '"<<zoneName<<"' from '"<<master<<"': '"<<e.what()<<"'. (Will try again in "<<(refresh > 0 ? refresh : 10)<<" seconds...)"<<endl;
-      incRPZFailedTransfers(polName);
-    }
-    catch(const PDNSException& e) {
-      g_log<<Logger::Warning<<"Unable to load RPZ zone '"<<zoneName<<"' from '"<<master<<"': '"<<e.reason<<"'. (Will try again in "<<(refresh > 0 ? refresh : 10)<<" seconds...)"<<endl;
-      incRPZFailedTransfers(polName);
+      catch(const std::exception& e) {
+        g_log<<Logger::Warning<<"Unable to load RPZ zone '"<<zoneName<<"' from '"<<master<<"': '"<<e.what()<<"'. (Will try again in "<<(refresh > 0 ? refresh : 10)<<" seconds...)"<<endl;
+        incRPZFailedTransfers(polName);
+      }
+      catch(const PDNSException& e) {
+        g_log<<Logger::Warning<<"Unable to load RPZ zone '"<<zoneName<<"' from '"<<master<<"': '"<<e.reason<<"'. (Will try again in "<<(refresh > 0 ? refresh : 10)<<" seconds...)"<<endl;
+        incRPZFailedTransfers(polName);
+      }
     }
 
     if (!sr) {
@@ -411,22 +418,31 @@ void RPZIXFRTracker(const ComboAddress& master, boost::optional<DNSFilterEngine:
       return;
     }
 
-    g_log<<Logger::Info<<"Getting IXFR deltas for "<<zoneName<<" from "<<master.toStringWithPort()<<", our serial: "<<getRR<SOARecordContent>(dr)->d_st.serial<<endl;
     vector<pair<vector<DNSRecord>, vector<DNSRecord> > > deltas;
+    for (const auto& master : masters) {
+      g_log<<Logger::Info<<"Getting IXFR deltas for "<<zoneName<<" from "<<master.toStringWithPort()<<", our serial: "<<getRR<SOARecordContent>(dr)->d_st.serial<<endl;
 
-    ComboAddress local(localAddress);
-    if (local == ComboAddress())
-      local = getQueryLocalAddress(master.sin4.sin_family, 0);
+      ComboAddress local(localAddress);
+      if (local == ComboAddress()) {
+        local = getQueryLocalAddress(master.sin4.sin_family, 0);
+      }
 
-    try {
-      deltas = getIXFRDeltas(master, zoneName, dr, tt, &local, maxReceivedBytes);
-    } catch(std::runtime_error& e ){
-      g_log<<Logger::Warning<<e.what()<<endl;
-      incRPZFailedTransfers(polName);
+      try {
+        deltas = getIXFRDeltas(master, zoneName, dr, tt, &local, maxReceivedBytes);
+
+        /* no need to try another master */
+        break;
+      } catch(const std::runtime_error& e ){
+        g_log<<Logger::Warning<<e.what()<<endl;
+        incRPZFailedTransfers(polName);
+        continue;
+      }
+    }
+
+    if(deltas.empty()) {
       continue;
     }
-    if(deltas.empty())
-      continue;
+
     g_log<<Logger::Info<<"Processing "<<deltas.size()<<" delta"<<addS(deltas)<<" for RPZ "<<zoneName<<endl;
 
     oldZone = luaconfsLocal->dfe.getZone(zoneIdx);

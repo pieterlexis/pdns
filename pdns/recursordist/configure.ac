@@ -37,6 +37,7 @@ AC_PROG_LIBTOOL
 
 PDNS_CHECK_OS
 PDNS_CHECK_NETWORK_LIBS
+PTHREAD_SET_NAME
 
 # Boost Context was introduced in 1.51 (Aug 2012), but there was an immediate
 # API break in 1.52 (Nov 2012), so we only support that, and later.
@@ -103,8 +104,7 @@ PDNS_WITH_LUA([mandatory])
 AS_IF([test "x$LUAPC" = "xluajit"], [
   # export all symbols to be able to use the Lua FFI interface
   AC_MSG_NOTICE([Adding -rdynamic to export all symbols for the Lua FFI interface])
-  CFLAGS="$CFLAGS -rdynamic"
-  CXXFLAGS="$CXXFLAGS -rdynamic"
+  LDFLAGS="$LDFLAGS -rdynamic"
 ])
 
 PDNS_CHECK_LUA_HPP
@@ -112,13 +112,13 @@ PDNS_CHECK_LUA_HPP
 PDNS_ENABLE_VERBOSE_LOGGING
 
 # Crypto libraries
-PDNS_ENABLE_BOTAN
 PDNS_CHECK_LIBCRYPTO([
 ],[
    AC_MSG_ERROR([OpenSSL/libcrypto not found])
   ]
 )
 PDNS_CHECK_LIBCRYPTO_ECDSA
+PDNS_CHECK_LIBCRYPTO_EDDSA
 PDNS_CHECK_LIBSODIUM
 PDNS_CHECK_LIBDECAF
 
@@ -137,6 +137,21 @@ socketdir="/var/run"
 AC_ARG_WITH([socketdir],
   [AS_HELP_STRING([--with-socketdir], [where the controlsocket lives @<:@default=/var/run@:>@])],
   [socketdir="$withval"]
+)
+
+PDNS_ENABLE_NOD
+
+AM_COND_IF([NOD_ENABLED],
+  [
+  BOOST_FILESYSTEM
+  AS_IF([test -z "$BOOST_FILESYSTEM_LIBS"], [ AC_MSG_ERROR([Boost filesystem library is not installed])])],
+  [])
+
+AC_SUBST([nodcachedir])
+nodcachedir='${prefix}/var/lib/pdns-recursor'
+AC_ARG_WITH([nod-cache-dir],
+  [AS_HELP_STRING([--with-nodcachedir], [where newly observed domain cache files live @<:@default=PREFIX/var/lib/pdns-recursor@:>@])],
+  [nodcachedir="$withval"]
 )
 
 AC_MSG_CHECKING([whether we will enable compiler security checks])
@@ -180,6 +195,7 @@ AC_SUBST([PROGRAM_LDFLAGS])
 AC_CONFIG_FILES([Makefile
 	ext/Makefile
 	ext/json11/Makefile
+	ext/probds/Makefile
 	ext/yahttp/Makefile
 	ext/yahttp/yahttp/Makefile])
 
@@ -209,17 +225,13 @@ AC_MSG_NOTICE([Features enabled])
 AC_MSG_NOTICE([----------------])
 AC_MSG_NOTICE([Lua: $LUAPC])
 AC_MSG_NOTICE([OpenSSL ECDSA: $libcrypto_ecdsa])
-AS_IF([test "x$LIBSODIUM_LIBS" != "x"],
-  [AC_MSG_NOTICE([libsodium ed25519: yes])],
-  [AC_MSG_NOTICE([libsodium ed25519: no])]
+AS_IF([test "x$LIBSODIUM_LIBS" != "x" || test "x$LIBDECAF_LIBS" != "x" || test "x$libcrypto_ed25519" = "xyes"],
+  [AC_MSG_NOTICE([ed25519: yes])],
+  [AC_MSG_NOTICE([ed25519: no])]
 )
-AS_IF([test "x$LIBDECAF_LIBS" != "x"],
-  [AC_MSG_NOTICE([libdecaf ed25519 and ed448: yes])],
-  [AC_MSG_NOTICE([libdecaf ed25519 and ed448: no])]
-)
-AS_IF([test "x$BOTAN_LIBS" != "x"],
-  [AC_MSG_NOTICE([Botan gost: yes])],
-  [AC_MSG_NOTICE([Botan gost: no])]
+AS_IF([test "x$LIBDECAF_LIBS" != "x" || test "x$libcrypto_ed448" = "xyes"],
+  [AC_MSG_NOTICE([ed448: yes])],
+  [AC_MSG_NOTICE([ed448: no])]
 )
 AS_IF([test "x$PROTOBUF_LIBS" != "x" -a x"$PROTOC" != "x"],
   [AC_MSG_NOTICE([Protobuf: yes])],
@@ -232,6 +244,10 @@ AS_IF([test "x$NET_SNMP_LIBS" != "x"],
 AS_IF([test "x$systemd" != "xn"],
   [AC_MSG_NOTICE([systemd: yes])],
   [AC_MSG_NOTICE([systemd: no])]
+)
+AM_COND_IF([NOD_ENABLED],
+  [AC_MSG_NOTICE([nod: yes])],
+  [AC_MSG_NOTICE([nod: no])]
 )
 AC_MSG_NOTICE([Context library: $pdns_context_library])
 AC_MSG_NOTICE([])
