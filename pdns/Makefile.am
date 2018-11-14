@@ -1392,7 +1392,8 @@ dnsdist:
 
 if HAVE_SYSTEMD
 pdns.service: pdns.service.in
-	$(AM_V_GEN)sed -e 's![@]sbindir[@]!$(sbindir)!' < $< > $@
+#	$(AM_V_GEN)sed -e 's![@]sbindir[@]!$(sbindir)!' < $< > $@
+	$(AM_V_GEN)$(srcdir)/generate-service-file.sh $< $(PKG_CONFIG) $(sbindir) > $@
 
 pdns@.service: pdns.service
 	$(AM_V_GEN)sed -e 's!/pdns_server!& --config-name=%i!' \
