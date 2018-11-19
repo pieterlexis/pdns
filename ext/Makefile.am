@@ -7,4 +7,5 @@ DIST_SUBDIRS = \
         json11
 
 EXTRA_DIST = \
-	luawrapper/include/LuaContext.hpp
+	luawrapper/include/LuaContext.hpp \
+	lmdbxx/lmdb++.h
