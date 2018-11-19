@@ -647,7 +647,8 @@ ixfrdist_LDADD = \
 	$(JSON11_LIBS) \
 	$(LIBCRYPTO_LIBS) \
 	$(YAHTTP_LIBS) \
-	$(YAML_LIBS)
+	$(YAML_LIBS) \
+	$(LMDB_LIBS)
 
 ixfrdist_LDFLAGS = \
 	$(AM_LDFLAGS) \

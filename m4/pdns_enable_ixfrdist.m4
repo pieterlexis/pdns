@@ -14,5 +14,8 @@ AC_DEFUN([PDNS_ENABLE_IXFRDIST], [
     PKG_CHECK_MODULES([YAML], [yaml-cpp >= 0.5], [ : ], [
       AC_MSG_ERROR([Could not find yaml-cpp >= 0.5, required for ixfrdist])
     ])
+    PKG_CHECK_MODULES([LMDB], [lmdb], [ : ], [
+      AC_MSG_ERROR([Could not find lmdb, required for ixfrdist])
+    ])
   ])
 ])
