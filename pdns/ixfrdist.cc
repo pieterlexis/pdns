@@ -160,6 +160,10 @@ static bool g_exiting = false;
 static NetmaskGroup g_acl;
 static bool g_compress = false;
 
+// TODO LMDB
+static shared_ptr<IXFRDistDatabase> g_database;
+// TODO end LMDB
+
 static ixfrdistStats g_stats;
 
 // g_stats is static, so local to this file. But the webserver needs this info
@@ -275,17 +279,13 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
   setThreadName("ixfrdist/update");
   std::map<DNSName, time_t> lastCheck;
 
-  // TODO LMDB
-  auto database = IXFRDistDatabase(workdir);
-  // TODO end LMDB
-
   // Initialize the serials we have
   for (const auto &domainConfig : g_domainConfigs) {
     DNSName domain = domainConfig.first;
     lastCheck[domain] = 0;
     // TODO LMDB
     try {
-      auto lmdb_serial = database.getDomainSerial(domain);
+      auto lmdb_serial = g_database->getDomainSerial(domain);
     }
     catch(const PDNSException &e) {
       // TODO Retrieve zone if no serial is present
@@ -365,7 +365,7 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
         auto newSerial = getSerialFromMaster(master, domain, sr); // TODO TSIG
         // TODO LMDB
         try {
-          database.setDomainSerial(domain, newSerial);
+          g_database->setDomainSerial(domain, newSerial);
         }
         catch (const PDNSException &e) {
           g_log<<Logger::Error<<"Could not set domain serial: "<<e.reason<<endl;
@@ -1336,6 +1336,8 @@ int main(int argc, char** argv) {
   reportAllTypes();
 
   dns_random_init();
+
+  g_database = std::make_shared<IXFRDistDatabase>(config["work-dir"].as<string>());
 
   std::thread ut(updateThread,
       config["work-dir"].as<string>(),
