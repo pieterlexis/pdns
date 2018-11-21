@@ -51,7 +51,7 @@ class IXFRDistDatabase
       auto env = lmdb::env::create();
       env.set_mapsize(1UL * 1024UL * 1024UL * 1024UL); // 1GB
       env.open(fname.c_str(), 0, 0664);
-      d_envs[d] = std::make_shared<lmdb::env>(env);
+      d_envs[d] = std::make_shared<lmdb::env>(std::move(env));
       return d_envs[d]; // TODO don't do this lookup again
     };
 };
