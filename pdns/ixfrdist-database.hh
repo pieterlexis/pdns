@@ -24,6 +24,7 @@
 #include <string>
 #include <memory>
 #include <sys/stat.h>
+#include "ixfrdist.hh"
 #include "ext/lmdbxx/lmdb++.h"
 #include "dnsname.hh"
 #include "logger.hh"
@@ -35,6 +36,9 @@ class IXFRDistDatabase
 
     uint32_t getDomainSerial(const DNSName &d);
     void setDomainSerial(const DNSName &d, const uint32_t &serial);
+
+    records_t getZone(const DNSName &d, lmdb::txn *parentTxn);
+    void updateZone(const DNSName &d, const records_t &records);
 
   private:
     std::string d_logPrefix{"[database] "};
@@ -58,5 +62,15 @@ class IXFRDistDatabase
       auto e = std::make_shared<lmdb::env>(std::move(env));
       d_envs[d] = e;
       return e;
+    };
+
+    std::string dumpZone(const records_t &records) {
+      ostringstream data;
+      for (auto const &r : records) {
+        data<<(r.d_name.isRoot() ? "@" :  r.d_name.toStringNoDot())
+          <<"\t"<<r.d_ttl<<"\t"<<DNSRecordContent::NumberToType(r.d_type)
+          <<"\t"<<r.d_content->getZoneRepresentation()<<endl;
+      }
+      return data.str();
     };
 };

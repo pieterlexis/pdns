@@ -620,7 +620,7 @@ ixfrdist_SOURCES = \
 	gss_context.cc gss_context.hh \
 	iputils.hh iputils.cc \
 	ixfr.cc ixfr.hh \
-	ixfrdist.cc \
+	ixfrdist.cc ixfrdist.hh \
 	ixfrdist-database.cc ixfrdist-database.hh \
 	ixfrutils.cc ixfrutils.hh \
 	ixfrdist-stats.hh ixfrdist-stats.cc \

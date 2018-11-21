@@ -34,6 +34,8 @@
 #include <dirent.h>
 #include <queue>
 #include <condition_variable>
+
+#include "ixfrdist.hh"
 #include "ixfr.hh"
 #include "ixfrutils.hh"
 #include "ixfrdist-database.hh"
@@ -59,87 +61,6 @@ ArgvMap &arg()
   return theArg;
 }
 /* END Needed because of deeper dependencies */
-
-// Allows reading/writing ComboAddresses and DNSNames in YAML-cpp
-namespace YAML {
-template<>
-struct convert<ComboAddress> {
-  static Node encode(const ComboAddress& rhs) {
-    return Node(rhs.toStringWithPort());
-  }
-  static bool decode(const Node& node, ComboAddress& rhs) {
-    if (!node.IsScalar()) {
-      return false;
-    }
-    try {
-      rhs = ComboAddress(node.as<string>(), 53);
-      return true;
-    } catch(const runtime_error &e) {
-      return false;
-    } catch (const PDNSException &e) {
-      return false;
-    }
-  }
-};
-
-template<>
-struct convert<DNSName> {
-  static Node encode(const DNSName& rhs) {
-    return Node(rhs.toStringRootDot());
-  }
-  static bool decode(const Node& node, DNSName& rhs) {
-    if (!node.IsScalar()) {
-      return false;
-    }
-    try {
-      rhs = DNSName(node.as<string>());
-      return true;
-    } catch(const runtime_error &e) {
-      return false;
-    } catch (const PDNSException &e) {
-      return false;
-    }
-  }
-};
-
-template<>
-struct convert<Netmask> {
-  static Node encode(const Netmask& rhs) {
-    return Node(rhs.toString());
-  }
-  static bool decode(const Node& node, Netmask& rhs) {
-    if (!node.IsScalar()) {
-      return false;
-    }
-    try {
-      rhs = Netmask(node.as<string>());
-      return true;
-    } catch(const runtime_error &e) {
-      return false;
-    } catch (const PDNSException &e) {
-      return false;
-    }
-  }
-};
-} // namespace YAML
-
-struct ixfrdiff_t {
-  shared_ptr<SOARecordContent> oldSOA;
-  shared_ptr<SOARecordContent> newSOA;
-  vector<DNSRecord> removals;
-  vector<DNSRecord> additions;
-};
-
-struct ixfrinfo_t {
-  shared_ptr<SOARecordContent> soa; // The SOA of the latest AXFR
-  records_t latestAXFR;             // The most recent AXFR
-  vector<std::shared_ptr<ixfrdiff_t>> ixfrDiffs;
-};
-
-// Why a struct? This way we can add more options to a domain in the future
-struct ixfrdistdomain_t {
-  set<ComboAddress> masters; // A set so we can do multiple master addresses in the future
-};
 
 // This contains the configuration for each domain
 static map<DNSName, ixfrdistdomain_t> g_domainConfigs;
@@ -440,6 +361,10 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
 
       try {
 
+        // TODO LMDB
+        g_database->updateZone(domain, records);
+        // TODO end LMDB
+
         writeZoneToDisk(records, domain, dir);
         g_log<<Logger::Notice<<"Wrote zonedata for "<<domain<<" with serial "<<soa->d_st.serial<<" to "<<dir<<endl;
 
@@ -464,6 +389,7 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
         zoneInfo->latestAXFR = std::move(records);
         zoneInfo->soa = soa;
         updateCurrentZoneInfo(domain, zoneInfo);
+
       } catch (PDNSException &e) {
         g_stats.incrementAXFRFailures(domain);
         g_log<<Logger::Warning<<"Could not save zone '"<<domain<<"' to disk: "<<e.reason<<endl;
