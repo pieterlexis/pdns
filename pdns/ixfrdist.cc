@@ -36,6 +36,7 @@
 #include <condition_variable>
 #include "ixfr.hh"
 #include "ixfrutils.hh"
+#include "ixfrdist-database.hh"
 #include "resolver.hh"
 #include "dns_random.hh"
 #include "sstuff.hh"
@@ -269,10 +270,23 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
   setThreadName("ixfrdist/update");
   std::map<DNSName, time_t> lastCheck;
 
+  // TODO LMDB
+  auto database = IXFRDistDatabase(workdir);
+  // TODO end LMDB
+
   // Initialize the serials we have
   for (const auto &domainConfig : g_domainConfigs) {
     DNSName domain = domainConfig.first;
     lastCheck[domain] = 0;
+    // TODO LMDB
+    try {
+      auto lmdb_serial = database.getDomainSerial(domain);
+      g_log<<Logger::Debug<<"Had this serial from LMDB: "<<std::to_string(lmdb_serial)<<endl;
+    }
+    catch(const PDNSException &e) {
+      g_log<<Logger::Warning<<"LMDB exception in getDomainSerial: "<<e.reason<<endl;
+    }
+    // TODO end LMDB
     string dir = workdir + "/" + domain.toString();
     try {
       g_log<<Logger::Info<<"Trying to initially load domain "<<domain<<" from disk"<<endl;
@@ -345,6 +359,14 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
         zoneLastCheck = now;
         g_stats.incrementSOAChecks(domain);
         auto newSerial = getSerialFromMaster(master, domain, sr); // TODO TSIG
+        // TODO lmdb
+        try {
+          database.setDomainSerial(domain, newSerial);
+        }
+        catch (const PDNSException &e) {
+          g_log<<Logger::Error<<"Could not set domain serial with setDomainSerial: "<<e.reason<<endl;
+        }
+        // TODO lmdb end
         if(current_soa != nullptr) {
           g_log<<Logger::Info<<"Got SOA Serial for "<<domain<<" from "<<master.toStringWithPort()<<": "<< newSerial<<", had Serial: "<<current_soa->d_st.serial;
           if (newSerial == current_soa->d_st.serial) {

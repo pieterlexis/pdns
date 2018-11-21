@@ -24,12 +24,34 @@
 #include <string>
 #include <memory>
 #include "ext/lmdbxx/lmdb++.h"
+#include "dnsname.hh"
+#include "misc.hh"
 
 class IXFRDistDatabase
 {
   public:
-    explicit IXFRDistDatabase(const std::string& fpath);
+    explicit IXFRDistDatabase(const std::string& fpath) : d_workDir(fpath) {};
+
+    uint32_t getDomainSerial(const DNSName &d);
+    void setDomainSerial(const DNSName &d, const uint32_t &serial);
 
   private:
-    std::unique_ptr<lmdb::env> d_env;
+    std::string d_workDir;
+    std::map<DNSName, shared_ptr<lmdb::env>> d_envs;
+
+    // const lmdb::val d_keySerial = "serial";
+
+    std::shared_ptr<lmdb::env> getEnv(const DNSName &d) {
+      auto it = d_envs.find(d);
+      if (it != d_envs.end()) {
+        return it->second;
+      }
+      auto fname = d_workDir + "/" + d.toString();
+
+      auto env = lmdb::env::create();
+      env.set_mapsize(1UL * 1024UL * 1024UL * 1024UL); // 1GB
+      env.open(fname.c_str(), 0, 0664);
+      d_envs[d] = std::make_shared<lmdb::env>(env);
+      return d_envs[d]; // TODO don't do this lookup again
+    };
 };
