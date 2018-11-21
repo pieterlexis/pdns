@@ -36,6 +36,7 @@
 #include <condition_variable>
 #include "ixfr.hh"
 #include "ixfrutils.hh"
+#include "ixfrdist-database.hh"
 #include "resolver.hh"
 #include "dns_random.hh"
 #include "sstuff.hh"
@@ -199,6 +200,11 @@ static void cleanUpDomain(const DNSName& domain, const uint16_t& keep, const str
     if(!strcmp(d->d_name, ".") || !strcmp(d->d_name, "..")) {
       continue;
     }
+    // TODO LMDB
+    if(!strcmp(d->d_name, "data.mdb") || !strcmp(d->d_name, "lock.mdb")) {
+      continue;
+    }
+    // TODO end LMDB
     zoneVersions.push_back(std::stoi(d->d_name));
   }
   closedir(dp);
@@ -269,10 +275,22 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
   setThreadName("ixfrdist/update");
   std::map<DNSName, time_t> lastCheck;
 
+  // TODO LMDB
+  auto database = IXFRDistDatabase(workdir);
+  // TODO end LMDB
+
   // Initialize the serials we have
   for (const auto &domainConfig : g_domainConfigs) {
     DNSName domain = domainConfig.first;
     lastCheck[domain] = 0;
+    // TODO LMDB
+    try {
+      auto lmdb_serial = database.getDomainSerial(domain);
+    }
+    catch(const PDNSException &e) {
+      // TODO Retrieve zone if no serial is present
+    }
+    // TODO end LMDB
     string dir = workdir + "/" + domain.toString();
     try {
       g_log<<Logger::Info<<"Trying to initially load domain "<<domain<<" from disk"<<endl;
@@ -345,13 +363,24 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
         zoneLastCheck = now;
         g_stats.incrementSOAChecks(domain);
         auto newSerial = getSerialFromMaster(master, domain, sr); // TODO TSIG
+        // TODO LMDB
+        try {
+          database.setDomainSerial(domain, newSerial);
+        }
+        catch (const PDNSException &e) {
+          g_log<<Logger::Error<<"Could not set domain serial: "<<e.reason<<endl;
+        }
+        // TODO LMDB end
+        g_log<<Logger::Info<<"Got SOA Serial for "<<domain<<" from "<<master.toStringWithPort()<<": "<< newSerial;
         if(current_soa != nullptr) {
-          g_log<<Logger::Info<<"Got SOA Serial for "<<domain<<" from "<<master.toStringWithPort()<<": "<< newSerial<<", had Serial: "<<current_soa->d_st.serial;
+          g_log<<Logger::Info<<", had Serial: "<<current_soa->d_st.serial;
           if (newSerial == current_soa->d_st.serial) {
             g_log<<Logger::Info<<", not updating."<<endl;
             continue;
           }
           g_log<<Logger::Info<<", will update."<<endl;
+        } else {
+          g_log<<Logger::Info<<", getting initial version"<<endl;
         }
       } catch (runtime_error &e) {
         g_log<<Logger::Warning<<"Unable to get SOA serial update for '"<<domain<<"' from master "<<master.toStringWithPort()<<": "<<e.what()<<endl;

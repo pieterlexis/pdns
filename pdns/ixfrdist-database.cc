@@ -23,15 +23,39 @@
 #include <string>
 #include "ixfrdist-database.hh"
 #include "pdnsexception.hh"
-#include "misc.hh"
 
-IXFRDistDatabase::IXFRDistDatabase(const std::string& fpath) {
+uint32_t IXFRDistDatabase::getDomainSerial(const DNSName &d) {
   try {
-    d_env = make_unique<lmdb::env>(lmdb::env::create());
-    d_env->set_mapsize(1UL * 1024UL * 1024UL * 1024UL); // 1 GiB
-    d_env->open(fpath.c_str(), 0, 0664);
+    auto txn = lmdb::txn::begin(*getEnv(d), nullptr, MDB_RDONLY);
+    auto dbi = lmdb::dbi::open(txn, nullptr);
+
+    lmdb::val serial;
+    g_log<<Logger::Debug<<d_logPrefix<<__func__<<": retrieving serial for zone "<<d.toLogString()<<endl;
+    if (!dbi.get(txn, lmdb::val("serial"), serial)) {
+      // No exception but a false retval means "not found"
+      txn.abort();
+      throw PDNSException("Key not found in mdb");
+    }
+    auto retval = *serial.data<uint32_t>();
+    txn.abort();
+    g_log<<Logger::Debug<<d_logPrefix<<__func__<<": had serial '"<<retval<<"' for zone "<<d.toLogString()<<endl;
+    return retval;
   }
   catch(const lmdb::error &e) {
-    throw PDNSException(std::string("Could not create LMDB environment: ") + e.what());
+    throw PDNSException(std::string("Could not get serial from database: ") + e.what());
+  }
+}
+
+void IXFRDistDatabase::setDomainSerial(const DNSName &d, const uint32_t &serial) {
+  try {
+    auto txn = lmdb::txn::begin(*getEnv(d));
+    auto dbi = lmdb::dbi::open(txn, nullptr);
+
+    g_log<<Logger::Debug<<d_logPrefix<<__func__<<": Storing serial "<<serial<<" for zone "<<d.toLogString()<<endl;
+    dbi.put(txn, "serial", serial, lmdb::dbi::default_put_flags);
+    txn.commit();
+  }
+  catch(const lmdb::error &e) {
+    throw PDNSException(std::string("Could set serial in database: ") + e.what());
   }
 }

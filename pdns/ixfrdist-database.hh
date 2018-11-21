@@ -23,13 +23,40 @@
 #pragma once
 #include <string>
 #include <memory>
+#include <sys/stat.h>
 #include "ext/lmdbxx/lmdb++.h"
+#include "dnsname.hh"
+#include "logger.hh"
 
 class IXFRDistDatabase
 {
   public:
-    explicit IXFRDistDatabase(const std::string& fpath);
+    explicit IXFRDistDatabase(const std::string& fpath) : d_workDir(fpath) {};
+
+    uint32_t getDomainSerial(const DNSName &d);
+    void setDomainSerial(const DNSName &d, const uint32_t &serial);
 
   private:
-    std::unique_ptr<lmdb::env> d_env;
+    std::string d_logPrefix{"[database] "};
+    std::string d_workDir;
+    std::map<DNSName, shared_ptr<lmdb::env>> d_envs;
+
+    std::shared_ptr<lmdb::env> getEnv(const DNSName &d) {
+      auto it = d_envs.find(d);
+      if (it != d_envs.end()) {
+        return it->second;
+      }
+
+      auto fname = d_workDir + "/" + d.toString() + "db";
+      if (d.isRoot()) {
+        fname = d_workDir + "/" + "ROOT" + ".db";
+      }
+
+      auto env = lmdb::env::create();
+      env.set_mapsize(1UL * 1024UL * 1024UL * 1024UL); // 1GB
+      env.open(fname.c_str(), MDB_NOSUBDIR, 0664);
+      auto e = std::make_shared<lmdb::env>(std::move(env));
+      d_envs[d] = e;
+      return e;
+    };
 };
