@@ -17,12 +17,15 @@ import libnacl
 import libnacl.utils
 
 # Python2/3 compatibility hacks
-if sys.version_info[0] == 2:
-  from Queue import Queue
-  range = xrange
-else:
+try:
   from queue import Queue
-  range = range  # allow re-export of the builtin name
+except ImportError:
+  from Queue import Queue
+
+try:
+  range = xrange
+except NameError:
+  pass
 
 
 class DNSDistTest(unittest.TestCase):
@@ -83,7 +86,10 @@ class DNSDistTest(unittest.TestCase):
 
         # validate config with --check-config, which sets client=true, possibly exposing bugs.
         testcmd = dnsdistcmd + ['--check-config']
-        output = subprocess.check_output(testcmd, close_fds=True)
+        try:
+            output = subprocess.check_output(testcmd, stderr=subprocess.STDOUT, close_fds=True)
+        except subprocess.CalledProcessError as exc:
+            raise AssertionError('dnsdist --check-config failed (%d): %s' % (exc.returncode, exc.output))
         if output != b'Configuration \'dnsdist_test.conf\' OK!\n':
             raise AssertionError('dnsdist --check-config failed: %s' % output)
 

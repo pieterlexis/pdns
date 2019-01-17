@@ -35,7 +35,7 @@ LuaConfigItems::LuaConfigItems()
 {
   DNSName root("."); // don't use g_rootdnsname here, it might not exist yet
   for (const auto &dsRecord : rootDSs) {
-    auto ds=unique_ptr<DSRecordContent>(dynamic_cast<DSRecordContent*>(DSRecordContent::make(dsRecord)));
+    auto ds=std::dynamic_pointer_cast<DSRecordContent>(DSRecordContent::make(dsRecord));
     dsAnchors[root].insert(*ds);
   }
 }
@@ -62,10 +62,8 @@ static void parseRPZParameters(const std::unordered_map<string,boost::variant<ui
     defpol->d_kind = (DNSFilterEngine::PolicyKind)boost::get<uint32_t>(constGet(have, "defpol"));
     defpol->d_name = std::make_shared<std::string>(polName);
     if(defpol->d_kind == DNSFilterEngine::PolicyKind::Custom) {
-      defpol->d_custom=
-          DNSRecordContent::mastermake(QType::CNAME, 1,
-                                       boost::get<string>(constGet(have,"defcontent"))
-            );
+      defpol->d_custom.push_back(DNSRecordContent::mastermake(QType::CNAME, QClass::IN,
+                                                              boost::get<string>(constGet(have,"defcontent"))));
 
       if(have.count("defttl"))
         defpol->d_ttl = static_cast<int32_t>(boost::get<uint32_t>(constGet(have, "defttl")));
@@ -361,7 +359,7 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
   Lua.writeFunction("addTA", [&lci](const std::string& who, const std::string& what) {
       warnIfDNSSECDisabled("Warning: adding Trust Anchor for DNSSEC (addTA), but dnssec is set to 'off'!");
       DNSName zone(who);
-      auto ds = unique_ptr<DSRecordContent>(dynamic_cast<DSRecordContent*>(DSRecordContent::make(what)));
+      auto ds = std::dynamic_pointer_cast<DSRecordContent>(DSRecordContent::make(what));
       lci.dsAnchors[zone].insert(*ds);
   });
 
@@ -378,7 +376,7 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
       warnIfDNSSECDisabled("Warning: adding Trust Anchor for DNSSEC (addDS), but dnssec is set to 'off'!");
       g_log<<Logger::Warning<<"addDS is deprecated and will be removed in the future, switch to addTA"<<endl;
       DNSName zone(who);
-      auto ds = unique_ptr<DSRecordContent>(dynamic_cast<DSRecordContent*>(DSRecordContent::make(what)));
+      auto ds = std::dynamic_pointer_cast<DSRecordContent>(DSRecordContent::make(what));
       lci.dsAnchors[zone].insert(*ds);
   });
 
@@ -425,41 +423,67 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
       lci.protobufMaskV6 = maskV6;
     });
 
-  Lua.writeFunction("protobufServer", [&lci](const string& server_, boost::optional<protobufOptions_t> vars) {
-      try {
+  Lua.writeFunction("protobufServer", [&lci](boost::variant<const std::string, const std::unordered_map<int, std::string>> servers, boost::optional<protobufOptions_t> vars) {
         if (!lci.protobufExportConfig.enabled) {
+
           lci.protobufExportConfig.enabled = true;
-          lci.protobufExportConfig.server = ComboAddress(server_);
-          parseProtobufOptions(vars, lci.protobufExportConfig);
+
+          try {
+            if (servers.type() == typeid(std::string)) {
+              auto server = boost::get<const std::string>(servers);
+
+              lci.protobufExportConfig.servers.emplace_back(server);
+            }
+            else {
+              auto serversMap = boost::get<const std::unordered_map<int,std::string>>(servers);
+              for (const auto& serverPair : serversMap) {
+                lci.protobufExportConfig.servers.emplace_back(serverPair.second);
+              }
+            }
+
+            parseProtobufOptions(vars, lci.protobufExportConfig);
+          }
+          catch(std::exception& e) {
+            g_log<<Logger::Error<<"Error while adding protobuf logger: "<<e.what()<<endl;
+          }
+          catch(PDNSException& e) {
+            g_log<<Logger::Error<<"Error while adding protobuf logger: "<<e.reason<<endl;
+          }
         }
         else {
-          g_log<<Logger::Error<<"Only one protobuf server can be configured, we already have "<<lci.protobufExportConfig.server.toString()<<endl;
+          g_log<<Logger::Error<<"Only one protobufServer() directive can be configured, we already have "<<lci.protobufExportConfig.servers.at(0).toString()<<endl;
         }
-      }
-      catch(std::exception& e) {
-	g_log<<Logger::Error<<"Error while starting protobuf logger to '"<<server_<<": "<<e.what()<<endl;
-      }
-      catch(PDNSException& e) {
-        g_log<<Logger::Error<<"Error while starting protobuf logger to '"<<server_<<": "<<e.reason<<endl;
-      }
     });
 
-  Lua.writeFunction("outgoingProtobufServer", [&lci](const string& server_, boost::optional<protobufOptions_t> vars) {
-      try {
-        if (!lci.outgoingProtobufExportConfig.enabled) {
-          lci.outgoingProtobufExportConfig.enabled = true;
-          lci.outgoingProtobufExportConfig.server = ComboAddress(server_);
-          parseProtobufOptions(vars, lci.outgoingProtobufExportConfig);
-        }
-        else {
-          g_log<<Logger::Error<<"Only one protobuf server can be configured, we already have "<<lci.outgoingProtobufExportConfig.server.toString()<<endl;
-        }
+  Lua.writeFunction("outgoingProtobufServer", [&lci](boost::variant<const std::string, const std::unordered_map<int, std::string>> servers, boost::optional<protobufOptions_t> vars) {
+      if (!lci.outgoingProtobufExportConfig.enabled) {
+
+        lci.outgoingProtobufExportConfig.enabled = true;
+
+          try {
+            if (servers.type() == typeid(std::string)) {
+              auto server = boost::get<const std::string>(servers);
+
+              lci.outgoingProtobufExportConfig.servers.emplace_back(server);
+            }
+            else {
+              auto serversMap = boost::get<const std::unordered_map<int,std::string>>(servers);
+              for (const auto& serverPair : serversMap) {
+                lci.outgoingProtobufExportConfig.servers.emplace_back(serverPair.second);
+              }
+            }
+
+            parseProtobufOptions(vars, lci.outgoingProtobufExportConfig);
+          }
+          catch(std::exception& e) {
+            g_log<<Logger::Error<<"Error while starting outgoing protobuf logger: "<<e.what()<<endl;
+          }
+          catch(PDNSException& e) {
+            g_log<<Logger::Error<<"Error while starting outgoing protobuf logger: "<<e.reason<<endl;
+          }
       }
-      catch(std::exception& e) {
-	g_log<<Logger::Error<<"Error while starting protobuf logger to '"<<server_<<": "<<e.what()<<endl;
-      }
-      catch(PDNSException& e) {
-        g_log<<Logger::Error<<"Error while starting protobuf logger to '"<<server_<<": "<<e.reason<<endl;
+      else {
+        g_log<<Logger::Error<<"Only one outgoingProtobufServer() directive can be configured, we already have "<<lci.outgoingProtobufExportConfig.servers.at(0).toString()<<endl;
       }
     });
 #endif

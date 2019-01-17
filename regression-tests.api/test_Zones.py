@@ -985,6 +985,31 @@ fred   IN  A      192.168.0.4
         data = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name)).json()
         self.assertEquals(get_rrset(data, name, 'MX')['records'], rrset['records'])
 
+    def test_zone_rr_update_invalid_mx(self):
+        name, payload, zone = self.create_zone()
+        # do a replace (= update)
+        rrset = {
+            'changetype': 'replace',
+            'name': name,
+            'type': 'MX',
+            'ttl': 3600,
+            'records': [
+                {
+                    "content": "10 mail@mx.example.org.",
+                    "disabled": False
+                }
+            ]
+        }
+        payload = {'rrsets': [rrset]}
+        r = self.session.patch(
+            self.url("/api/v1/servers/localhost/zones/" + name),
+            data=json.dumps(payload),
+            headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 422)
+        self.assertIn('non-hostname content', r.json()['error'])
+        data = self.session.get(self.url("/api/v1/servers/localhost/zones/" + name)).json()
+        self.assertIsNone(get_rrset(data, name, 'MX'))
+
     def test_zone_rr_update_opt(self):
         name, payload, zone = self.create_zone()
         # do a replace (= update)
@@ -1288,6 +1313,30 @@ fred   IN  A      192.168.0.4
                                headers={'content-type': 'application/json'})
         self.assertEquals(r.status_code, 422)
         self.assertIn('Conflicts with pre-existing CNAME RRset', r.json()['error'])
+
+    def test_rrset_multiple_cnames(self):
+        name, payload, zone = self.create_zone()
+        rrset = {
+            'changetype': 'replace',
+            'name': 'sub.'+name,
+            'type': 'CNAME',
+            'ttl': 3600,
+            'records': [
+                {
+                    "content": "01.example.org.",
+                    "disabled": False
+                },
+                {
+                    "content": "02.example.org.",
+                    "disabled": False
+                }
+            ]
+        }
+        payload = {'rrsets': [rrset]}
+        r = self.session.patch(self.url("/api/v1/servers/localhost/zones/" + name), data=json.dumps(payload),
+                               headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 422)
+        self.assertIn('/CNAME has more than one record', r.json()['error'])
 
     def test_create_zone_with_leading_space(self):
         # Actual regression.
@@ -1607,6 +1656,60 @@ fred   IN  A      192.168.0.4
         # should return zone, SOA, ns1, ns2, sub.sub A (but not the ENT)
         self.assertEquals(len(r.json()), 5)
 
+    def test_default_api_rectify(self):
+        name = unique_zone_name()
+        search = name.split('.')[0]
+        rrsets = [
+            {
+                "name": 'a.' + name,
+                "type": "AAAA",
+                "ttl": 3600,
+                "records": [{
+                    "content": "2001:DB8::1",
+                    "disabled": False,
+                }],
+            },
+            {
+                "name": 'b.' + name,
+                "type": "AAAA",
+                "ttl": 3600,
+                "records": [{
+                    "content": "2001:DB8::2",
+                    "disabled": False,
+                }],
+            },
+        ]
+        self.create_zone(name=name, rrsets=rrsets, dnssec=True, nsec3param='1 0 1 ab')
+        dbrecs = get_db_records(name, 'AAAA')
+        self.assertIsNotNone(dbrecs[0]['ordername'])
+
+    def test_override_api_rectify(self):
+        name = unique_zone_name()
+        search = name.split('.')[0]
+        rrsets = [
+            {
+                "name": 'a.' + name,
+                "type": "AAAA",
+                "ttl": 3600,
+                "records": [{
+                    "content": "2001:DB8::1",
+                    "disabled": False,
+                }],
+            },
+            {
+                "name": 'b.' + name,
+                "type": "AAAA",
+                "ttl": 3600,
+                "records": [{
+                    "content": "2001:DB8::2",
+                    "disabled": False,
+                }],
+            },
+        ]
+        self.create_zone(name=name, rrsets=rrsets, api_rectify=False, dnssec=True, nsec3param='1 0 1 ab')
+        dbrecs = get_db_records(name, 'AAAA')
+        self.assertIsNone(dbrecs[0]['ordername'])
+
     def test_cname_at_ent_place(self):
         name, payload, zone = self.create_zone(api_rectify=True)
         rrset = {
@@ -1680,6 +1783,32 @@ fred   IN  A      192.168.0.4
         r = self.session.get(self.url("/api/v1/servers/localhost/zones/"+name+"?rrsets=foobar"))
         self.assertEquals(r.status_code, 422)
         self.assertIn("'rrsets' request parameter value 'foobar' is not supported", r.json()['error'])
+
+    def test_put_master_tsig_key_ids_non_existent(self):
+        name = unique_zone_name()
+        keyname = unique_zone_name().split('.')[0]
+        self.create_zone(name=name, kind='Native')
+        payload = {
+            'master_tsig_key_ids': [keyname]
+        }
+        r = self.session.put(self.url('/api/v1/servers/localhost/zones/' + name),
+                             data=json.dumps(payload),
+                             headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 422)
+        self.assertIn('A TSIG key with the name', r.json()['error'])
+
+    def test_put_slave_tsig_key_ids_non_existent(self):
+        name = unique_zone_name()
+        keyname = unique_zone_name().split('.')[0]
+        self.create_zone(name=name, kind='Native')
+        payload = {
+            'slave_tsig_key_ids': [keyname]
+        }
+        r = self.session.put(self.url('/api/v1/servers/localhost/zones/' + name),
+                             data=json.dumps(payload),
+                             headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 422)
+        self.assertIn('A TSIG key with the name', r.json()['error'])
 
 
 @unittest.skipIf(not is_auth(), "Not applicable")

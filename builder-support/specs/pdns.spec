@@ -166,6 +166,7 @@ Group: System Environment/Daemons
 Requires: %{name}%{?_isa} = %{version}-%{release}
 BuildRequires: yaml-cpp-devel
 BuildRequires: geoip-devel
+BuildRequires: libmaxminddb-devel
 %global backends %{backends} geoip
 
 %description backend-geoip
@@ -196,7 +197,7 @@ This package contains the ixfrdist program.
 %if 0%{?rhel} == 6
 %setup -n %{name}-%{getenv:BUILDER_VERSION}
 %else
-%autosetup -p1 -n %{name}-%{getenv:BUILDER_VERSION} 
+%autosetup -p1 -n %{name}-%{getenv:BUILDER_VERSION}
 %endif
 
 %build
@@ -211,7 +212,7 @@ export CPPFLAGS="-DLDAP_DEPRECATED"
   --with-lua=%{lua_implementation} \
   --with-dynmodules='%{backends} random' \
   --enable-tools \
-  --enable-libsodium \
+  --with-libsodium \
   --enable-unit-tests \
 %if 0%{?rhel} >= 7
   --enable-lua-records \

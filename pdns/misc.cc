@@ -446,9 +446,8 @@ DTime::DTime()
   d_set.tv_sec=d_set.tv_usec=0;
 }
 
-DTime::DTime(const DTime &dt)
+DTime::DTime(const DTime &dt) : d_set(dt.d_set)
 {
-  d_set=dt.d_set;
 }
 
 time_t DTime::time()
@@ -567,7 +566,7 @@ bool IpToU32(const string &str, uint32_t *ip)
 string U32ToIP(uint32_t val)
 {
   char tmp[17];
-  snprintf(tmp, sizeof(tmp)-1, "%u.%u.%u.%u",
+  snprintf(tmp, sizeof(tmp), "%u.%u.%u.%u",
            (val >> 24)&0xff,
            (val >> 16)&0xff,
            (val >>  8)&0xff,
@@ -1412,4 +1411,40 @@ int mapThreadToCPUList(pthread_t tid, const std::set<int>& cpus)
 #else
   return ENOSYS;
 #endif /* HAVE_PTHREAD_SETAFFINITY_NP */
+}
+
+std::vector<ComboAddress> getResolvers(const std::string& resolvConfPath)
+{
+  std::vector<ComboAddress> results;
+
+  ifstream ifs(resolvConfPath);
+  if (!ifs) {
+    return results;
+  }
+
+  string line;
+  while(std::getline(ifs, line)) {
+    boost::trim_right_if(line, is_any_of(" \r\n\x1a"));
+    boost::trim_left(line); // leading spaces, let's be nice
+
+    string::size_type tpos = line.find_first_of(";#");
+    if (tpos != string::npos) {
+      line.resize(tpos);
+    }
+
+    if (boost::starts_with(line, "nameserver ") || boost::starts_with(line, "nameserver\t")) {
+      vector<string> parts;
+      stringtok(parts, line, " \t,"); // be REALLY nice
+      for(vector<string>::const_iterator iter = parts.begin() + 1; iter != parts.end(); ++iter) {
+        try {
+          results.emplace_back(*iter, 53);
+        }
+        catch(...)
+        {
+        }
+      }
+    }
+  }
+
+  return results;
 }

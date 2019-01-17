@@ -184,6 +184,18 @@ dlg-only-drops
 ^^^^^^^^^^^^^^
 number of records dropped because of :ref:`setting-delegation-only` setting
 
+dnssec-authentic-data-queries
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. versionadded:: 4.2
+
+number of queries received with the AD bit set
+
+dnssec-check-disabled-queries
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. versionadded:: 4.2
+
+number of queries received with the CD bit set
+
 dnssec-queries
 ^^^^^^^^^^^^^^
 number of queries received with the DO bit set
@@ -463,6 +475,14 @@ user-msec
 number of CPU milliseconds spent in 'user' mode
 
 .. _stat-x-our-latency:
+
+variable-responses
+^^^^^^^^^^^^^^^^^^
+.. versionadded:: 4.2
+
+Responses that were marked as 'variable'. This could be because of EDNS
+Client Subnet or Lua rules that indicate this variable status (dependent on
+time or who is asking, for example).
 
 x-our-latency
 ^^^^^^^^^^^^^

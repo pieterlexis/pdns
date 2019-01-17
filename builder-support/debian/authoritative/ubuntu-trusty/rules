@@ -21,13 +21,13 @@ override_dh_auto_configure:
 		--with-modules="" \
 		--enable-tools \
 		--enable-ixfrdist \
-		--disable-libsodium \
+		--without-libsodium \
 		--with-lua=luajit \
 		--with-protobuf \
 		--enable-unit-tests \
 		--enable-experimental-pkcs11 \
 		--disable-systemd \
-		--disable-lua-records
+		--enable-lua-records
 
 # pdns-server has a debug package
 override_dh_strip:
@@ -47,7 +47,6 @@ override_dh_install:
 	  -e 's!# launch=.*!&\nlaunch=!' \
 	  -e 's!# setgid=.*!setgid=pdns!' \
 	  -e 's!# setuid=.*!setuid=pdns!' \
-	  -e 's!# security-poll-suffix=.*!&\nsecurity-poll-suffix=!' \
 	  > debian/pdns-server/etc/powerdns/pdns.conf
 
 # Verbose tests (shows used compiler/linker and their flags)

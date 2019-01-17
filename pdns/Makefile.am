@@ -166,6 +166,7 @@ pdns_server_SOURCES = \
 	common_startup.cc common_startup.hh \
 	communicator.cc communicator.hh \
 	dbdnsseckeeper.cc \
+	digests.hh \
 	distributor.hh \
 	dns.cc dns.hh \
 	dns_random.cc dns_random.hh \
@@ -194,7 +195,6 @@ pdns_server_SOURCES = \
 	lua-base4.cc lua-base4.hh \
 	lua-auth4.cc lua-auth4.hh \
 	mastercommunicator.cc \
-	md5.hh \
 	misc.cc misc.hh \
 	nameserver.cc nameserver.hh \
 	namespaces.hh \
@@ -220,6 +220,7 @@ pdns_server_SOURCES = \
 	tcpreceiver.cc tcpreceiver.hh \
 	threadname.hh threadname.cc \
 	tsigverifier.cc tsigverifier.hh \
+	tsigutils.hh tsigutils.cc \
 	tkey.cc \
 	ueberbackend.cc ueberbackend.hh \
 	unix_semaphore.cc \
@@ -329,6 +330,7 @@ pdnsutil_SOURCES = \
 	statbag.cc \
 	stubresolver.cc stubresolver.hh \
 	threadname.hh threadname.cc \
+	tsigutils.hh tsigutils.cc \
 	ueberbackend.cc \
 	unix_utility.cc \
 	zoneparser-tng.cc
@@ -622,6 +624,8 @@ ixfrdist_SOURCES = \
 	ixfr.cc ixfr.hh \
 	ixfrdist.cc \
 	ixfrutils.cc ixfrutils.hh \
+	ixfrdist-stats.hh ixfrdist-stats.cc \
+	ixfrdist-web.hh ixfrdist-web.cc \
 	logger.cc logger.hh\
 	misc.cc misc.hh \
 	mplexer.hh \
@@ -635,11 +639,16 @@ ixfrdist_SOURCES = \
 	statbag.cc \
 	threadname.hh threadname.cc \
 	tsigverifier.cc tsigverifier.hh \
-	unix_utility.cc zoneparser-tng.cc
+	unix_utility.cc \
+	webserver.hh webserver.cc \
+	zoneparser-tng.cc
+
 
 ixfrdist_LDADD = \
 	$(BOOST_PROGRAM_OPTIONS_LIBS) \
+	$(JSON11_LIBS) \
 	$(LIBCRYPTO_LIBS) \
+	$(YAHTTP_LIBS) \
 	$(YAML_LIBS)
 
 ixfrdist_LDFLAGS = \
@@ -813,6 +822,7 @@ tsig_tests_SOURCES = \
 	arguments.cc \
 	base32.cc \
 	base64.cc base64.hh \
+	digests.hh \
 	dns.cc \
 	dns_random_urandom.cc dns_random.hh \
 	dnslabeltext.cc \
@@ -980,7 +990,6 @@ dnsreplay_SOURCES = \
 	dnswriter.cc dnswriter.hh \
 	ednsoptions.cc ednsoptions.hh \
 	ednssubnet.cc ednssubnet.hh \
-	histog.hh \
 	iputils.cc \
 	logger.cc \
 	misc.cc \
@@ -1072,6 +1081,7 @@ dnsscope_SOURCES = \
 	dnsrecords.cc \
 	dnsscope.cc \
 	dnswriter.cc dnswriter.hh \
+	histog.hh \
 	logger.cc \
 	misc.cc \
 	nsecrecords.cc \
@@ -1252,6 +1262,7 @@ testrunner_SOURCES = \
 	dnssecsigner.cc \
 	dnswriter.cc \
 	ednsoptions.cc ednsoptions.hh \
+	ednscookies.cc ednscookies.hh \
 	ednssubnet.cc \
 	gettime.cc gettime.hh \
 	gss_context.cc gss_context.hh \
@@ -1277,6 +1288,7 @@ testrunner_SOURCES = \
 	test-bindparser_cc.cc \
 	test-common.hh \
 	test-dnsrecordcontent.cc \
+	test-digests_hh.cc \
 	test-distributor_hh.cc \
 	test-dns_random_hh.cc \
 	test-dnsname_cc.cc \
@@ -1287,10 +1299,10 @@ testrunner_SOURCES = \
 	test-ixfr_cc.cc \
 	test-lock_hh.cc \
 	test-lua_auth4_cc.cc \
-	test-md5_hh.cc \
 	test-misc_hh.cc \
 	test-nameserver_cc.cc \
 	test-packetcache_cc.cc \
+	test-packetcache_hh.cc \
 	test-rcpgenerator_cc.cc \
 	test-signers.cc \
 	test-sha_hh.cc \
@@ -1357,6 +1369,116 @@ else
 check-local:
 	@echo "Unit tests are not enabled"
 	@echo "Run ./configure --enable-unit-tests"
+endif
+
+if FUZZ_TARGETS
+
+LIB_FUZZING_ENGINE ?= standalone_fuzz_target_runner.o
+
+standalone_fuzz_target_runner.o: standalone_fuzz_target_runner.cc
+
+fuzz_targets_programs =  \
+	fuzz_target_dnsdistcache \
+	fuzz_target_moadnsparser \
+	fuzz_target_packetcache \
+	fuzz_target_zoneparsertng
+
+fuzz_targets: $(fuzz_targets_programs)
+
+bin_PROGRAMS += \
+	$(fuzz_targets_programs)
+
+fuzz_targets_libs = \
+	$(LIBCRYPTO_LIBS) \
+	$(LIB_FUZZING_ENGINE)
+fuzz_targets_ldflags = \
+	$(AM_LDFLAGS) \
+	$(DYNLINKFLAGS) \
+	$(LIBCRYPTO_LDFLAGS) \
+	$(FUZZING_LDFLAGS)
+
+# we need the mockup runner to be built, but not linked if a real fuzzing engine is used
+fuzz_targets_deps = standalone_fuzz_target_runner.o
+
+fuzz_target_moadnsparser_SOURCES = \
+	fuzz_moadnsparser.cc \
+	base32.cc base32.hh \
+	base64.cc base64.hh \
+	dnslabeltext.cc \
+	dnsname.cc dnsname.hh \
+	dnsparser.cc dnsparser.hh \
+	dnsrecords.cc dnsrecords.hh \
+	dnswriter.cc dnswriter.hh \
+	logger.cc logger.hh \
+	misc.cc misc.hh \
+	nsecrecords.cc  \
+	qtype.cc qtype.hh \
+	rcpgenerator.cc rcpgenerator.hh \
+	sillyrecords.cc \
+	statbag.cc statbag.hh \
+	unix_utility.cc \
+	utility.hh
+
+fuzz_target_moadnsparser_DEPENDENCIES = $(fuzz_targets_deps)
+fuzz_target_moadnsparser_LDFLAGS = $(fuzz_targets_ldflags)
+fuzz_target_moadnsparser_LDADD = $(fuzz_targets_libs)
+
+fuzz_target_packetcache_SOURCES = \
+	fuzz_packetcache.cc \
+	dnslabeltext.cc \
+	dnsname.cc dnsname.hh \
+	ednsoptions.cc ednsoptions.hh \
+	misc.cc misc.hh \
+	packetcache.hh \
+	statbag.cc statbag.hh
+
+fuzz_target_packetcache_DEPENDENCIES = $(fuzz_targets_deps)
+fuzz_target_packetcache_LDFLAGS = $(fuzz_targets_ldflags)
+fuzz_target_packetcache_LDADD = $(fuzz_targets_libs)
+
+fuzz_target_dnsdistcache_SOURCES = \
+	fuzz_dnsdistcache.cc \
+	dnsdist-cache.cc dnsdist-cache.hh \
+	dnsdist-ecs.cc dnsdist-ecs.hh \
+	dnslabeltext.cc \
+	dnsname.cc dnsname.hh \
+	dnsparser.cc dnsparser.hh \
+	dnswriter.cc dnswriter.hh \
+	ednsoptions.cc ednsoptions.hh \
+	ednssubnet.cc ednssubnet.hh \
+	iputils.cc iputils.hh \
+	misc.cc misc.hh \
+	packetcache.hh \
+	qtype.cc qtype.hh
+
+fuzz_target_dnsdistcache_DEPENDENCIES = $(fuzz_targets_deps)
+fuzz_target_dnsdistcache_LDFLAGS = $(fuzz_targets_ldflags)
+fuzz_target_dnsdistcache_LDADD = $(fuzz_targets_libs)
+
+fuzz_target_zoneparsertng_SOURCES = \
+	fuzz_zoneparsertng.cc \
+	base32.cc base32.hh \
+	base64.cc base64.hh \
+	dnslabeltext.cc \
+	dnsname.cc dnsname.hh \
+	dnsparser.cc dnsparser.hh \
+	dnsrecords.cc dnsrecords.hh \
+	dnswriter.cc dnswriter.hh \
+	logger.cc logger.hh \
+	misc.cc misc.hh \
+	nsecrecords.cc  \
+	qtype.cc qtype.hh \
+	rcpgenerator.cc rcpgenerator.hh \
+	sillyrecords.cc \
+	statbag.cc statbag.hh \
+	unix_utility.cc \
+	utility.hh \
+	zoneparser-tng.cc zoneparser-tng.hh
+
+fuzz_target_zoneparsertng_DEPENDENCIES = $(fuzz_targets_deps)
+fuzz_target_zoneparsertng_LDFLAGS = $(fuzz_targets_ldflags)
+fuzz_target_zoneparsertng_LDADD = $(fuzz_targets_libs)
+
 endif
 
 dnslabeltext.cc: dnslabeltext.rl

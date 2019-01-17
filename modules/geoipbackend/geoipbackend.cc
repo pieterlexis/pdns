@@ -150,9 +150,9 @@ void GeoIPBackend::initialize() {
                rr.content = content;
              } else if (attr == "weight") {
                rr.weight = iter->second.as<int>();
-               if (rr.weight < 0) {
-                 g_log<<Logger::Error<<"Weight cannot be negative for " << rr.qname << endl;
-                 throw PDNSException(string("Weight cannot be negative for ") + rr.qname.toLogString());
+               if (rr.weight <= 0) {
+                 g_log<<Logger::Error<<"Weight must be positive for " << rr.qname << endl;
+                 throw PDNSException(string("Weight must be positive for ") + rr.qname.toLogString());
                }
                rr.has_weight = true;
              } else if (attr == "ttl") {
@@ -321,7 +321,7 @@ bool GeoIPBackend::lookup_static(const GeoIPDomain &dom, const DNSName &search, 
       }
       if (qtype == QType::ANY || rr.qtype == qtype) {
         const string& content = format2str(rr.content, ip, v6, gl);
-        if (rr.qtype != QType::TXT && content.empty()) continue;
+        if (rr.qtype != QType::ENT && rr.qtype != QType::TXT && content.empty()) continue;
         d_result.push_back(rr);
         d_result.back().content = content;
         d_result.back().qname = qdomain;

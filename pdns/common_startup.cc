@@ -95,6 +95,7 @@ void declareArguments()
   ::arg().set("retrieval-threads", "Number of AXFR-retrieval threads for slave operation")="2";
   ::arg().setSwitch("api", "Enable/disable the REST API (including HTTP listener)")="no";
   ::arg().set("api-key", "Static pre-shared authentication key for access to the REST API")="";
+  ::arg().setSwitch("default-api-rectify","Default API-RECTIFY value for zones")="yes";
   ::arg().setSwitch("dname-processing", "If we should support DNAME records")="no";
 
   ::arg().setCmd("help","Provide a helpful message");
@@ -115,7 +116,7 @@ void declareArguments()
   ::arg().set("receiver-threads","Default number of receiver threads to start")="1";
   ::arg().set("queue-limit","Maximum number of milliseconds to queue a query")="1500"; 
   ::arg().set("resolver","Use this resolver for ALIAS and the internal stub resolver")="no";
-  ::arg().set("udp-truncation-threshold", "Maximum UDP response size before we truncate")="1680";
+  ::arg().set("udp-truncation-threshold", "Maximum UDP response size before we truncate")="1232";
   ::arg().set("disable-tcp","Do not listen to TCP queries")="no";
   
   ::arg().set("config-name","Name of this virtual configuration - will rename the binary image")="";
@@ -150,11 +151,12 @@ void declareArguments()
   ::arg().set("webserver-password","Password required for accessing the webserver")="";
   ::arg().set("webserver-allow-from","Webserver/API access is only allowed from these subnets")="127.0.0.1,::1";
 
-  ::arg().setSwitch("out-of-zone-additional-processing","Do out of zone additional processing")="yes";
   ::arg().setSwitch("do-ipv6-additional-processing", "Do AAAA additional processing")="yes";
   ::arg().setSwitch("query-logging","Hint backends that queries should be logged")="no";
 
+  ::arg().set("carbon-namespace", "If set overwrites the first part of the carbon string")="pdns";
   ::arg().set("carbon-ourname", "If set, overrides our reported hostname for carbon stats")="";
+  ::arg().set("carbon-instance", "If set overwrites the the instance name default")="auth";
   ::arg().set("carbon-server", "If set, send metrics in carbon (graphite) format to this server IP address")="";
   ::arg().set("carbon-interval", "Number of seconds between carbon (graphite) updates")="30";
 
@@ -211,8 +213,8 @@ void declareArguments()
   ::arg().setSwitch("outgoing-axfr-expand-alias", "Expand ALIAS records during outgoing AXFR")="no";
   ::arg().setSwitch("8bit-dns", "Allow 8bit dns queries")="no";
 #ifdef HAVE_LUA_RECORDS
-  ::arg().setSwitch("enable-lua-record", "Process LUA record for all zones (metadata overrides this)")="no";
-  ::arg().set("lua-record-exec-limit", "LUA record scripts execution limit (instructions count). Values <= 0 mean no limit")="1000";
+  ::arg().setSwitch("enable-lua-records", "Process LUA records for all zones (metadata overrides this)")="no";
+  ::arg().set("lua-records-exec-limit", "LUA records scripts execution limit (instructions count). Values <= 0 mean no limit")="1000";
 #endif
   ::arg().setSwitch("axfr-lower-serial", "Also AXFR a zone from a master with a lower serial")="no";
 
@@ -506,8 +508,8 @@ void mainthread()
    g_anyToTcp = ::arg().mustDo("any-to-tcp");
    g_8bitDNS = ::arg().mustDo("8bit-dns");
 #ifdef HAVE_LUA_RECORDS
-   g_doLuaRecord = ::arg().mustDo("enable-lua-record");
-   g_luaRecordExecLimit = ::arg().asNum("lua-record-exec-limit");
+   g_doLuaRecord = ::arg().mustDo("enable-lua-records");
+   g_luaRecordExecLimit = ::arg().asNum("lua-records-exec-limit");
 #endif
 
    DNSPacket::s_udpTruncationThreshold = std::max(512, ::arg().asNum("udp-truncation-threshold"));

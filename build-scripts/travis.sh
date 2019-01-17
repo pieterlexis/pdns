@@ -249,8 +249,8 @@ install_auth() {
     jq"
 
   run "cd .."
-  run "wget https://www.monshouwer.eu/download/3rd_party/jdnssec-tools-0.13.ecdsafix.tar.gz"
-  run "sudo tar xfz jdnssec-tools-0.13.ecdsafix.tar.gz --strip-components=1 -C /"
+  run "wget https://github.com/dblacka/jdnssec-tools/releases/download/0.14/jdnssec-tools-0.14.tar.gz"
+  run "sudo tar xfz jdnssec-tools-0.14.tar.gz --strip-components=1 -C /"
   run "cd ${TRAVIS_BUILD_DIR}"
 
   # pkcs11 test requirements / setup
@@ -312,6 +312,7 @@ install_auth() {
     ruby-json \
     rubygems-integration \
     socat"
+  run "gem update --system"
   run "gem install bundler --no-rdoc --no-ri"
   run "cd modules/remotebackend"
   run "ruby -S bundle install"
@@ -395,12 +396,13 @@ build_auth() {
     --with-dynmodules='bind gmysql geoip gpgsql gsqlite3 ldap lua mydns opendbx pipe random remote tinydns godbc lua2' \
     --with-modules='' \
     --with-sqlite3 \
-    --enable-libsodium \
+    --with-libsodium \
     --enable-experimental-pkcs11 \
     --enable-remotebackend-zeromq \
     --enable-tools \
     --enable-unit-tests \
     --enable-backend-unit-tests \
+    --enable-fuzz-targets \
     --disable-dependency-tracking \
     --disable-silent-rules"
   run "make -k dist"
@@ -419,6 +421,7 @@ build_ixfrdist() {
     --enable-unit-tests \
     --disable-dependency-tracking \
     --disable-silent-rules"
+  run "make -C ext -k -j3"
   run "cd pdns"
   run "make -k -j3 ixfrdist"
   run "cd .."
@@ -438,7 +441,7 @@ build_recursor() {
   run "./configure \
     ${sanitizerflags} \
     --prefix=$PDNS_RECURSOR_DIR \
-    --enable-libsodium \
+    --with-libsodium \
     --enable-unit-tests \
     --enable-nod \
     --disable-silent-rules"
@@ -459,10 +462,10 @@ build_dnsdist(){
   run "./configure \
     ${sanitizerflags} \
     --enable-unit-tests \
-    --enable-libsodium \
+    --with-libsodium \
     --enable-dnscrypt \
     --enable-dns-over-tls \
-    --enable-fstrm \
+    --enable-dnstap \
     --prefix=$HOME/dnsdist \
     --disable-silent-rules"
   run "make -k -j3"
@@ -595,7 +598,7 @@ test_auth() {
 
   ### Lua rec tests ###
   run "cd regression-tests.auth-py"
-  run "./runtests -v || (cat pdns.log; false)"
+  run "./runtests -v || (cat ./configs/auth/pdns.log; false)"
   run "cd .."
 
   run "rm -f regression-tests/zones/*-slave.*" #FIXME
@@ -637,6 +640,11 @@ test_repo(){
   run "git status | grep -q clean"
 }
 
+test_none() {
+  run "build-scripts/test-spelling-unknown-words"
+}
+
+if [ $PDNS_BUILD_PRODUCT != "none" ]; then
 # global build requirements
 run "sudo apt-get -qq --no-install-recommends install \
   libboost-all-dev \
@@ -661,17 +669,21 @@ then
   elif [ "${PDNS_BUILD_PRODUCT}" = "dnsdist" ]; then
     sanitizerflags="${sanitizerflags} --enable-asan --enable-ubsan"
   elif [ "${PDNS_BUILD_PRODUCT}" = "ixfrdist" ]; then
-    sanitizerflags="${sanitizerflags} --enable-asan"
+    sanitizerflags="${sanitizerflags} --enable-asan --enable-ubsan"
   fi
 fi
 export CFLAGS=$compilerflags
 export CXXFLAGS=$compilerflags
 export sanitizerflags
-export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1"
+# We need a suppression for UndefinedBehaviorSanitizer with ixfrdist,
+# because of a vptr bug fixed in Boost 1.57.0:
+# https://github.com/boostorg/any/commit/c92ab03ab35775b6aab30f6cdc3d95b7dd8fc5c6
+export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1:suppressions=${TRAVIS_BUILD_DIR}/build-scripts/UBSan.supp"
 
 install_$PDNS_BUILD_PRODUCT
 
 build_$PDNS_BUILD_PRODUCT
+fi
 
 test_$PDNS_BUILD_PRODUCT
 

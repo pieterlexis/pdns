@@ -353,7 +353,7 @@ static bool addECSToExistingOPT(char* const packet, size_t const packetSize, uin
   return true;
 }
 
-static bool addEDNSWithECS(char* const packet, size_t const packetSize, uint16_t* const len, const string& newECSOption, bool* const ednsAdded)
+static bool addEDNSWithECS(char* const packet, size_t const packetSize, uint16_t* const len, const string& newECSOption, bool* const ednsAdded, bool preserveTrailingData)
 {
   /* we need to add a EDNS0 RR with one EDNS0 ECS option, fixing the AR count */
   string EDNSRR;
@@ -365,17 +365,27 @@ static bool addEDNSWithECS(char* const packet, size_t const packetSize, uint16_t
     return false;
   }
 
+  uint32_t realPacketLen = getDNSPacketLength(packet, *len);
+  if (realPacketLen < *len && preserveTrailingData) {
+    size_t toMove = *len - realPacketLen;
+    memmove(packet + realPacketLen + EDNSRR.size(), packet + realPacketLen, toMove);
+    *len += EDNSRR.size();
+  }
+  else {
+    *len = realPacketLen + EDNSRR.size();
+  }
+
   uint16_t arcount = ntohs(dh->arcount);
   arcount++;
   dh->arcount = htons(arcount);
   *ednsAdded = true;
 
-  memcpy(packet + *len, EDNSRR.c_str(), EDNSRR.size());
-  *len += EDNSRR.size();
+  memcpy(packet + realPacketLen, EDNSRR.c_str(), EDNSRR.size());
+
   return true;
 }
 
-bool handleEDNSClientSubnet(char* const packet, const size_t packetSize, const unsigned int consumed, uint16_t* const len, bool* const ednsAdded, bool* const ecsAdded, bool overrideExisting, const string& newECSOption)
+bool handleEDNSClientSubnet(char* const packet, const size_t packetSize, const unsigned int consumed, uint16_t* const len, bool* const ednsAdded, bool* const ecsAdded, bool overrideExisting, const string& newECSOption, bool preserveTrailingData)
 {
   assert(packet != nullptr);
   assert(len != nullptr);
@@ -388,7 +398,7 @@ bool handleEDNSClientSubnet(char* const packet, const size_t packetSize, const u
   int res = getEDNSOptionsStart(packet, consumed, *len, &optRDPosition, &remaining);
 
   if (res != 0) {
-    return addEDNSWithECS(packet, packetSize, len, newECSOption, ednsAdded);
+    return addEDNSWithECS(packet, packetSize, len, newECSOption, ednsAdded, preserveTrailingData);
   }
 
   unsigned char* optRDLen = reinterpret_cast<unsigned char*>(packet) + optRDPosition;
@@ -412,14 +422,14 @@ bool handleEDNSClientSubnet(char* const packet, const size_t packetSize, const u
   return true;
 }
 
-bool handleEDNSClientSubnet(DNSQuestion& dq, bool* ednsAdded, bool* ecsAdded)
+bool handleEDNSClientSubnet(DNSQuestion& dq, bool* ednsAdded, bool* ecsAdded, bool preserveTrailingData)
 {
   assert(dq.remote != nullptr);
   string newECSOption;
-  generateECSOption(dq.ecsSet ? dq.ecs.getNetwork() : *dq.remote, newECSOption, dq.ecsSet ? dq.ecs.getBits() :  dq.ecsPrefixLength);
+  generateECSOption(dq.ecsSet ? dq.ecs.getNetwork() : *dq.remote, newECSOption, dq.ecsSet ? dq.ecs.getBits() : dq.ecsPrefixLength);
   char* packet = reinterpret_cast<char*>(dq.dh);
 
-  return handleEDNSClientSubnet(packet, dq.size, dq.consumed, &dq.len, ednsAdded, ecsAdded, dq.ecsOverride, newECSOption);
+  return handleEDNSClientSubnet(packet, dq.size, dq.consumed, &dq.len, ednsAdded, ecsAdded, dq.ecsOverride, newECSOption, preserveTrailingData);
 }
 
 static int removeEDNSOptionFromOptions(unsigned char* optionsStart, const uint16_t optionsLen, const uint16_t optionCodeToRemove, uint16_t* newOptionsLen)
@@ -478,7 +488,7 @@ int removeEDNSOptionFromOPT(char* optStart, size_t* optLen, const uint16_t optio
   return 0;
 }
 
-bool isEDNSOptionInOpt(const std::string& packet, const size_t optStart, const size_t optLen, const uint16_t optionCodeToFind)
+bool isEDNSOptionInOpt(const std::string& packet, const size_t optStart, const size_t optLen, const uint16_t optionCodeToFind, size_t* optContentStart, uint16_t* optContentLen)
 {
   /* we need at least:
    root label (1), type (2), class (2), ttl (4) + rdlen (2)*/
@@ -498,10 +508,20 @@ bool isEDNSOptionInOpt(const std::string& packet, const size_t optStart, const s
     p += sizeof(optionCode);
     const uint16_t optionLen = 0x100*packet.at(p) + packet.at(p+1);
     p += sizeof(optionLen);
+
     if ((p + optionLen) > rdEnd) {
       return false;
     }
+
     if (optionCode == optionCodeToFind) {
+      if (optContentStart != nullptr) {
+        *optContentStart = p;
+      }
+
+      if (optContentLen != nullptr) {
+        *optContentLen = optionLen;
+      }
+
       return true;
     }
     p += optionLen;
@@ -721,4 +741,3 @@ bool queryHasEDNS(const DNSQuestion& dq)
 
   return false;
 }
-

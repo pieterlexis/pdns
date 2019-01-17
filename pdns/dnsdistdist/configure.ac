@@ -17,8 +17,8 @@ AC_DEFINE([DNSDIST], [1],
 LT_PREREQ([2.2.2])
 LT_INIT([disable-static])
 
-PDNS_CHECK_LIBSODIUM
-PDNS_CHECK_FSTRM
+PDNS_WITH_LIBSODIUM
+PDNS_CHECK_DNSTAP
 PDNS_CHECK_RAGEL([dnslabeltext.cc], [www.dnsdist.org])
 PDNS_CHECK_LIBEDIT
 PDNS_CHECK_CLOCK_GETTIME
@@ -36,10 +36,11 @@ boost_required_version=1.42
 BOOST_REQUIRE([$boost_required_version])
 
 PDNS_ENABLE_UNIT_TESTS
-PDNS_CHECK_RE2
+PDNS_WITH_RE2
 DNSDIST_ENABLE_DNSCRYPT
 PDNS_WITH_EBPF
 PDNS_WITH_NET_SNMP
+PDNS_WITH_LIBCAP
 
 AX_AVAILABLE_SYSTEMD
 AM_CONDITIONAL([HAVE_SYSTEMD], [ test x"$systemd" = "xy" ])
@@ -51,8 +52,8 @@ PDNS_WITH_LUA([mandatory])
 PDNS_CHECK_LUA_HPP
 
 DNSDIST_ENABLE_DNS_OVER_TLS
-DNSDIST_CHECK_GNUTLS
-DNSDIST_CHECK_LIBSSL
+DNSDIST_WITH_GNUTLS
+DNSDIST_WITH_LIBSSL
 AS_IF([test "x$enable_dns_over_tls" != "xno"], [
   AS_IF([test "$HAVE_LIBSSL" = "1"], [
     # we need libcrypto if libssl is enabled
@@ -94,6 +95,11 @@ AC_SUBST([PROGRAM_LDFLAGS])
 
 AC_SUBST([AM_CPPFLAGS],
   ["AS_ESCAPE([-I$(top_builddir) -I$(top_srcdir)]) -Wall -O3 -pthread $BOOST_CPPFLAGS"]
+)
+
+AC_ARG_VAR(PACKAGEVERSION, [The version used in secpoll queries])
+AS_IF([test "x$PACKAGEVERSION" != "x"],
+  [AC_DEFINE_UNQUOTED([PACKAGEVERSION], "$PACKAGEVERSION", [Set to the package version used for secpoll])]
 )
 
 AC_CONFIG_FILES([Makefile
@@ -142,8 +148,8 @@ AS_IF([test "x$enable_dnscrypt" != "xno"],
   [AC_MSG_NOTICE([DNSCrypt: no])]
 )
 AS_IF([test "x$FSTRM_LIBS" != "x"],
-  [AC_MSG_NOTICE([fstrm: yes])],
-  [AC_MSG_NOTICE([fstrm: no])]
+  [AC_MSG_NOTICE([dnstap: yes])],
+  [AC_MSG_NOTICE([dnstap: no])]
 )
 AS_IF([test "x$RE2_LIBS" != "x"],
   [AC_MSG_NOTICE([re2: yes])],

@@ -11,6 +11,7 @@
 #include <boost/program_options.hpp>
 #include <boost/assign/std/vector.hpp>
 #include <boost/assign/list_of.hpp>
+#include "tsigutils.hh"
 #include "dnsbackend.hh"
 #include "ueberbackend.hh"
 #include "arguments.hh"
@@ -252,7 +253,8 @@ int checkZone(DNSSECKeeper &dk, UeberBackend &B, const DNSName& zone, const vect
 
   bool isSecure=dk.isSecuredZone(zone);
   bool presigned=dk.isPresigned(zone);
-  bool validKeys=dk.checkKeys(zone);
+  vector<string> checkKeyErrors;
+  bool validKeys=dk.checkKeys(zone, &checkKeyErrors);
 
   uint64_t numerrors=0, numwarnings=0;
 
@@ -279,6 +281,9 @@ int checkZone(DNSSECKeeper &dk, UeberBackend &B, const DNSName& zone, const vect
   if (!validKeys) {
     numerrors++;
     cout<<"[Error] zone '" << zone << "' has at least one invalid DNS Private Key." << endl;
+    for (const auto &msg : checkKeyErrors) {
+      cout<<"\t"<<msg<<endl;
+    }
   }
 
   // Check for delegation in parent zone
@@ -428,35 +433,15 @@ int checkZone(DNSSECKeeper &dk, UeberBackend &B, const DNSName& zone, const vect
         checkOcclusion.insert({rr.qname, rr.qtype});
       }
     }
-
     if((rr.qtype.getCode() == QType::A || rr.qtype.getCode() == QType::AAAA) && !rr.qname.isWildcard() && !rr.qname.isHostname())
       cout<<"[Info] "<<rr.qname.toString()<<" record for '"<<rr.qtype.getName()<<"' is not a valid hostname."<<endl;
 
     // Check if the DNSNames that should be hostnames, are hostnames
-    if (rr.qtype.getCode() == QType::NS || rr.qtype.getCode() == QType::MX || rr.qtype.getCode() == QType::SRV) {
-      DNSName toCheck;
-      if (rr.qtype.getCode() == QType::SRV) {
-        vector<string> parts;
-        stringtok(parts, rr.getZoneRepresentation());
-        if (parts.size() == 4) toCheck = DNSName(parts[3]);
-      } else if (rr.qtype.getCode() == QType::MX) {
-        vector<string> parts;
-        stringtok(parts, rr.getZoneRepresentation());
-        if (parts.size() == 2) toCheck = DNSName(parts[1]);
-      } else {
-        toCheck = DNSName(rr.content);
-      }
-
-      if (toCheck.empty()) {
-        cout<<"[Warning] "<<rr.qtype.getName()<<" record in zone '"<<zone<<"': unable to extract hostname from content."<<endl;
-        numwarnings++;
-      }
-      else if ((rr.qtype.getCode() == QType::MX || rr.qtype.getCode() == QType::SRV) && toCheck == g_rootdnsname) {
-        // allow null MX/SRV
-      } else if(!toCheck.isHostname()) {
-        cout<<"[Warning] "<<rr.qtype.getName()<<" record in zone '"<<zone<<"' has non-hostname content '"<<toCheck.toString()<<"'."<<endl;
-        numwarnings++;
-      }
+    try {
+      checkHostnameCorrectness(rr);
+    } catch (const std::exception& e) {
+      cout << "[Warning] " << rr.qtype.getName() << " record in zone '" << zone << ": " << e.what() << endl;
+      numwarnings++;
     }
 
     if (rr.qtype.getCode() == QType::CNAME) {
@@ -1186,7 +1171,9 @@ int addOrReplaceRecord(bool addOrReplace, const vector<string>& cmds) {
     if(std::to_string(rr.ttl)==cmds[4]) {
       contentStart++;
     }
-    else rr.ttl = ::arg().asNum("default-ttl");
+    else {
+      rr.ttl = ::arg().asNum("default-ttl");
+    }
   }
 
   di.backend->lookup(QType(QType::ANY), rr.qname, 0, di.id);
@@ -1217,7 +1204,7 @@ int addOrReplaceRecord(bool addOrReplace, const vector<string>& cmds) {
     cout<<"Current records for "<<rr.qname<<" IN "<<rr.qtype.getName()<<" will be replaced"<<endl;
   }
   for(auto i = contentStart ; i < cmds.size() ; ++i) {
-    rr.content = DNSRecordContent::mastermake(rr.qtype.getCode(), 1, cmds[i])->getZoneRepresentation(true);
+    rr.content = DNSRecordContent::mastermake(rr.qtype.getCode(), QClass::IN, cmds[i])->getZoneRepresentation(true);
 
     newrrs.push_back(rr);
   }
@@ -1277,9 +1264,9 @@ int listAllZones(const string &type="") {
   B.getAllDomains(&domains, true);
 
   int count = 0;
-  for (vector<DomainInfo>::const_iterator di=domains.begin(); di != domains.end(); di++) {
-    if (di->kind == kindFilter || kindFilter == -1) {
-      cout<<di->zone<<endl;
+  for (const auto& di: domains) {
+    if (di.kind == kindFilter || kindFilter == -1) {
+      cout<<di.zone<<endl;
       count++;
     }
   }
@@ -1918,7 +1905,7 @@ try
     cout<<"add-record ZONE NAME TYPE [ttl] content"<<endl;
     cout<<"             [content..]           Add one or more records to ZONE"<<endl;
     cout<<"add-zone-key ZONE {zsk|ksk} [BITS] [active|inactive]"<<endl;
-    cout<<"             [rsasha1|rsasha256|rsasha512|gost|ecdsa256|ecdsa384";
+    cout<<"             [rsasha1|rsasha256|rsasha512|ecdsa256|ecdsa384";
 #if defined(HAVE_LIBSODIUM) || defined(HAVE_LIBDECAF)
     cout<<"|ed25519";
 #endif
@@ -2211,7 +2198,14 @@ try
   }
   else if(cmds[0] == "add-zone-key") {
     if(cmds.size() < 3 ) {
-      cerr << "Syntax: pdnsutil add-zone-key ZONE zsk|ksk [BITS] [active|inactive] [rsasha1|rsasha256|rsasha512|gost|ecdsa256|ecdsa384]"<<endl;
+      cerr << "Syntax: pdnsutil add-zone-key ZONE zsk|ksk [BITS] [active|inactive] [rsasha1|rsasha256|rsasha512|ecdsa256|ecdsa384";
+#if defined(HAVE_LIBSODIUM) || defined(HAVE_LIBDECAF)
+      cerr << "|ed25519";
+#endif
+#ifdef HAVE_LIBDECAF
+      cerr << "|ed448";
+#endif
+      cerr << "]"<<endl;
       return 0;
     }
     DNSName zone(cmds[1]);
@@ -2721,7 +2715,14 @@ try
   }
   else if(cmds[0] == "generate-zone-key") {
     if(cmds.size() < 2 ) {
-      cerr << "Syntax: pdnsutil generate-zone-key zsk|ksk [rsasha1|rsasha256|rsasha512|gost|ecdsa256|ecdsa384] [bits]"<<endl;
+      cerr << "Syntax: pdnsutil generate-zone-key zsk|ksk [rsasha1|rsasha256|rsasha512|ecdsa256|ecdsa384";
+#if defined(HAVE_LIBSODIUM) || defined(HAVE_LIBDECAF)
+      cerr << "|ed25519";
+#endif
+#ifdef HAVE_LIBDECAF
+      cerr << "|ed448";
+#endif
+      cerr << "] [bits]"<<endl;
       return 0;
     }
     // need to get algorithm, bits & ksk or zsk from commandline
@@ -2747,8 +2748,8 @@ try
     if(bits)
       cerr<<"Requesting specific key size of "<<bits<<" bits"<<endl;
 
-    DNSSECPrivateKey dspk; 
-    shared_ptr<DNSCryptoKeyEngine> dpk(DNSCryptoKeyEngine::make(algorithm)); // defaults to RSA for now, could be smart w/algorithm! XXX FIXME 
+    DNSSECPrivateKey dspk;
+    shared_ptr<DNSCryptoKeyEngine> dpk(DNSCryptoKeyEngine::make(algorithm));
     if(!bits) {
       if(algorithm <= 10)
         bits = keyOrZone ? 2048 : 1024;
@@ -2779,34 +2780,14 @@ try
       return 0;
     }
     DNSName name(cmds[1]);
-    string algo = cmds[2];
+    DNSName algo(cmds[2]);
     string key;
-    char tmpkey[64];
-
-    size_t klen = 0;
-    if (algo == "hmac-md5") {
-      klen = 32;
-    } else if (algo == "hmac-sha1") {
-      klen = 32;
-    } else if (algo == "hmac-sha224") {
-      klen = 32;
-    } else if (algo == "hmac-sha256") {
-      klen = 64;
-    } else if (algo == "hmac-sha384") {
-      klen = 64;
-    } else if (algo == "hmac-sha512") {
-      klen = 64;
-    } else {
-      cerr << "Cannot generate key for " << algo << endl;
-      cerr << usage << endl;
+    try {
+      key = makeTSIGKey(algo);
+    } catch(const PDNSException& e) {
+      cerr << "Could not create new TSIG key " << name << " " << algo << ": "<< e.reason << endl;
       return 1;
     }
-
-    cerr << "Generating new key with " << klen << " bytes" << endl;
-    for(size_t i = 0; i < klen; i+=4) {
-      *(unsigned int*)(tmpkey+i) = dns_random(0xffffffff);
-    }
-    key = Base64Encode(std::string(tmpkey, klen));
 
     UeberBackend B("default");
     if (B.setTSIGKey(name, DNSName(algo), key)) { // you are feeling bored, put up DNSName(algo) up earlier
@@ -2915,7 +2896,7 @@ try
        return 1;
      }
      std::vector<std::string>::iterator iter = meta.begin();
-     for(;iter != meta.end(); iter++) if (*iter == name) break;
+     for(;iter != meta.end(); ++iter) if (*iter == name) break;
      if (iter != meta.end()) meta.erase(iter);
      if (B.setDomainMetadata(zname, metaKey, meta)) {
        cout << "Disabled TSIG key " << name << " for " << zname << endl;
@@ -2953,8 +2934,8 @@ try
       std::map<std::string, std::vector<std::string> > meta;
       std::cout << "Metadata for '" << zone << "'" << endl;
       B.getAllDomainMetadata(zone, meta);
-      for(std::map<std::string, std::vector<std::string> >::const_iterator each_meta = meta.begin(); each_meta != meta.end(); each_meta++) {
-        cout << each_meta->first << " = " << boost::join(each_meta->second, ", ") << endl;
+      for(const auto& each_meta: meta) {
+        cout << each_meta.first << " = " << boost::join(each_meta.second, ", ") << endl;
       }
     }  
     return 0;
@@ -3197,9 +3178,8 @@ try
       nm=0;
       std::map<std::string, std::vector<std::string> > meta;
       if (src->getAllDomainMetadata(di.zone, meta)) {
-        std::map<std::string, std::vector<std::string> >::iterator i;
-        for(i=meta.begin(); i != meta.end(); i++) {
-          if (!tgt->setDomainMetadata(di.zone, i->first, i->second)) throw PDNSException("Failed to feed domain metadata");
+        for (const auto& i : meta) {
+          if (!tgt->setDomainMetadata(di.zone, i.first, i.second)) throw PDNSException("Failed to feed domain metadata");
           nm++;
         }
       }

@@ -405,6 +405,20 @@ string doSetCarbonServer(T begin, T end)
   if(begin != end) {
     ::arg().set("carbon-ourname")=*begin;
     ret+="set carbon-ourname to '"+*begin+"'\n";
+  } else {
+    return ret;
+  }
+  ++begin;
+  if(begin != end) {
+    ::arg().set("carbon-namespace")=*begin;
+    ret+="set carbon-namespace to '"+*begin+"'\n";
+  } else {
+    return ret;
+  }
+  ++begin;
+  if(begin != end) {
+    ::arg().set("carbon-instance")=*begin;
+    ret+="set carbon-instance to '"+*begin+"'\n";
   }
   return ret;
 }
@@ -573,7 +587,7 @@ string doAddTA(T begin, T end)
   try {
     g_log<<Logger::Warning<<"Adding Trust Anchor for "<<who<<" with data '"<<what<<"', requested via control channel";
     g_luaconfs.modify([who, what](LuaConfigItems& lci) {
-      auto ds = unique_ptr<DSRecordContent>(dynamic_cast<DSRecordContent*>(DSRecordContent::make(what)));
+      auto ds=std::dynamic_pointer_cast<DSRecordContent>(DSRecordContent::make(what));
       lci.dsAnchors[who].insert(*ds);
       });
     broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, who, true));
@@ -1000,6 +1014,11 @@ void registerAllStats()
   addGetStat("edns-ping-mismatches", &g_stats.ednsPingMismatches);
   addGetStat("dnssec-queries", &g_stats.dnssecQueries);
 
+  addGetStat("dnssec-authentic-data-queries", &g_stats.dnssecAuthenticDataQueries);
+  addGetStat("dnssec-check-disabled-queries", &g_stats.dnssecCheckDisabledQueries);
+
+  addGetStat("variable-responses", &g_stats.variableResponses);
+
   addGetStat("noping-outqueries", &g_stats.noPingOutQueries);
   addGetStat("noedns-outqueries", &g_stats.noEdnsOutQueries);
 
@@ -1192,24 +1211,6 @@ string doGenericTopRemotes(pleaseremotefunc_t func)
     ret<< '\n' << fmt % (100.0*(total-accounted)/total) % "rest";
   }
   return ret.str();
-}
-
-namespace {
-  typedef vector<vector<string> > pubs_t;
-  pubs_t g_pubs;
-}
-
-void sortPublicSuffixList()
-{
-  for(const char** p=g_pubsuffix; *p; ++p) {
-    string low=toLower(*p);
-
-    vector<string> parts;
-    stringtok(parts, low, ".");
-    reverse(parts.begin(), parts.end());
-    g_pubs.push_back(parts);
-  }
-  sort(g_pubs.begin(), g_pubs.end());
 }
 
 // XXX DNSName Pain - this function should benefit from native DNSName methods

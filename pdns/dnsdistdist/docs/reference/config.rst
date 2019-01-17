@@ -203,10 +203,18 @@ Control Socket, Console and Webserver
 
   Test the crypto code, will report errors when something is not ok.
 
-Webserver
-~~~~~~~~~
+.. function:: setConsoleOutputMaxMsgSize(size)
 
-.. function:: webServer(listen_address, password[, apikey[, custom_headers]])
+  .. versionadded:: 1.3.3
+
+  Set the maximum size in bytes of a single console message, default set to 10 MB.
+
+  :param int size: The new maximum size.
+
+Webserver configuration
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. function:: webserver(listen_address, password[, apikey[, custom_headers]])
 
   Launch the :doc:`../guides/webserver` with statistics and the API.
 
@@ -224,6 +232,20 @@ Webserver
   :param bool allow: Set to true to allow modification through the API
   :param str dir: A valid directory where the configuration files will be written by the API.
 
+.. function:: setWebserverConfig(options)
+
+  .. versionadded:: 1.3.3
+
+  Setup webserver configuration. See :func:`webserver`.
+
+  :param table options: A table with key: value pairs with webserver options.
+
+  Options:
+
+  * ``password=newPassword``: string - Changes the API password
+  * ``apikey=newKey``: string - Changes the API Key (set to an empty string do disable it)
+  * ``custom_headers={[str]=str,...}``: map of string - Allows setting custom headers and removing the defaults.
+                 
 Access Control Lists
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -288,6 +310,8 @@ Servers
     - Added ``sockets`` to server_table
     - Added ``checkFunction`` to server_table
 
+  .. versionchanged:: 1.3.4
+    - Added ``checkTimeout`` to server_table
 
   Add a new backend server. Call this function with either a string::
 
@@ -299,6 +323,7 @@ Servers
 
     newServer({
       address="IP:PORT",     -- IP and PORT of the backend server (mandatory)
+      id=STRING,             -- Use a pre-defined UUID instead of a random one
       qps=NUM,               -- Limit the number of queries per second to NUM, when using the `firstAvailable` policy
       order=NUM,             -- The order of this server, used by the `leastOustanding` and `firstAvailable` policies
       weight=NUM,            -- The weight of this server, used by the `wrandom`, `whashed` and `chashed` policies, default: 1
@@ -315,6 +340,7 @@ Servers
       checkName=STRING,      -- Use STRING as QNAME in the health-check query, default: "a.root-servers.net."
       checkType=STRING,      -- Use STRING as QTYPE in the health-check query, default: "A"
       checkFunction=FUNCTION -- Use this function to dynamically set the QNAME, QTYPE and QCLASS to use in the health-check query (see :ref:`Healthcheck`)
+      checkTimeout=NUM       -- The timeout (in milliseconds) of a health-check query, default: 1000 (1s)
       setCD=BOOL,            -- Set the CD (Checking Disabled) flag in the health-check query, default: false
       maxCheckFailures=NUM,  -- Allow NUM check failures before declaring the backend down, default: 1
       mustResolve=BOOL,      -- Set to true when the health check MUST return a NOERROR RCODE and an answer
@@ -326,7 +352,8 @@ Servers
                              --   "address@interface", e.g. "192.0.2.2@eth0"
       addXPF=NUM,            -- Add the client's IP address and port to the query, along with the original destination address and port,
                              -- using the experimental XPF record from `draft-bellis-dnsop-xpf <https://datatracker.ietf.org/doc/draft-bellis-dnsop-xpf/>`_ and the specified option code. Default is disabled (0)
-      sockets=NUM            -- Number of sockets (and thus source ports) used toward the backend server, defaults to a single one
+      sockets=NUM,           -- Number of sockets (and thus source ports) used toward the backend server, defaults to a single one
+      disableZeroScope       -- Disable the EDNS Client Subnet 'zero scope' feature, which does a cache lookup for an answer valid for all subnets (ECS scope of 0) before adding ECS information to the query and doing the regular lookup
     })
 
   :param str server_string: A simple IP:PORT string.
@@ -457,17 +484,15 @@ Pools are automatically created when a server is added to a pool (with :func:`ne
 
   :param string name: The name of the pool
 
-.. function:: rmPool(name)
-
-   Remove the pool named `name`.
-
-  :param string name: The name of the pool to remove
-
 .. function:: getPoolServers(name) -> [ Server ]
 
   Returns a list of :class:`Server`\ s or nil.
 
   :param string name: The name of the pool
+
+.. function:: showPools()
+
+   Display the name, associated cache, server policy and associated servers for every pool.
 
 .. class:: ServerPool
 
@@ -664,12 +689,16 @@ Status, Statistics and More
 
   Show a plot of the response time latency distribution
 
-.. function:: showServers()
+.. function:: showServers([options])
+
+  .. versionchanged:: 1.3.4
+    ``options`` optional parameter added
 
   This function shows all backend servers currently configured and some statistics.
   These statics have the following fields:
 
   * ``#`` - The number of the server, can be used as the argument for :func:`getServer`
+  * ``UUID`` - The UUID of the backend. Can be set with the ``id`` option of :func:`newServer`
   * ``Address`` - The IP address and port of the server
   * ``State`` - The current state of the server
   * ``Qps`` - Current number of queries per second
@@ -681,6 +710,12 @@ Status, Statistics and More
   * ``Drate`` - Number of queries dropped per second by this server
   * ``Lat`` - The latency of this server in milliseconds
   * ``Pools`` - The pools this server belongs to
+
+  :param table options: A table with key: value pairs with display options.
+
+  Options:
+
+  * ``showUUIDs=false``: bool - Whether to display the UUIDs, defaults to false.
 
 .. function:: showTCPStats()
 
@@ -768,7 +803,7 @@ Dynamic Blocks
     ``DNSAction.NXDomain`` action added.
 
   Set which action is performed when a query is blocked.
-  Only DNSAction.Drop (the default), DNSAction.NoOp, DNSAction.NXDomain, DNSAction.Refused and DNSAction.Truncate are supported.
+  Only DNSAction.Drop (the default), DNSAction.NoOp, DNSAction.NXDomain, DNSAction.Refused, DNSAction.Truncate and DNSAction.NoRecurse are supported.
 
 .. _exceedfuncs:
 
@@ -998,3 +1033,35 @@ overriden using :func:`setPayloadSizeOnSelfGeneratedAnswers`.
   :rfc:`RFC 6891 <6891#section-6.2.5>`, values lower than 512 will be treated as equal to 512.
 
   :param int payloadSize: The responder's maximum UDP payload size, in bytes. Default is 1500.
+
+Security Polling
+~~~~~~~~~~~~~~~~
+
+PowerDNS products can poll the security status of their respective versions. This polling, naturally,
+happens over DNS. If the result is that a given version has a security problem, the software will
+report this at level ‘Error’ during startup, and repeatedly during operations, every
+:func:`setSecurityPollInterval` seconds.
+
+By default, security polling happens on the domain ‘secpoll.powerdns.com’, but this can be changed with
+the :func:`setSecurityPollSuffix` function. If this setting is made empty, no polling will take place.
+Organizations wanting to host their own security zones can do so by changing this setting to a domain name
+under their control.
+
+To enable distributors of PowerDNS to signal that they have backported versions, the PACKAGEVERSION
+compilation-time macro can be used to set a distributor suffix.
+
+.. function:: setSecurityPollInterval(interval)
+
+  .. versionadded:: 1.3.3
+
+  Set the interval, in seconds, between two security pollings.
+
+  :param int interval: The interval, in seconds, between two pollings. Default is 3600.
+
+.. function:: setSecurityPollSuffix(suffix)
+
+  .. versionadded:: 1.3.3
+
+  Domain name from which to query security update notifications. Setting this to an empty string disables secpoll.
+
+  :param string suffix: The suffix to use, default is 'secpoll.powerdns.com.'.

@@ -72,11 +72,8 @@ typedef map<
 template<class Thing> class Throttle : public boost::noncopyable
 {
 public:
-  Throttle()
+  Throttle() : d_limit(3), d_ttl(60), d_last_clean(time(nullptr))
   {
-    d_limit=3;
-    d_ttl=60;
-    d_last_clean=time(0);
   }
 
   struct entry
@@ -659,9 +656,9 @@ public:
     d_initialRequestId = initialRequestId;
   }
 
-  void setOutgoingProtobufServer(std::shared_ptr<RemoteLogger>& server)
+  void setOutgoingProtobufServers(std::shared_ptr<std::vector<std::unique_ptr<RemoteLogger>>>& servers)
   {
-    d_outgoingProtobufServer = server;
+    d_outgoingProtobufServers = servers;
   }
 #endif
 
@@ -770,7 +767,7 @@ private:
   bool throttledOrBlocked(const std::string& prefix, const ComboAddress& remoteIP, const DNSName& qname, const QType& qtype, bool pierceDontQuery);
 
   vector<ComboAddress> retrieveAddressesForNS(const std::string& prefix, const DNSName& qname, vector<DNSName >::const_iterator& tns, const unsigned int depth, set<GetBestNSAnswer>& beenthere, const vector<DNSName >& rnameservers, NsSet& nameservers, bool& sendRDQuery, bool& pierceDontQuery, bool& flawedNSSet, bool cacheOnly);
-  RCode::rcodes_ updateCacheFromRecords(unsigned int depth, LWResult& lwr, const DNSName& qname, const QType& qtype, const DNSName& auth, bool wasForwarded, const boost::optional<Netmask>, vState& state, bool& needWildcardProof, unsigned int& wildcardLabelsCount);
+  RCode::rcodes_ updateCacheFromRecords(unsigned int depth, LWResult& lwr, const DNSName& qname, const QType& qtype, const DNSName& auth, bool wasForwarded, const boost::optional<Netmask>, vState& state, bool& needWildcardProof, unsigned int& wildcardLabelsCount, bool rdQuery);
   bool processRecords(const std::string& prefix, const DNSName& qname, const QType& qtype, const DNSName& auth, LWResult& lwr, const bool sendRDQuery, vector<DNSRecord>& ret, set<DNSName>& nsset, DNSName& newtarget, DNSName& newauth, bool& realreferral, bool& negindic, vState& state, const bool needWildcardProof, const unsigned int wildcardLabelsCount);
 
   bool doSpecialNamesResolve(const DNSName &qname, const QType &qtype, const uint16_t qclass, vector<DNSRecord> &ret);
@@ -805,7 +802,7 @@ private:
   ostringstream d_trace;
   shared_ptr<RecursorLua4> d_pdl;
   boost::optional<Netmask> d_outgoingECSNetwork;
-  std::shared_ptr<RemoteLogger> d_outgoingProtobufServer{nullptr};
+  std::shared_ptr<std::vector<std::unique_ptr<RemoteLogger>>> d_outgoingProtobufServers{nullptr};
 #ifdef HAVE_PROTOBUF
   boost::optional<const boost::uuids::uuid&> d_initialRequestId;
 #endif
@@ -934,6 +931,9 @@ struct RecursorStats
   std::atomic<uint64_t> emptyQueriesCount;
   time_t startupTime;
   std::atomic<uint64_t> dnssecQueries;
+  std::atomic<uint64_t> dnssecAuthenticDataQueries;
+  std::atomic<uint64_t> dnssecCheckDisabledQueries;
+  std::atomic<uint64_t> variableResponses;
   unsigned int maxMThreadStackUsage;
   std::atomic<uint64_t> dnssecValidations; // should be the sum of all dnssecResult* stats
   std::map<vState, std::atomic<uint64_t> > dnssecResults;
@@ -968,7 +968,7 @@ private:
 class ImmediateServFailException
 {
 public:
-  ImmediateServFailException(string r){reason=r;};
+  ImmediateServFailException(string r) : reason(r) {};
 
   string reason; //! Print this to tell the user what went wrong
 };

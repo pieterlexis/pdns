@@ -26,6 +26,7 @@ BuildRequires: systemd-devel
 %if 0%{?rhel} >= 7
 BuildRequires: boost-devel
 BuildRequires: gnutls-devel
+BuildRequires: libcap-devel
 BuildRequires: libsodium-devel
 %ifarch aarch64
 BuildRequires: lua-devel
@@ -78,29 +79,30 @@ sed -i '/^ExecStart/ s/dnsdist/dnsdist -u dnsdist -g dnsdist/' dnsdist.service.i
   --enable-dns-over-tls \
 %if 0%{?el6}
   --disable-dnscrypt \
-  --disable-libsodium \
-  --enable-re2 \
+  --without-libsodium \
+  --with-re2 \
   --with-net-snmp \
   --with-protobuf \
   --with-boost=/usr/include/boost148 LIBRARY_PATH=/usr/lib64/boost148
 %endif
 %if 0%{?suse_version}
   --disable-dnscrypt \
-  --disable-libsodium \
-  --disable-re2 \
+  --without-libsodium \
+  --without-re2 \
   --enable-systemd --with-systemd=/lib/systemd/system \
   --without-protobuf \
   --without-net-snmp
 %endif
 %if 0%{?rhel} >= 7
-  --enable-fstrm \
-  --enable-gnutls \
+  --enable-dnstap \
+  --with-gnutls \
   --with-protobuf \
   --with-lua=%{lua_implementation} \
-  --enable-libsodium \
+  --with-libcap \
+  --with-libsodium \
   --enable-dnscrypt \
   --enable-systemd --with-systemd=/lib/systemd/system \
-  --enable-re2 \
+  --with-re2 \
   --with-net-snmp
 %endif
 
@@ -162,8 +164,11 @@ fi
 
 %postun
 %if 0%{?el6}
-if [ -x /sbin/initctl ] && /sbin/initctl status %{name} 2>/dev/null | grep -q 'running' ; then
-  /sbin/initctl stop %{name} > /dev/null 2>&1 || :
+if [ $1 -ge 1 ] ; then
+    # Package upgrade, not uninstall
+    if [ -x /sbin/initctl ] && /sbin/initctl status %{name} 2>/dev/null | grep -q 'running' ; then
+      /sbin/initctl restart %{name} > /dev/null 2>&1 || :
+    fi
 fi
 %endif
 %if 0%{?suse_version}

@@ -51,7 +51,7 @@ master_doc = 'indexTOC'
 
 # General information about the project.
 project = 'PowerDNS Authoritative Server'
-copyright = '2001-2018, PowerDNS.COM BV'
+copyright = '2001-2019, PowerDNS.COM BV'
 author = 'PowerDNS.COM BV'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -135,6 +135,7 @@ htmlhelp_basename = 'PowerDNSAuthoritativedoc'
 # -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
+    'maxlistdepth' : '8',
     # The paper size ('letterpaper' or 'a4paper').
     #
     'papersize': 'a4paper',

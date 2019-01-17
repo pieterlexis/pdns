@@ -28,7 +28,8 @@ override_dh_auto_configure:
 		--sysconfdir=/etc/powerdns \
 		--enable-unit-tests \
 		--with-lua=luajit \
-		--enable-libsodium \
+		--with-libcap \
+		--with-libsodium \
 		--with-protobuf=yes \
 		--with-net-snmp \
 		--disable-silent-rules \
@@ -44,7 +45,6 @@ override_dh_auto_install:
 		-e 's!# setgid=.*!setgid=pdns!' \
 		-e 's!# setuid=.*!setuid=pdns!' \
 		-e 's!# hint-file=.*!&\nhint-file=/usr/share/dns/root.hints!' \
-		-e 's!# security-poll-suffix=.*!&\nsecurity-poll-suffix=!' \
 		> debian/tmp/etc/powerdns/recursor.conf
 
 override_dh_strip:

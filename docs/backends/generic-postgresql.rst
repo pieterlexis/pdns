@@ -5,7 +5,7 @@ Generic PostgreSQL backend
 * Master: Yes
 * Slave: Yes
 * Superslave: Yes
-* Autoserial: Yes
+* Autoserial: No
 * Case: All lower
 * DNSSEC: Yes (set ``gpgsql-dnssec``)
 * Disabled data: Yes
@@ -93,5 +93,7 @@ Default: "".
 
 Default schema
 --------------
+
+This is the 4.2 schema. Please find `the 4.1 schema on GitHub <https://github.com/PowerDNS/pdns/blob/rel/auth-4.1.x/modules/gpgsqlbackend/schema.pgsql.sql>`_.
 
 .. literalinclude:: ../../modules/gpgsqlbackend/schema.pgsql.sql

@@ -40,9 +40,10 @@ algorithms are supported:
 -  rsasha1
 -  rsasha256
 -  rsasha512
--  gost
 -  ecdsa256
 -  ecdsa384
+-  ed25519
+-  ed448
 
 activate-zone-key *ZONE* *KEY-ID*
     Activate a key with id *KEY-ID* within a zone called *ZONE*.
@@ -67,9 +68,11 @@ export-zone-key *ZONE* *KEY-ID*
     and NSD/LDNS.
 generate-zone-key {**KSK**,\ **ZSK**} [*ALGORITHM*] [*KEYBITS*]
     Generate a ZSK or KSK to stdout with specified algorithm and bits
-    and print it on STDOUT. If *ALGORITHM* is not set, RSASHA512 is
+    and print it on STDOUT. If *ALGORITHM* is not set, ECDSA256 is
     used. If *KEYBITS* is not set, an appropriate keysize is selected
-    for *ALGORITHM*.
+    for *ALGORITHM*. Each ECC-based algorithm supports only one valid
+    *KEYBITS* value: For ECDSA256 and ED25519, it is 256; for ECDSA384,
+    it is 384; and for ED448, it is 456.
 import-zone-key *ZONE* *FILE* {**KSK**,\ **ZSK**}
     Import from *FILE* a full (private) key for zone called *ZONE*. The
     format used is compatible with BIND and NSD/LDNS. **KSK** or **ZSK**
@@ -148,10 +151,10 @@ create-zone *ZONE*
     Create an empty zone named *ZONE*.
 create-slave-zone *ZONE* *MASTER* [*MASTER*]..
     Create a new slave zone *ZONE* with masters *MASTER*. All *MASTER*\ s
-    need to to be IP addresses with an optional port.
+    need to to be space-separated IP addresses with an optional port.
 change-slave-zone-master *ZONE* *MASTER* [*MASTER*]..
     Change the masters for slave zone *ZONE* to new masters *MASTER*. All
-    *MASTER*\ s need to to be IP addresses with an optional port.
+    *MASTER*\ s need to to be space-separated IP addresses with an optional port.
 check-all-zones
     Check all zones for correctness.
 check-zone *ZONE*

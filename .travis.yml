@@ -10,6 +10,13 @@ env:
   - PDNS_BUILD_PRODUCT=dnsdist
   - PDNS_BUILD_PRODUCT=ixfrdist
 
+matrix:
+  include:
+  - env: PDNS_BUILD_PRODUCT=none
+
+cache:
+  - pip
+
 before_script:
   - git describe --always --dirty=+
   - sudo rm -f /etc/apt/sources.list.d/*.list
@@ -21,6 +28,10 @@ before_script:
   - export CXXFLAGS=-O0
   - export OPTFLAGS=-O0
   - sudo apt-get -qq update
+  # you can remove this when updating dist to something newer than trusty
+  - pyenv global 2.7
+  # needed for virtualenv to use the pyenv python
+  - pip install virtualenv
 
 script:
   - ./build-scripts/travis.sh

@@ -24,7 +24,7 @@ compiler at the right directory using CPPFLAGS.
 On Debian and Ubuntu, the following will get you the dependencies:
 
 ```sh
-apt-get install libboost-dev libboost-serialization-dev libssl-dev g++ make pkg-config
+apt-get install libboost-dev libboost-serialization-dev libboost-system-dev libboost-thread-dev libboost-context-dev libssl-dev g++ make pkg-config libluajit-5.1-dev
 ```
 
 Compiling from git checkout
@@ -39,7 +39,7 @@ This repository contains the sources for the PowerDNS Recursor, the PowerDNS
 Authoritative Server, and dnsdist (a powerful DNS loadbalancer). The sources for
 the recursor are located in the `pdns/recursordist` subdirectory of the repository.
 
-To compile from a git checkout, install ragel, automake, autoconf and curl.
+To compile from a git checkout, install ragel, automake, autoconf, libtool and curl.
 Then run
 
 ```sh
@@ -81,7 +81,7 @@ Documentation
 -------------
 After compiling, run `pdns\_recursor --config` to view the configuration options
 and a short description. The full documentation is online at
-https://doc.powerdns.com/md/recursor/
+https://doc.powerdns.com/recursor/
 
 Reporting bugs
 --------------
@@ -91,6 +91,6 @@ reported.
 
 License
 -------
-PowerDNS is copyright © 2001-2018 by PowerDNS.COM BV and lots of
+PowerDNS is copyright © 2001-2019 by PowerDNS.COM BV and lots of
 contributors, using the GNU GPLv2 license (see NOTICE for the
 exact license and exception used).

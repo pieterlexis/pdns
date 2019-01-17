@@ -63,7 +63,7 @@ public:
     str<<"\\# "<<(unsigned int)d_record.size()<<" ";
     char hex[4];
     for(size_t n=0; n<d_record.size(); ++n) {
-      snprintf(hex,sizeof(hex)-1, "%02x", d_record.at(n));
+      snprintf(hex, sizeof(hex), "%02x", d_record.at(n));
       str << hex;
     }
     return str.str();
@@ -131,7 +131,7 @@ std::shared_ptr<DNSRecordContent> DNSRecordContent::mastermake(const DNSRecord &
     return std::make_shared<UnknownRecordContent>(dr, pr);
   }
 
-  return std::shared_ptr<DNSRecordContent>(i->second(dr, pr));
+  return i->second(dr, pr);
 }
 
 std::shared_ptr<DNSRecordContent> DNSRecordContent::mastermake(uint16_t qtype, uint16_t qclass,
@@ -142,20 +142,8 @@ std::shared_ptr<DNSRecordContent> DNSRecordContent::mastermake(uint16_t qtype, u
     return std::make_shared<UnknownRecordContent>(content);
   }
 
-  return std::shared_ptr<DNSRecordContent>(i->second(content));
+  return i->second(content);
 }
-
-std::unique_ptr<DNSRecordContent> DNSRecordContent::makeunique(uint16_t qtype, uint16_t qclass,
-                                               const string& content)
-{
-  zmakermap_t::const_iterator i=getZmakermap().find(make_pair(qclass, qtype));
-  if(i==getZmakermap().end()) {
-    return std::unique_ptr<DNSRecordContent>(new UnknownRecordContent(content));
-  }
-
-  return std::unique_ptr<DNSRecordContent>(i->second(content));
-}
-
 
 std::shared_ptr<DNSRecordContent> DNSRecordContent::mastermake(const DNSRecord &dr, PacketReader& pr, uint16_t oc) {
   // For opcode UPDATE and where the DNSRecord is an answer record, we don't care about content, because this is
@@ -171,7 +159,7 @@ std::shared_ptr<DNSRecordContent> DNSRecordContent::mastermake(const DNSRecord &
     return std::make_shared<UnknownRecordContent>(dr, pr);
   }
 
-  return std::shared_ptr<DNSRecordContent>(i->second(dr, pr));
+  return i->second(dr, pr);
 }
 
 
@@ -508,10 +496,15 @@ string PacketReader::getUnquotedText(bool lenField)
 void PacketReader::xfrBlob(string& blob)
 try
 {
-  if(d_recordlen && !(d_pos == (d_startrecordpos + d_recordlen)))
+  if(d_recordlen && !(d_pos == (d_startrecordpos + d_recordlen))) {
+    if (d_pos > (d_startrecordpos + d_recordlen)) {
+      throw std::out_of_range("xfrBlob out of record range");
+    }
     blob.assign(&d_content.at(d_pos), &d_content.at(d_startrecordpos + d_recordlen - 1 ) + 1);
-  else
+  }
+  else {
     blob.clear();
+  }
 
   d_pos = d_startrecordpos + d_recordlen;
 }
@@ -527,12 +520,17 @@ void PacketReader::xfrBlobNoSpaces(string& blob, int length) {
 void PacketReader::xfrBlob(string& blob, int length)
 {
   if(length) {
+    if (length < 0) {
+      throw std::out_of_range("xfrBlob out of range (negative length)");
+    }
+
     blob.assign(&d_content.at(d_pos), &d_content.at(d_pos + length - 1 ) + 1 );
-    
+
     d_pos += length;
   }
-  else 
+  else {
     blob.clear();
+  }
 }
 
 
@@ -582,7 +580,11 @@ public:
     : d_packet(packet), d_length(length), d_notyouroffset(12), d_offset(d_notyouroffset)
   {}
   
-  void skipLabel()
+  /*! Advances past a wire-format domain name
+   * The name is not checked for adherence to length restrictions.
+   * Compression pointers are not followed.
+   */
+  void skipDomainName()
   {
     uint8_t len; 
     while((len=get8BitInt())) { 
@@ -593,6 +595,7 @@ public:
       skipBytes(len);
     }
   }
+
   void skipBytes(uint16_t bytes)
   {
     moveOffset(bytes);
@@ -694,13 +697,13 @@ void editDNSPacketTTL(char* packet, size_t length, std::function<uint32_t(uint8_
 
     uint64_t n;
     for(n=0; n < ntohs(dh.qdcount) ; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       /* type and class */
       dpm.skipBytes(4);
     }
 
     for(n=0; n < numrecords; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
 
       uint8_t section = n < ntohs(dh.ancount) ? 1 : (n < (ntohs(dh.ancount) + ntohs(dh.nscount)) ? 2 : 3);
       uint16_t dnstype = dpm.get16BitInt();
@@ -738,13 +741,13 @@ void ageDNSPacket(char* packet, size_t length, uint32_t seconds)
 
     uint64_t n;
     for(n=0; n < dqcount; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       /* type and class */
       dpm.skipBytes(4);
     }
    // cerr<<"Skipped "<<n<<" questions, now parsing "<<numrecords<<" records"<<endl;
     for(n=0; n < numrecords; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       
       uint16_t dnstype = dpm.get16BitInt();
       /* class */
@@ -781,13 +784,13 @@ uint32_t getDNSPacketMinTTL(const char* packet, size_t length, bool* seenAuthSOA
 
     const uint16_t qdcount = ntohs(dh->qdcount);
     for(size_t n = 0; n < qdcount; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       /* type and class */
       dpm.skipBytes(4);
     }
     const size_t numrecords = ntohs(dh->ancount) + ntohs(dh->nscount) + ntohs(dh->arcount);
     for(size_t n = 0; n < numrecords; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       const uint16_t dnstype = dpm.get16BitInt();
       /* class */
       const uint16_t dnsclass = dpm.get16BitInt();
@@ -823,18 +826,18 @@ uint32_t getDNSPacketLength(const char* packet, size_t length)
   }
   try
   {
-    const dnsheader* dh = (const dnsheader*) packet;
+    const dnsheader* dh = reinterpret_cast<const dnsheader*>(packet);
     DNSPacketMangler dpm(const_cast<char*>(packet), length);
 
     const uint16_t qdcount = ntohs(dh->qdcount);
     for(size_t n = 0; n < qdcount; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       /* type and class */
       dpm.skipBytes(4);
     }
     const size_t numrecords = ntohs(dh->ancount) + ntohs(dh->nscount) + ntohs(dh->arcount);
     for(size_t n = 0; n < numrecords; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       /* type (2), class (2) and ttl (4) */
       dpm.skipBytes(8);
       dpm.skipRData();
@@ -860,7 +863,7 @@ uint16_t getRecordsOfTypeCount(const char* packet, size_t length, uint8_t sectio
 
     const uint16_t qdcount = ntohs(dh->qdcount);
     for(size_t n = 0; n < qdcount; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       if (section == 0) {
         uint16_t dnstype = dpm.get16BitInt();
         if (dnstype == type) {
@@ -875,7 +878,7 @@ uint16_t getRecordsOfTypeCount(const char* packet, size_t length, uint8_t sectio
     }
     const uint16_t ancount = ntohs(dh->ancount);
     for(size_t n = 0; n < ancount; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       if (section == 1) {
         uint16_t dnstype = dpm.get16BitInt();
         if (dnstype == type) {
@@ -893,7 +896,7 @@ uint16_t getRecordsOfTypeCount(const char* packet, size_t length, uint8_t sectio
     }
     const uint16_t nscount = ntohs(dh->nscount);
     for(size_t n = 0; n < nscount; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       if (section == 2) {
         uint16_t dnstype = dpm.get16BitInt();
         if (dnstype == type) {
@@ -911,7 +914,7 @@ uint16_t getRecordsOfTypeCount(const char* packet, size_t length, uint8_t sectio
     }
     const uint16_t arcount = ntohs(dh->arcount);
     for(size_t n = 0; n < arcount; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       if (section == 3) {
         uint16_t dnstype = dpm.get16BitInt();
         if (dnstype == type) {
@@ -950,13 +953,13 @@ bool getEDNSUDPPayloadSizeAndZ(const char* packet, size_t length, uint16_t* payl
 
     const uint16_t qdcount = ntohs(dh->qdcount);
     for(size_t n = 0; n < qdcount; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       /* type and class */
       dpm.skipBytes(4);
     }
     const size_t numrecords = ntohs(dh->ancount) + ntohs(dh->nscount) + ntohs(dh->arcount);
     for(size_t n = 0; n < numrecords; ++n) {
-      dpm.skipLabel();
+      dpm.skipDomainName();
       const uint16_t dnstype = dpm.get16BitInt();
       const uint16_t dnsclass = dpm.get16BitInt();
 

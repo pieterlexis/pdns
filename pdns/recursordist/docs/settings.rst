@@ -136,6 +136,16 @@ DNSSEC is not supported. Example:
 If sending carbon updates, this is the interval between them in seconds.
 See :doc:`metrics`.
 
+.. _setting-carbon-namespace:
+
+``carbon-namespace``
+--------------------
+.. versionadded:: 4.2.0
+
+-  String
+
+Change the namespace or first string of the metric key. The default is pdns.
+
 .. _setting-carbon-ourname:
 
 ``carbon-ourname``
@@ -145,6 +155,16 @@ See :doc:`metrics`.
 If sending carbon updates, if set, this will override our hostname.
 Be careful not to include any dots in this setting, unless you know what you are doing.
 See :ref:`metricscarbon`.
+
+.. _setting-carbon-instance:
+
+``carbon-instance``
+--------------------
+.. versionadded:: 4.2.0
+
+-  String
+
+Change the instance or third string of the metric key. The default is recursor.
 
 .. _setting-carbon-server:
 
@@ -399,8 +419,16 @@ found, the recursor fallbacks to sending 127.0.0.1.
 
 ``edns-outgoing-bufsize``
 -------------------------
+.. versionchanged:: 4.2.0
+  Before 4.2.0, the default was 1680
+
 -  Integer
--  Default: 1680
+-  Default: 1232
+
+.. note:: Why 1232?
+
+  1232 is the largest number of payload bytes that can fit in the smallest IPv6 packet.
+  IPv6 has a minimum MTU of 1280 bytes (:rfc:`RFC 8200, section 5 <8200#section-5>`), minus 40 bytes for the IPv6 header, minus 8 bytes for the UDP header gives 1232, the maximum payload size for the DNS response.
 
 This is the value set for the EDNS0 buffer size in outgoing packets.
 Lower this if you experience timeouts.
@@ -840,6 +868,8 @@ all domains will appear to be newly observed, so the feature is best
 left enabled for e.g. a week or longer before using the results. Note
 that this feature is optional and must be enabled at compile-time,
 thus it may not be available in all pre-built packages.
+If protobuf is enabled and configured, then the newly observed domain
+status will appear as a flag in Response messages.
 
 .. _setting-new-domain-log:
 
@@ -869,6 +899,20 @@ detected, then an A record lookup will be made for
 newly observed domain with partners, vendors or security teams. The
 result of the DNS lookup will be ignored by the recursor.
 
+.. _setting-new-domain-db-size:
+
+``new-domain-db-size``
+---------------------
+- Integer
+- Example: 67108864
+
+The default size of the stable bloom filter used to store previously
+observed domains is 67108864. To change the number of cells, use this
+setting. For each cell, the SBF uses 1 bit of memory, and one byte of
+disk for the persistent file.
+If there are already persistent files saved to disk, this setting will 
+have no effect unless you remove the existing files.
+
 .. _setting-new-domain-history-dir:
 
 ``new-domain-history-dir``
@@ -881,9 +925,11 @@ cache of previously observed domains.
 
 The newly observed domain feature uses a stable bloom filter to store
 a history of previously observed domains. The data structure is
-synchronized to disk every 5 minutes, and is also initialized from
+synchronized to disk every 10 minutes, and is also initialized from
 disk on startup. This ensures that previously observed domains are
 preserved across recursor restarts.
+If you change the new-domain-db-size setting, you must remove any files 
+from this directory.
 
 .. _setting-new-domain-whitelist:
 
@@ -898,6 +944,88 @@ that will never be considered a new domain. For example, if the domain
 considered a new domain. One use-case for the whitelist is to never
 reveal details of internal subdomains via the new-domain-lookup
 feature.
+
+.. _setting-new-domain-pb-tag:
+
+``new-domain-pb-tag``
+------------------------
+- String
+- Default: pnds-nod
+
+If protobuf is configured, then this tag will be added to all protobuf response messages when
+a new domain is observed. 
+
+.. _setting-unique-response-tracking:
+
+``unique-response-tracking``
+-----------------------
+- Boolean
+- Default: no (disabled)
+
+Whether to track unique DNS responses, i.e. never seen before combinations
+of the triplet (query name, query type, RR[rrname, rrtype, rrdata]).
+This can be useful for tracking potentially suspicious domains and 
+behaviour, e.g. DNS fast-flux.
+If protobuf is enabled and configured, then the Protobuf Response message
+will contain a flag with udr set to true for each RR that is considered
+unique, i.e. never seen before.
+This feature uses a probabilistic data structure (stable bloom filter) to
+track unique responses, which can have false positives as well as false
+negatives, thus it is a best-effort feature. Increasing the number of cells
+in the SBF using the unique-response-db-size setting can reduce FPs and FNs.
+
+.. _setting-unique-response-log:
+
+``unique-response-log``
+-----------------------
+- Boolean
+- Default: no (disabled)
+
+Whether to log when a unique response is detected. The log line
+looks something like:
+
+Oct 24 12:11:27 Unique response observed: qname=foo.com qtype=A rrtype=AAAA rrname=foo.com rrcontent=1.2.3.4
+
+.. _setting-unique-response-db-size:
+
+``unique-response-db-size``
+---------------------
+- Integer
+- Example: 67108864
+
+The default size of the stable bloom filter used to store previously
+observed responses is 67108864. To change the number of cells, use this
+setting. For each cell, the SBF uses 1 bit of memory, and one byte of
+disk for the persistent file.
+If there are already persistent files saved to disk, this setting will 
+have no effect unless you remove the existing files.
+
+.. _setting-unique-response-history-dir:
+
+``unique-response-history-dir``
+--------------------------
+- Path
+- Default: /var/lib/pdns-recursor/udr
+
+This setting controls which directory is used to store the on-disk
+cache of previously observed responses.
+
+The newly observed domain feature uses a stable bloom filter to store
+a history of previously observed responses. The data structure is
+synchronized to disk every 10 minutes, and is also initialized from
+disk on startup. This ensures that previously observed responses are
+preserved across recursor restarts. If you change the 
+unique-response-db-size, you must remove any files from this directory.
+
+.. _setting-unique-response-pb-tag:
+
+``unique-response-pb-tag``
+------------------------
+- String
+- Default: pnds-udr
+
+If protobuf is configured, then this tag will be added to all protobuf response messages when
+a unique DNS response is observed. 
 
 .. _setting-network-timeout:
 
@@ -954,6 +1082,17 @@ If set, PowerDNS will have only 1 thread listening on client sockets, and distri
 maximizing the cache hit ratio. Starting with version 4.2.0, more than one distributing thread can be started using the `distributor-threads`_
 setting.
 Improves performance on Linux.
+
+.. _settting-public-suffix-list-file:
+
+``public-suffix-list-file``
+---------------------------
+.. versionadded:: 4.2.0
+
+- Path
+- Default: unset
+
+Path to the Public Suffix List file, if any. If set, PowerDNS will try to load the Public Suffix List from this file instead of using the built-in list. The PSL is used to group the queries by relevant domain names when displaying the top queries.
 
 .. _setting-query-local-address:
 
@@ -1095,6 +1234,21 @@ Query example (where 192.0.2.14 is your server):
 
 PowerDNS can change its user and group id after binding to its socket.
 Can be used for better :doc:`security <security>`.
+
+.. _setting-signature-inception-skew:
+
+``signature-inception-skew``
+----------------------------------
+.. versionadded:: 4.1.5
+
+-  Integer
+-  Default: 60
+
+Allow the signature inception to be off by this number of seconds. Negative values are not allowed.
+
+.. versionchanged:: 4.2.0
+
+    Default is now 60, was 0 before.
 
 .. _setting-single-socket:
 
@@ -1260,13 +1414,18 @@ See `udp-source-port-min`_.
 
 ``udp-truncation-threshold``
 ----------------------------
+.. versionchanged:: 4.2.0
+  Before 4.2.0, the default was 1680
+
 -  Integer
--  Default: 1680
+-  Default: 1232
 
 EDNS0 allows for large UDP response datagrams, which can potentially raise performance.
 Large responses however also have downsides in terms of reflection attacks.
 This setting limits the accepted size.
 Maximum value is 65535, but values above 4096 should probably not be attempted.
+
+To know why 1232, see the note at :ref:`setting-edns-outgoing-bufsize`.
 
 .. _setting-use-incoming-edns-subnet:
 

@@ -143,9 +143,7 @@ void loadZoneFromDisk(records_t& records, const string& fname, const DNSName& zo
 
   DNSResourceRecord rr;
   bool seenSOA=false;
-  unsigned int nrecords=0;
   while(zpt.get(rr)) {
-    ++nrecords;
     if(rr.qtype.getCode() == QType::CNAME && rr.content.empty())
       rr.content=".";
     rr.qname = rr.qname.makeRelative(zone);
@@ -166,7 +164,7 @@ void loadZoneFromDisk(records_t& records, const string& fname, const DNSName& zo
  * Load the zone `zone` from `fname` and put the first found SOA into `soa`
  * Does NOT check for nullptr
  */
-void loadSOAFromDisk(const DNSName& zone, const string& fname, shared_ptr<SOARecordContent>& soa)
+void loadSOAFromDisk(const DNSName& zone, const string& fname, shared_ptr<SOARecordContent>& soa, uint32_t& soaTTL)
 {
   ZoneParserTNG zpt(fname, zone);
   DNSResourceRecord rr;
@@ -174,6 +172,7 @@ void loadSOAFromDisk(const DNSName& zone, const string& fname, shared_ptr<SOARec
   while(zpt.get(rr)) {
     if (rr.qtype == QType::SOA) {
       soa = getRR<SOARecordContent>(DNSRecord(rr));
+      soaTTL = rr.ttl;
       return;
     }
   }

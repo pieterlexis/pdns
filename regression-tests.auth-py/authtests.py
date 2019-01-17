@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+from __future__ import print_function
 import errno
 import shutil
 import os
@@ -64,7 +65,7 @@ PrivateKey: Lt0v0Gol3pRUFM7fDdcy0IWN0O/MnEmVPA+VylL8Y4U=
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
-        os.mkdir(confdir, 0755)
+        os.mkdir(confdir, 0o755)
 
     @classmethod
     def generateAuthZone(cls, confdir, zonename, zonecontent):
@@ -119,12 +120,11 @@ distributor-threads=1""".format(confdir=confdir, prefix=cls._PREFIX,
                        'create-bind-db',
                        bind_dnssec_db]
 
-        print ' '.join(pdnsutilCmd)
+        print(' '.join(pdnsutilCmd))
         try:
             subprocess.check_output(pdnsutilCmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            print e.output
-            raise
+            raise AssertionError('%s failed (%d): %s' % (pdnsutilCmd, e.returncode, e.output))
 
     @classmethod
     def secureZone(cls, confdir, zonename, key=None):
@@ -147,12 +147,11 @@ distributor-threads=1""".format(confdir=confdir, prefix=cls._PREFIX,
                            'active',
                            'ksk']
 
-        print ' '.join(pdnsutilCmd)
+        print(' '.join(pdnsutilCmd))
         try:
             subprocess.check_output(pdnsutilCmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            print e.output
-            raise
+            raise AssertionError('%s failed (%d): %s' % (pdnsutilCmd, e.returncode, e.output))
 
     @classmethod
     def generateAllAuthConfig(cls, confdir):
@@ -176,7 +175,7 @@ distributor-threads=1""".format(confdir=confdir, prefix=cls._PREFIX,
         authcmd.append('--local-address=%s' % ipaddress)
         authcmd.append('--local-port=%s' % cls._authPort)
         authcmd.append('--loglevel=9')
-        authcmd.append('--enable-lua-record')
+        authcmd.append('--enable-lua-records')
         print(' '.join(authcmd))
 
         logFile = os.path.join(confdir, 'pdns.log')
@@ -194,7 +193,7 @@ distributor-threads=1""".format(confdir=confdir, prefix=cls._PREFIX,
                 if e.errno != errno.ESRCH:
                     raise
                 with open(logFile, 'r') as fdLog:
-                    print fdLog.read()
+                    print(fdLog.read())
             sys.exit(cls._auths[ipaddress].returncode)
 
     @classmethod
@@ -411,6 +410,13 @@ distributor-threads=1""".format(confdir=confdir, prefix=cls._PREFIX,
 
         if not found :
             raise AssertionError("RRset not found in answer\n\n%s" % ret)
+
+    def sortRRsets(self, rrsets):
+        """Sorts RRsets in a more useful way than dnspython's default behaviour
+
+        @param rrsets: an array of dns.rrset.RRset objects"""
+
+        return sorted(rrsets, key=lambda rrset: (rrset.name, rrset.rdtype))
 
     def assertAnyRRsetInAnswer(self, msg, rrsets):
         """Asserts that any of the supplied rrsets exists (without comparing TTL)

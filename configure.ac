@@ -93,8 +93,8 @@ AC_CHECK_HEADERS(
 	[have_mmap=no]
 )
 
-PDNS_CHECK_LIBSODIUM
-PDNS_CHECK_LIBDECAF
+PDNS_WITH_LIBSODIUM
+PDNS_WITH_LIBDECAF
 PDNS_CHECK_LIBCRYPTO([
 ],[
    AC_MSG_ERROR([OpenSSL/libcrypto not found])
@@ -110,6 +110,9 @@ BOOST_REQUIRE([1.35])
 # Boost accumulators, as used by dnsbulktest and dnstcpbench, need 1.48+
 # to be compatible with C++11
 AM_CONDITIONAL([HAVE_BOOST_GE_148], [test "$boost_major_version" -ge 148])
+AS_IF([test "$boost_major_version" -ge 148], [
+  AC_DEFINE(HAVE_BOOST_GE_148, [1], [Define to 1 if you have boost >= 1.48])
+])
 
 BOOST_PROGRAM_OPTIONS([mt])
 AS_IF([test "$boost_cv_lib_program_options" = "no"], [
@@ -118,6 +121,7 @@ AS_IF([test "$boost_cv_lib_program_options" = "no"], [
 PDNS_ENABLE_UNIT_TESTS
 PDNS_ENABLE_BACKEND_UNIT_TESTS
 PDNS_ENABLE_REPRODUCIBLE
+PDNS_ENABLE_FUZZ_TARGETS
 
 PDNS_WITH_SQLITE3
 
@@ -175,7 +179,7 @@ for a in $modules $dynmodules; do
     godbc)
       PDNS_WITH_UNIXODBC
       ;;
-    mydns|gmysql|pdns)
+    mydns|gmysql)
       PDNS_WITH_MYSQL
       ;;
     gpgsql)

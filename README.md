@@ -1,4 +1,4 @@
-PowerDNS is copyright © 2001-2018 by PowerDNS.COM BV and lots of
+PowerDNS is copyright © 2001-2019 by PowerDNS.COM BV and lots of
 contributors, using the GNU GPLv2 license (see NOTICE for the
 exact license and exception used).
 
@@ -49,7 +49,7 @@ For Ubuntu 18.04 (Bionic Beaver), the following packages should be installed:
 
 ```sh
 apt install libcurl4-openssl-dev luajit lua-yaml-dev libyaml-cpp-dev libtolua-dev lua5.3 autoconf automake ragel bison flex g++ libboost-all-dev libtool make pkg-config libssl-dev virtualenv lua-yaml-dev libyaml-cpp-dev libluajit-5.1-dev libcurl4 gawk
-# For DNSSEC ed25519 (algorithm 15) support with --enable-libsodium
+# For DNSSEC ed25519 (algorithm 15) support with --with-libsodium
 apt install libsodium-dev
 # If using the gmysql (Generic MySQL) backend
 apt install default-libmysqlclient-dev
@@ -211,7 +211,7 @@ brew install boost lua pkg-config ragel openssl
 make -j4
 ```
 
-Additionally, for PostgreSQL support, run `brew install postgresql` and add `--with-modules="gpsql"` to `./configure`.
+Additionally, for PostgreSQL support, run `brew install postgresql` and add `--with-modules="gpgsql"` to `./configure`.
 For MySQL support, run `brew install mariadb` and add `--with-modules="gmysql"` to `./configure`.
 
 Linux notes

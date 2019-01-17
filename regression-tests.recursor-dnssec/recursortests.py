@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+from __future__ import print_function
 import errno
 import shutil
 import os
@@ -290,7 +291,7 @@ PrivateKey: kvoV/g4IO/tefSro+FLJ5UC7H3BUf0IUtZQSUOfQGyA=
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
-        os.mkdir(confdir, 0755)
+        os.mkdir(confdir, 0o755)
 
     @classmethod
     def generateAuthZone(cls, confdir, zonename, zonecontent):
@@ -340,12 +341,11 @@ distributor-threads=1""".format(confdir=confdir,
                        'create-bind-db',
                        bind_dnssec_db]
 
-        print ' '.join(pdnsutilCmd)
+        print(' '.join(pdnsutilCmd))
         try:
             subprocess.check_output(pdnsutilCmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            print e.output
-            raise
+            raise AssertionError('%s failed (%d): %s' % (pdnsutilCmd, e.returncode, e.output))
 
     @classmethod
     def secureZone(cls, confdir, zonename, key=None):
@@ -368,12 +368,11 @@ distributor-threads=1""".format(confdir=confdir,
                            'active',
                            'ksk']
 
-        print ' '.join(pdnsutilCmd)
+        print(' '.join(pdnsutilCmd))
         try:
             subprocess.check_output(pdnsutilCmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            print e.output
-            raise
+            raise AssertionError('%s failed (%d): %s' % (pdnsutilCmd, e.returncode, e.output))
 
     @classmethod
     def generateAllAuthConfig(cls, confdir):
@@ -424,7 +423,7 @@ distributor-threads=1""".format(confdir=confdir,
                 if e.errno != errno.ESRCH:
                     raise
                 with open(logFile, 'r') as fdLog:
-                    print fdLog.read()
+                    print(fdLog.read())
             sys.exit(cls._auths[ipaddress].returncode)
 
     @classmethod
@@ -492,7 +491,7 @@ distributor-threads=1""".format(confdir=confdir,
                 if e.errno != errno.ESRCH:
                     raise
                 with open(logFile, 'r') as fdLog:
-                    print fdLog.read()
+                    print(fdLog.read())
             sys.exit(cls._recursor.returncode)
 
     @classmethod
@@ -504,8 +503,7 @@ distributor-threads=1""".format(confdir=confdir,
         try:
             subprocess.check_output(rec_controlCmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            print e.output
-            raise
+            raise AssertionError('%s failed (%d): %s' % (rec_controlCmd, e.returncode, e.output))
 
     @classmethod
     def setUpSockets(cls):
