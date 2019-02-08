@@ -1977,6 +1977,7 @@ try
     cout<<"set-presigned ZONE                 Use presigned RRSIGs from storage"<<endl;
     cout<<"set-publish-cdnskey ZONE           Enable sending CDNSKEY responses for ZONE"<<endl;
     cout<<"set-publish-cds ZONE [DIGESTALGOS] Enable sending CDS responses for ZONE, using DIGESTALGOS as signature algorithms"<<endl;
+    cout<<"set-publish-zone-key ZONE KEY-ID   Publish key id KEY-ID in ZONE in the DNSKEY RRSet"<<endl;
     cout<<"                                   DIGESTALGOS should be a comma separated list of numbers, is is '1,2' by default"<<endl;
     cout<<"add-meta ZONE KIND VALUE           Add zone metadata, this adds to the existing KIND"<<endl;
     cout<<"                   [VALUE ...]"<<endl;
@@ -1987,6 +1988,7 @@ try
     cout<<"unset-presigned ZONE               No longer use presigned RRSIGs"<<endl;
     cout<<"unset-publish-cdnskey ZONE         Disable sending CDNSKEY responses for ZONE"<<endl;
     cout<<"unset-publish-cds ZONE             Disable sending CDS responses for ZONE"<<endl;
+    cout<<"unset-publish-zone-key ZONE KEY-ID Stop publishing key id KEY-ID in ZONE in the DNSKEY RRSet"<<endl;
     cout<<"test-schema ZONE                   Test DB schema - will create ZONE"<<endl;
     cout<<desc<<endl;
     return 0;
@@ -2195,6 +2197,42 @@ try
     }
     if (!dk.deactivateKey(zone, id)) {
       cerr<<"Deactivation of key failed"<<endl;
+      return 1;
+    }
+    return 0;
+  }
+  else if(cmds[0] == "set-publish-zone-key") {
+    if(cmds.size() != 3) {
+      cerr << "Syntax: pdnsutil set-publish-zone-key ZONE KEY-ID"<<endl;
+      return 0;
+    }
+    DNSName zone(cmds[1]);
+    unsigned int id=atoi(cmds[2].c_str()); // if you make this pdns_stou, the error gets worse
+    if(!id)
+    {
+      cerr<<"Invalid KEY-ID '"<<cmds[2]<<"'"<<endl;
+      return 1;
+    }
+    if (!dk.publishKey(zone, id)) {
+      cerr<<"Publication of key failed"<<endl;
+      return 1;
+    }
+    return 0;
+  }
+  else if(cmds[0] == "unset-publish-zone-key") {
+    if(cmds.size() != 3) {
+      cerr << "Syntax: pdnsutil unset-publish-zone-key ZONE KEY-ID"<<endl;
+      return 0;
+    }
+    DNSName zone(cmds[1]);
+    unsigned int id=pdns_stou(cmds[2]);
+    if(!id)
+    {
+      cerr<<"Invalid KEY-ID"<<endl;
+      return 1;
+    }
+    if (!dk.unpublishKey(zone, id)) {
+      cerr<<"Unpublish of key failed"<<endl;
       return 1;
     }
     return 0;
