@@ -505,6 +505,7 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
     KeyMetaData kmd;
 
     kmd.active = kd.active;
+    kmd.publish = kd.publish;
     kmd.hasSEPBit = (kd.flags == 257);
     kmd.id = kd.id;
 

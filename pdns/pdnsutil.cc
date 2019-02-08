@@ -1620,7 +1620,7 @@ bool showZone(DNSSECKeeper& dk, const DNSName& zone, bool exportDS = false)
       if (!exportDS) {
         cout<<", flags = "<<std::to_string(value.first.d_flags);
         cout<<", tag = "<<value.first.getDNSKEY().getTag();
-        cout<<", algo = "<<(int)value.first.d_algorithm<<", bits = "<<value.first.getKey()->getBits()<<"\t"<<((int)value.second.active == 1 ? "  A" : "Ina")<<"ctive ( " + algname + " ) "<<endl;
+        cout<<", algo = "<<(int)value.first.d_algorithm<<", bits = "<<value.first.getKey()->getBits()<<"\t"<<((int)value.second.active == 1 ? "  A" : "Ina")<<"ctive "<<((int)value.second.publish == 1 ? "  P" : "Unp")<<"ublished ( " + algname + " ) "<<endl;
       }
 
       if (!exportDS) {

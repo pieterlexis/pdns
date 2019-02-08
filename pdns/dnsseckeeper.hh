@@ -67,6 +67,7 @@ public:
     string fname;
     unsigned int id;
     bool active;
+    bool publish;
     keytype_t keyType;
     bool hasSEPBit;
   };
