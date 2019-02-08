@@ -876,14 +876,15 @@ bool GSQLBackend::getDomainKeys(const DNSName& name, std::vector<KeyData>& keys)
     KeyData kd;
     while(d_ListDomainKeysQuery_stmt->hasNextRow()) {
       d_ListDomainKeysQuery_stmt->nextRow(row);
-      ASSERT_ROW_COLUMNS("list-domain-keys-query", row, 4);
+      ASSERT_ROW_COLUMNS("list-domain-keys-query", row, 5);
       //~ for(const auto& val: row) {
         //~ cerr<<"'"<<val<<"'"<<endl;
       //~ }
       kd.id = pdns_stou(row[0]);
       kd.flags = pdns_stou(row[1]);
       kd.active = row[2] == "1";
-      kd.content = row[3];
+      kd.active = row[3] == "1";
+      kd.content = row[4];
       keys.push_back(kd);
     }
 

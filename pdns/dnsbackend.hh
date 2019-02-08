@@ -183,6 +183,7 @@ public:
     unsigned int id;
     unsigned int flags;
     bool active;
+    bool publish;
   };
 
   virtual bool getDomainKeys(const DNSName& name, std::vector<KeyData>& keys) { return false;}
