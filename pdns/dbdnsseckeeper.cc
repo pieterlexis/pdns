@@ -191,6 +191,18 @@ bool DNSSECKeeper::activateKey(const DNSName& zname, unsigned int id)
   return d_keymetadb->activateDomainKey(zname, id);
 }
 
+bool DNSSECKeeper::unpublishKey(const DNSName& zname, unsigned int id)
+{
+  clearCaches(zname);
+  return d_keymetadb->unpublishDomainKey(zname, id);
+}
+
+bool DNSSECKeeper::publishKey(const DNSName& zname, unsigned int id)
+{
+  clearCaches(zname);
+  return d_keymetadb->publishDomainKey(zname, id);
+}
+
 
 void DNSSECKeeper::getFromMeta(const DNSName& zname, const std::string& key, std::string& value)
 {

@@ -110,6 +110,8 @@ GSQLBackend::GSQLBackend(const string &mode, const string &suffix)
 
   d_ActivateDomainKeyQuery = getArg("activate-domain-key-query");
   d_DeactivateDomainKeyQuery = getArg("deactivate-domain-key-query");
+  d_PublishDomainKeyQuery = getArg("publish-domain-key-query");
+  d_UnpublishDomainKeyQuery = getArg("unpublish-domain-key-query");
   d_RemoveDomainKeyQuery = getArg("remove-domain-key-query");
   d_ClearDomainAllKeysQuery = getArg("clear-domain-all-keys-query");
 
@@ -166,6 +168,8 @@ GSQLBackend::GSQLBackend(const string &mode, const string &suffix)
   d_RemoveDomainKeyQuery_stmt = NULL;
   d_ActivateDomainKeyQuery_stmt = NULL;
   d_DeactivateDomainKeyQuery_stmt = NULL;
+  d_PublishDomainKeyQuery_stmt = NULL;
+  d_UnpublishDomainKeyQuery_stmt = NULL;
   d_ClearDomainAllKeysQuery_stmt = NULL;
   d_getTSIGKeyQuery_stmt = NULL;
   d_setTSIGKeyQuery_stmt = NULL;
@@ -730,6 +734,46 @@ bool GSQLBackend::deactivateDomainKey(const DNSName& name, unsigned int id)
     reconnectIfNeeded();
 
     d_DeactivateDomainKeyQuery_stmt->
+      bind("domain", name)->
+      bind("key_id", id)->
+      execute()->
+      reset();
+  }
+  catch (SSqlException &e) {
+    throw PDNSException("GSQLBackend unable to deactivate key: "+e.txtReason());
+  }
+  return true;
+}
+
+bool GSQLBackend::publishDomainKey(const DNSName& name, unsigned int id)
+{
+  if(!d_dnssecQueries)
+    return false;
+
+  try {
+    reconnectIfNeeded();
+
+    d_PublishDomainKeyQuery_stmt->
+      bind("domain", name)->
+      bind("key_id", id)->
+      execute()->
+      reset();
+  }
+  catch (SSqlException &e) {
+    throw PDNSException("GSQLBackend unable to activate key: "+e.txtReason());
+  }
+  return true;
+}
+
+bool GSQLBackend::unpublishDomainKey(const DNSName& name, unsigned int id)
+{
+  if(!d_dnssecQueries)
+    return false;
+
+  try {
+    reconnectIfNeeded();
+
+    d_UnpublishDomainKeyQuery_stmt->
       bind("domain", name)->
       bind("key_id", id)->
       execute()->
