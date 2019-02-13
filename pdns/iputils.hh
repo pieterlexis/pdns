@@ -387,9 +387,14 @@ public:
   Netmask(const ComboAddress& network, uint8_t bits=0xff): d_network(network)
   {
     d_network.sin4.sin_port=0;
-    if(bits > 128)
-      bits = (network.sin4.sin_family == AF_INET) ? 32 : 128;
-    
+    if (bits == 0xff) { // No bits were set, so the netmask should be the max
+      d_network.isIPv4() ? bits = 32 : bits = 128;
+    }
+    if ((d_network.sin4.sin_family == AF_INET && bits > 32) ||
+        (d_network.sin4.sin_family == AF_INET6 && bits > 128)) {
+      throw NetmaskException("Number of bits (" + std::to_string(bits) + ") for " + network.toString()+ " is too large");
+    }
+
     d_bits = bits;
     if(d_bits<32)
       d_mask=~(0xFFFFFFFF>>d_bits);
@@ -402,9 +407,13 @@ public:
   {
     pair<string,string> split=splitField(mask,'/');
     d_network=makeComboAddress(split.first);
-    
+
     if(!split.second.empty()) {
       d_bits = (uint8_t)pdns_stou(split.second);
+      if ((d_network.sin4.sin_family==AF_INET && d_bits > 32) ||
+          (d_network.sin4.sin_family==AF_INET6 && d_bits > 128)) {
+        throw NetmaskException("Netmask for " + mask + " is too large");
+      }
       if(d_bits<32)
         d_mask=~(0xFFFFFFFF>>d_bits);
       else
