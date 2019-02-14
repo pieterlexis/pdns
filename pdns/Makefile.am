@@ -624,7 +624,7 @@ ixfrdist_SOURCES = \
 	iputils.hh iputils.cc \
 	iputils-yaml.hh \
 	ixfr.cc ixfr.hh \
-	ixfrdist.cc \
+	ixfrdist.cc ixfrdist.hh \
 	ixfrutils.cc ixfrutils.hh \
 	ixfrdist-stats.hh ixfrdist-stats.cc \
 	ixfrdist-web.hh ixfrdist-web.cc \

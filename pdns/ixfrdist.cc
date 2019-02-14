@@ -22,6 +22,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#include "ixfrdist.hh"
 #include <boost/program_options.hpp>
 #include <arpa/inet.h>
 #include <sys/types.h>
@@ -61,27 +62,6 @@ ArgvMap &arg()
   return theArg;
 }
 /* END Needed because of deeper dependencies */
-
-struct ixfrdiff_t {
-  shared_ptr<SOARecordContent> oldSOA;
-  shared_ptr<SOARecordContent> newSOA;
-  vector<DNSRecord> removals;
-  vector<DNSRecord> additions;
-  uint32_t oldSOATTL;
-  uint32_t newSOATTL;
-};
-
-struct ixfrinfo_t {
-  shared_ptr<SOARecordContent> soa; // The SOA of the latest AXFR
-  records_t latestAXFR;             // The most recent AXFR
-  vector<std::shared_ptr<ixfrdiff_t>> ixfrDiffs;
-  uint32_t soaTTL;
-};
-
-// Why a struct? This way we can add more options to a domain in the future
-struct ixfrdistdomain_t {
-  set<ComboAddress> masters; // A set so we can do multiple master addresses in the future
-};
 
 // This contains the configuration for each domain
 static map<DNSName, ixfrdistdomain_t> g_domainConfigs;
