@@ -48,15 +48,8 @@
 #include <yaml-cpp/yaml.h>
 
 /* BEGIN Needed because of deeper dependencies */
-#include "arguments.hh"
 #include "statbag.hh"
 StatBag S;
-
-ArgvMap &arg()
-{
-  static ArgvMap theArg;
-  return theArg;
-}
 /* END Needed because of deeper dependencies */
 
 // Allows reading/writing ComboAddresses and DNSNames in YAML-cpp

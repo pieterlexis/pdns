@@ -608,7 +608,6 @@ saxfr_LDADD += $(GSS_LIBS)
 endif
 
 ixfrdist_SOURCES = \
-	arguments.cc \
 	base32.cc \
 	base64.cc base64.hh \
 	dns.cc \
