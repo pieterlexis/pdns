@@ -142,8 +142,7 @@ int main(int argc, char** argv) {
     catch(std::exception& e) {
       cout<<"Could not load zone from disk: "<<e.what()<<endl;
       cout<<"Retrieving latest from master "<<master.toStringWithPort()<<endl;
-      ComboAddress local = master.sin4.sin_family == AF_INET ? ComboAddress("0.0.0.0") : ComboAddress("::");
-      AXFRRetriever axfr(master, zone, tt, &local);
+      AXFRRetriever axfr(master, zone, tt);
       unsigned int nrecords=0;
       Resolver::res_t nop;
       vector<DNSRecord> chunk;

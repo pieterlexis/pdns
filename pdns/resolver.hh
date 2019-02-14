@@ -84,7 +84,7 @@ class AXFRRetriever : public boost::noncopyable
     AXFRRetriever(const ComboAddress& remote,
                   const DNSName& zone,
                   const TSIGTriplet& tt = TSIGTriplet(),
-                  const ComboAddress* laddr = NULL,
+                  const ComboAddress& laddr = ComboAddress(),
                   size_t maxReceivedBytes=0,
                   uint16_t timeout=10);
     ~AXFRRetriever();

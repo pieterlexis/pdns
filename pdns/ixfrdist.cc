@@ -368,7 +368,6 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
       }
       // Now get the full zone!
       g_log<<Logger::Info<<"Attempting to receive full zonedata for '"<<domain<<"'"<<endl;
-      ComboAddress local = master.isIPv4() ? ComboAddress("0.0.0.0") : ComboAddress("::");
       TSIGTriplet tt;
 
       // The *new* SOA
@@ -376,7 +375,7 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
       uint32_t soaTTL = 0;
       records_t records;
       try {
-        AXFRRetriever axfr(master, domain, tt, &local);
+        AXFRRetriever axfr(master, domain, tt);
         unsigned int nrecords=0;
         Resolver::res_t nop;
         vector<DNSRecord> chunk;

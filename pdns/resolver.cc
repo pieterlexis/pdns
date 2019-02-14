@@ -364,21 +364,15 @@ void Resolver::getSoaSerial(const ComboAddress& ipport, const DNSName &domain, u
 
 AXFRRetriever::AXFRRetriever(const ComboAddress& remote,
                              const DNSName& domain,
-                             const TSIGTriplet& tt, 
-                             const ComboAddress* laddr,
+                             const TSIGTriplet& tt,
+                             const ComboAddress& laddr,
                              size_t maxReceivedBytes,
                              uint16_t timeout)
   : d_tsigVerifier(tt, remote, d_trc), d_receivedBytes(0), d_maxReceivedBytes(maxReceivedBytes)
 {
   ComboAddress local;
-  if (laddr != nullptr) {
-    local = ComboAddress(*laddr);
-  } else {
-    string qlas = remote.sin4.sin_family == AF_INET ? "query-local-address" : "query-local-address6";
-    if (::arg()[qlas].empty()) {
-      throw ResolverException("Unable to determine source address for AXFR request to " + remote.toStringWithPort() + " for " + domain.toLogString() + ". " + qlas + " is unset");
-    }
-    local=ComboAddress(::arg()[qlas]);
+  if (laddr == local) { // ComboAddress() == ComboAddress()
+    local = remote.sin4.sin_family == AF_INET ? ComboAddress("0.0.0.0") : ComboAddress("::");
   }
   d_sock = -1;
   try {

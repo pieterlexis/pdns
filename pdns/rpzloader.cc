@@ -186,7 +186,7 @@ static shared_ptr<SOARecordContent> loadRPZFromServer(const ComboAddress& master
   if (local == ComboAddress())
     local = getQueryLocalAddress(master.sin4.sin_family, 0);
 
-  AXFRRetriever axfr(master, zoneName, tt, &local, maxReceivedBytes, axfrTimeout);
+  AXFRRetriever axfr(master, zoneName, tt, local, maxReceivedBytes, axfrTimeout);
   unsigned int nrecords=0;
   Resolver::res_t nop;
   vector<DNSRecord> chunk;

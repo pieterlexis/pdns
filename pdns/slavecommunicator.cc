@@ -237,7 +237,7 @@ static bool processRecordForZS(const DNSName& domain, bool& firstNSEC3, DNSResou
 static vector<DNSResourceRecord> doAxfr(const ComboAddress& raddr, const DNSName& domain, const TSIGTriplet& tt, const ComboAddress& laddr,  scoped_ptr<AuthLua4>& pdl, ZoneStatus& zs)
 {
   vector<DNSResourceRecord> rrs;
-  AXFRRetriever retriever(raddr, domain, tt, (laddr.sin4.sin_family == 0) ? NULL : &laddr, ((size_t) ::arg().asNum("xfr-max-received-mbytes")) * 1024 * 1024);
+  AXFRRetriever retriever(raddr, domain, tt, laddr, ((size_t) ::arg().asNum("xfr-max-received-mbytes")) * 1024 * 1024);
   Resolver::res_t recs;
   bool first=true;
   bool firstNSEC3{true};
