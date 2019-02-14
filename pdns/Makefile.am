@@ -615,12 +615,14 @@ ixfrdist_SOURCES = \
 	dns_random_urandom.cc dns_random.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
+	dnsname-yaml.hh \
 	dnsparser.cc dnsparser.hh \
 	dnsrecords.cc \
 	dnssecinfra.cc \
 	dnswriter.cc dnswriter.hh \
 	gss_context.cc gss_context.hh \
 	iputils.hh iputils.cc \
+	iputils-yaml.hh \
 	ixfr.cc ixfr.hh \
 	ixfrdist.cc \
 	ixfrutils.cc ixfrutils.hh \
