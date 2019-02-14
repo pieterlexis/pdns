@@ -666,8 +666,17 @@ struct SlaveSenderReceiver
 
   map<uint32_t, Answer> d_freshness;
 
-  SlaveSenderReceiver()
+  SlaveSenderReceiver() : d_resolver()
   {
+    ComboAddress laddr("0.0.0.0");
+    ComboAddress laddr6("::");
+    if(!::arg()["query-local-address"].empty()) {
+      laddr = ComboAddress(::arg()["query-local-address"]);
+    }
+    if(!::arg()["query-local-address6"].empty()) {
+      laddr6 = ComboAddress(::arg()["query-local-address6"]);
+    }
+    d_resolver = Resolver(laddr, laddr6, ::arg().mustDo("non-local-bind"));
   }
 
   void deliverTimeout(const Identifier& i)

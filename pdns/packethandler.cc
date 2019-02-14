@@ -787,7 +787,15 @@ int PacketHandler::trySuperMasterSynchronous(const DNSPacket *p, const DNSName& 
 
   Resolver::res_t nsset;
   try {
-    Resolver resolver;
+    ComboAddress laddr("0.0.0.0");
+    ComboAddress laddr6("::");
+    if(!::arg()["query-local-address"].empty()) {
+      laddr = ComboAddress(::arg()["query-local-address"]);
+    }
+    if(!::arg()["query-local-address6"].empty()) {
+      laddr6 = ComboAddress(::arg()["query-local-address6"]);
+    }
+    Resolver resolver(laddr, laddr6, ::arg().mustDo("non-local-bind"));
     uint32_t theirserial;
     resolver.getSoaSerial(remote, p->qdomain, &theirserial);
     resolver.resolve(remote, p->qdomain, QType::NS, &nsset);

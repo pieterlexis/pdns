@@ -40,7 +40,6 @@
 #include "qtype.hh"
 
 #include "pdnsexception.hh"
-#include "arguments.hh"
 #include "base64.hh"
 #include "dnswriter.hh"
 #include "dnsparser.hh"
@@ -95,15 +94,14 @@ int makeQuerySocket(const ComboAddress& local, bool udpOrTCP, bool nonLocalBind)
   return sock;
 }
 
-Resolver::Resolver()
+Resolver::Resolver(const ComboAddress &laddr, const ComboAddress &laddr6, const bool nonLocalBind)
 {
   locals["default4"] = -1;
   locals["default6"] = -1;
+
   try {
-    if(!::arg()["query-local-address"].empty())
-      locals["default4"] = makeQuerySocket(ComboAddress(::arg()["query-local-address"]), true, ::arg().mustDo("non-local-bind"));
-    if(!::arg()["query-local-address6"].empty())
-      locals["default6"] = makeQuerySocket(ComboAddress(::arg()["query-local-address6"]), true, ::arg().mustDo("non-local-bind"));
+    locals["default4"] = makeQuerySocket(laddr, true, nonLocalBind);
+    locals["default6"] = makeQuerySocket(laddr6, true, nonLocalBind);
   }
   catch(...) {
     if(locals["default4"]>=0)

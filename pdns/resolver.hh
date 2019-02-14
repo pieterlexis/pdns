@@ -52,10 +52,13 @@ public:
 // make an IPv4 or IPv6 query socket 
 int makeQuerySocket(const ComboAddress& local, bool udpOrTCP, bool nonLocalBind=false);
 //! Resolver class. Can be used synchronously and asynchronously, over IPv4 and over IPv6 (simultaneously)
-class Resolver  : public boost::noncopyable
+class Resolver
 {
 public:
-  Resolver();
+  Resolver(
+      const ComboAddress &laddr = ComboAddress("0.0.0.0"),
+      const ComboAddress &laddr6 = ComboAddress("::"),
+      const bool nonLocalBind = false);
   ~Resolver();
 
   typedef vector<DNSResourceRecord> res_t;
