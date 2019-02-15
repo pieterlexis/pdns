@@ -47,6 +47,7 @@
 #include "logger.hh"
 #include "ixfrdist-stats.hh"
 #include "ixfrdist-web.hh"
+#include "ixfrdist-lmdb.hh"
 #include "dnsname.hh"
 #include "dnsname-yaml.hh"
 #include <yaml-cpp/yaml.h>
@@ -64,11 +65,12 @@ ArgvMap &arg()
 /* END Needed because of deeper dependencies */
 
 // This contains the configuration for each domain
-static map<DNSName, ixfrdistdomain_t> g_domainConfigs;
+static map<DNSName, ixfrdistdomain_t> g_domainConfigs; // XXX OLD
+static vector<IXFRDistDomain> g_domains; // XXX make this static vector<shared_ptr<IXFRDistDomain>>?
 
 // Map domains and their data
-static std::map<DNSName, std::shared_ptr<ixfrinfo_t>> g_soas;
-static std::mutex g_soas_mutex;
+static std::map<DNSName, std::shared_ptr<ixfrinfo_t>> g_soas; // XXX OLD
+static std::mutex g_soas_mutex; // XXX OLD
 
 // Condition variable for TCP handling
 static std::condition_variable g_tcpHandlerCV;
@@ -147,35 +149,6 @@ static void cleanUpDomain(const DNSName& domain, const uint16_t& keep, const str
   }
 }
 
-static void getSOAFromRecords(const records_t& records, shared_ptr<SOARecordContent>& soa, uint32_t& soaTTL) {
-  for (const auto& dnsrecord : records) {
-    if (dnsrecord.d_type == QType::SOA) {
-      soa = getRR<SOARecordContent>(dnsrecord);
-      if (soa == nullptr) {
-        throw PDNSException("Unable to determine SOARecordContent from old records");
-      }
-      soaTTL = dnsrecord.d_ttl;
-      return;
-    }
-  }
-  throw PDNSException("No SOA in supplied records");
-}
-
-static void makeIXFRDiff(const records_t& from, const records_t& to, std::shared_ptr<ixfrdiff_t>& diff, const shared_ptr<SOARecordContent>& fromSOA = nullptr, uint32_t fromSOATTL=0, const shared_ptr<SOARecordContent>& toSOA = nullptr, uint32_t toSOATTL = 0) {
-  set_difference(from.cbegin(), from.cend(), to.cbegin(), to.cend(), back_inserter(diff->removals), from.value_comp());
-  set_difference(to.cbegin(), to.cend(), from.cbegin(), from.cend(), back_inserter(diff->additions), from.value_comp());
-  diff->oldSOA = fromSOA;
-  diff->oldSOATTL = fromSOATTL;
-  if (fromSOA == nullptr) {
-    getSOAFromRecords(from, diff->oldSOA, diff->oldSOATTL);
-  }
-  diff->newSOA = toSOA;
-  diff->newSOATTL = toSOATTL;
-  if (toSOA == nullptr) {
-    getSOAFromRecords(to, diff->newSOA, diff->newSOATTL);
-  }
-}
-
 /* you can _never_ alter the content of the resulting shared pointer */
 static std::shared_ptr<ixfrinfo_t> getCurrentZoneInfo(const DNSName& domain)
 {
@@ -191,49 +164,42 @@ static void updateCurrentZoneInfo(const DNSName& domain, std::shared_ptr<ixfrinf
   // FIXME: also report zone size?
 }
 
-void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& axfrTimeout, const uint16_t& soaRetry, const uint32_t axfrMaxRecords) {
-  setThreadName("ixfrdist/update");
-  std::map<DNSName, time_t> lastCheck;
+/* Does the AXFR for domain from master, puts the new SOA in newSOA, the TTL of the SOA in soaTTL and all the records in records
+ * Throws an exception on error
+ */
+uint32_t doAXFR(const DNSName& domain, const ComboAddress& master, const uint16_t axfrTimeout, shared_ptr<SOARecordContent>& newSOA, uint32_t soaTTL, records_t records) {
+  g_log<<Logger::Info<<"Attempting to receive full zonedata for '"<<domain<<"'"<<endl;
+  ComboAddress local = master.isIPv4() ? ComboAddress("0.0.0.0") : ComboAddress("::");
+  TSIGTriplet tt;
 
-  // Initialize the serials we have
-  for (const auto &domainConfig : g_domainConfigs) {
-    DNSName domain = domainConfig.first;
-    lastCheck[domain] = 0;
-    string dir = workdir + "/" + domain.toString();
-    try {
-      g_log<<Logger::Info<<"Trying to initially load domain "<<domain<<" from disk"<<endl;
-      auto serial = getSerialsFromDir(dir);
-      shared_ptr<SOARecordContent> soa;
-      uint32_t soaTTL;
-      {
-        string fname = workdir + "/" + domain.toString() + "/" + std::to_string(serial);
-        loadSOAFromDisk(domain, fname, soa, soaTTL);
-        records_t records;
-        if (soa != nullptr) {
-          loadZoneFromDisk(records, fname, domain);
-        }
-        auto zoneInfo = std::make_shared<ixfrinfo_t>();
-        zoneInfo->latestAXFR = std::move(records);
-        zoneInfo->soa = soa;
-        zoneInfo->soaTTL = soaTTL;
-        updateCurrentZoneInfo(domain, zoneInfo);
+  AXFRRetriever axfr(master, domain, tt, &local);
+  uint32_t nrecords=0;
+  Resolver::res_t nop;
+  vector<DNSRecord> chunk;
+  time_t t_start = time(nullptr);
+  time_t axfr_now = time(nullptr);
+  while(axfr.getChunk(nop, &chunk, (axfr_now - t_start + axfrTimeout))) {
+    for(auto& dr : chunk) {
+      if(dr.d_type == QType::TSIG)
+        continue;
+      if(!dr.d_name.isPartOf(domain)) {
+        throw PDNSException("Out-of-zone data received during AXFR of "+domain.toLogString());
       }
-      if (soa != nullptr) {
-        g_log<<Logger::Notice<<"Loaded zone "<<domain<<" with serial "<<soa->d_st.serial<<endl;
-        // Initial cleanup
-        cleanUpDomain(domain, keep, workdir);
-      }
-    } catch (runtime_error &e) {
-      // Most likely, the directory does not exist.
-      g_log<<Logger::Info<<e.what()<<", attempting to create"<<endl;
-      // Attempt to create it, if _that_ fails, there is no hope
-      if (mkdir(dir.c_str(), 0777) == -1 && errno != EEXIST) {
-        g_log<<Logger::Error<<"Could not create '"<<dir<<"': "<<strerror(errno)<<endl;
-        _exit(EXIT_FAILURE);
-      }
+      dr.d_name.makeUsRelative(domain);
+      records.insert(dr);
+      nrecords++;
+    }
+    axfr_now = time(nullptr);
+    if (axfr_now - t_start > axfrTimeout) {
+      g_stats.incrementAXFRFailures(domain);
+      throw PDNSException("Total AXFR time exceeded!");
     }
   }
+  return nrecords;
+}
 
+void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& axfrTimeout, const uint16_t& soaRetry) {
+  setThreadName("ixfrdist/update");
   g_log<<Logger::Notice<<"Update Thread started"<<endl;
 
   while (true) {
@@ -242,39 +208,33 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
       break;
     }
     time_t now = time(nullptr);
-    for (const auto &domainConfig : g_domainConfigs) {
 
+    for (auto &domain : g_domains) {
       if (g_exiting) {
         break;
       }
+      DNSName domainName = domain.getDomain();
 
-      DNSName domain = domainConfig.first;
-      shared_ptr<SOARecordContent> current_soa;
-      const auto& zoneInfo = getCurrentZoneInfo(domain);
-      if (zoneInfo != nullptr) {
-        current_soa = zoneInfo->soa;
-      }
+      auto current_soa(domain.getSOA());
+      auto zoneLastCheck(domain.getLastCheck());
 
-      auto& zoneLastCheck = lastCheck[domain];
-      if ((current_soa != nullptr && now - zoneLastCheck < current_soa->d_st.refresh) || // Only check if we have waited `refresh` seconds
+      if ((current_soa != nullptr && now - zoneLastCheck < current_soa->d_st.refresh) ||       // Only check if we have waited `refresh` seconds
           (current_soa == nullptr && now - zoneLastCheck < soaRetry))  {                       // Or if we could not get an update at all still, every 30 seconds
         continue;
       }
 
       // TODO Keep track of 'down' masters
-      set<ComboAddress>::const_iterator it(domainConfig.second.masters.begin());
-      std::advance(it, dns_random(domainConfig.second.masters.size()));
-      ComboAddress master = *it;
+      auto master = domain.getRandomMaster();
 
-      string dir = workdir + "/" + domain.toString();
-      g_log<<Logger::Info<<"Attempting to retrieve SOA Serial update for '"<<domain<<"' from '"<<master.toStringWithPort()<<"'"<<endl;
+      g_log<<Logger::Info<<"Attempting to retrieve SOA Serial update for '"<<domainName<<"' from '"<<master.toStringWithPort()<<"'"<<endl;
       shared_ptr<SOARecordContent> sr;
+
       try {
         zoneLastCheck = now;
-        g_stats.incrementSOAChecks(domain);
-        auto newSerial = getSerialFromMaster(master, domain, sr); // TODO TSIG
+        g_stats.incrementSOAChecks(domainName);
+        auto newSerial = getSerialFromMaster(master, domainName, sr); // TODO TSIG
         if(current_soa != nullptr) {
-          g_log<<Logger::Info<<"Got SOA Serial for "<<domain<<" from "<<master.toStringWithPort()<<": "<< newSerial<<", had Serial: "<<current_soa->d_st.serial;
+          g_log<<Logger::Info<<"Got SOA Serial for "<<domainName<<" from "<<master.toStringWithPort()<<": "<< newSerial<<", had Serial: "<<current_soa->d_st.serial;
           if (newSerial == current_soa->d_st.serial) {
             g_log<<Logger::Info<<", not updating."<<endl;
             continue;
@@ -282,20 +242,18 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
           g_log<<Logger::Info<<", will update."<<endl;
         }
       } catch (runtime_error &e) {
-        g_log<<Logger::Warning<<"Unable to get SOA serial update for '"<<domain<<"' from master "<<master.toStringWithPort()<<": "<<e.what()<<endl;
-        g_stats.incrementSOAChecksFailed(domain);
+        g_log<<Logger::Warning<<"Unable to get SOA serial update for '"<<domainName<<"' from master "<<master.toStringWithPort()<<": "<<e.what()<<endl;
+        g_stats.incrementSOAChecksFailed(domainName);
         continue;
       }
-      // Now get the full zone!
-      g_log<<Logger::Info<<"Attempting to receive full zonedata for '"<<domain<<"'"<<endl;
-      ComboAddress local = master.isIPv4() ? ComboAddress("0.0.0.0") : ComboAddress("::");
-      TSIGTriplet tt;
 
-      // The *new* SOA
-      shared_ptr<SOARecordContent> soa;
-      uint32_t soaTTL = 0;
+      // Now get the full zone!
+      shared_ptr<SOARecordContent> newSOA;
+      uint32_t soaTTL{0};
       records_t records;
+      uint32_t nrecords{0};
       try {
+<<<<<<< HEAD
         AXFRRetriever axfr(master, domain, tt, &local);
         uint32_t nrecords=0;
         Resolver::res_t nop;
@@ -332,53 +290,26 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
           continue;
         }
         g_log<<Logger::Notice<<"Retrieved all zone data for "<<domain<<". Received "<<nrecords<<" records."<<endl;
+        nrecords = doAXFR(domainName, master, axfrTimeout, newSOA, soaTTL, records);
       } catch (PDNSException &e) {
-        g_stats.incrementAXFRFailures(domain);
-        g_log<<Logger::Warning<<"Could not retrieve AXFR for '"<<domain<<"': "<<e.reason<<endl;
+        g_stats.incrementAXFRFailures(domainName);
+        g_log<<Logger::Warning<<"Could not retrieve AXFR for '"<<domainName<<"': "<<e.reason<<endl;
         continue;
       } catch (runtime_error &e) {
-        g_stats.incrementAXFRFailures(domain);
-        g_log<<Logger::Warning<<"Could not retrieve AXFR for zone '"<<domain<<"': "<<e.what()<<endl;
+        g_stats.incrementAXFRFailures(domainName);
+        g_log<<Logger::Warning<<"Could not retrieve AXFR for zone '"<<domainName<<"': "<<e.what()<<endl;
         continue;
       }
+
+      g_log<<Logger::Notice<<"Retrieved all zone data for "<<domainName<<". Received "<<nrecords<<" records."<<endl;
 
       try {
-
-        writeZoneToDisk(records, domain, dir);
-        g_log<<Logger::Notice<<"Wrote zonedata for "<<domain<<" with serial "<<soa->d_st.serial<<" to "<<dir<<endl;
-
-        const auto oldZoneInfo = getCurrentZoneInfo(domain);
-        auto zoneInfo = std::make_shared<ixfrinfo_t>();
-
-        if (oldZoneInfo && !oldZoneInfo->latestAXFR.empty()) {
-          auto diff = std::make_shared<ixfrdiff_t>();
-          zoneInfo->ixfrDiffs = oldZoneInfo->ixfrDiffs;
-          g_log<<Logger::Debug<<"Calculating diff for "<<domain<<endl;
-          makeIXFRDiff(oldZoneInfo->latestAXFR, records, diff, oldZoneInfo->soa, oldZoneInfo->soaTTL, soa, soaTTL);
-          g_log<<Logger::Debug<<"Calculated diff for "<<domain<<", we had "<<diff->removals.size()<<" removals and "<<diff->additions.size()<<" additions"<<endl;
-          zoneInfo->ixfrDiffs.push_back(std::move(diff));
-        }
-
-        // Clean up the diffs
-        while (zoneInfo->ixfrDiffs.size() > keep) {
-          zoneInfo->ixfrDiffs.erase(zoneInfo->ixfrDiffs.begin());
-        }
-
-        g_log<<Logger::Debug<<"Zone "<<domain<<" previously contained "<<(oldZoneInfo ? oldZoneInfo->latestAXFR.size() : 0)<<" entries, "<<records.size()<<" now"<<endl;
-        zoneInfo->latestAXFR = std::move(records);
-        zoneInfo->soa = soa;
-        zoneInfo->soaTTL = soaTTL;
-        updateCurrentZoneInfo(domain, zoneInfo);
-      } catch (PDNSException &e) {
-        g_stats.incrementAXFRFailures(domain);
-        g_log<<Logger::Warning<<"Could not save zone '"<<domain<<"' to disk: "<<e.reason<<endl;
-      } catch (runtime_error &e) {
-        g_stats.incrementAXFRFailures(domain);
-        g_log<<Logger::Warning<<"Could not save zone '"<<domain<<"' to disk: "<<e.what()<<endl;
+        domain.storeNewZoneVersion(records);
+      } catch(const std::runtime_error &e) {
+        g_log<<Logger::Warning<<"Unable to process new AXFR data: "<<e.what()<<endl;
+        // TODO stats for LMDB failures
       }
-
-      // Now clean up the directory
-      cleanUpDomain(domain, keep, workdir);
+      // TODO clean up IXFRS
     } /* for (const auto &domain : domains) */
     sleep(1);
   } /* while (true) */
@@ -1118,10 +1049,10 @@ int main(int argc, char** argv) {
   /*  From hereon out, we known that all the values in config are valid. */
 
   for (auto const &domain : config["domains"]) {
-    set<ComboAddress> s;
-    s.insert(domain["master"].as<ComboAddress>());
-    g_domainConfigs[domain["domain"].as<DNSName>()].masters = s;
-    g_stats.registerDomain(domain["domain"].as<DNSName>());
+    IXFRDistDomain ixd(domain["domain"].as<DNSName>(), config["workdir"].as<string>());
+    ixd.addMaster(domain["master"].as<ComboAddress>());
+    g_domains.push_back(ixd);
+    g_stats.registerDomain(domain["domain"].as<DNSName>()); // TODO check
   }
 
   for (const auto &addr : config["acl"].as<vector<string>>()) {

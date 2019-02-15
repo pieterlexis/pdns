@@ -74,6 +74,7 @@ public:
   std::string toLogString() const; //!< like plain toString, but returns (empty) on empty names
   std::string toStringNoDot() const { return toString(".", false); }
   std::string toStringRootDot() const { if(isRoot()) return "."; else return toString(".", false); }
+  std::string toStringRootROOT() const { if(isRoot()) return "ROOT"; else return toString(".", false); }
   std::string toDNSString() const;           //!< Our representation in DNS native format
   std::string toDNSStringLC() const;           //!< Our representation in DNS native format, lower cased
   void appendRawLabel(const std::string& str); //!< Append this unescaped label

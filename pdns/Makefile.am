@@ -626,6 +626,7 @@ ixfrdist_SOURCES = \
 	ixfr.cc ixfr.hh \
 	ixfrdist.cc ixfrdist.hh \
 	ixfrutils.cc ixfrutils.hh \
+	ixfrdist-lmdb.hh ixfrdist-lmdb.cc \
 	ixfrdist-stats.hh ixfrdist-stats.cc \
 	ixfrdist-web.hh ixfrdist-web.cc \
 	logger.cc logger.hh\
