@@ -49,7 +49,7 @@ static void getSOAFromRecords(const records_t& records, shared_ptr<SOARecordCont
     if (dnsrecord.d_type == QType::SOA) {
       soa = getRR<SOARecordContent>(dnsrecord);
       if (soa == nullptr) {
-        throw PDNSException("Unable to determine SOARecordContent from old records");
+        throw PDNSException("Unable to determine SOARecordContent from records");
       }
       soaTTL = dnsrecord.d_ttl;
       return;

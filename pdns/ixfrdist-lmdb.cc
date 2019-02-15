@@ -114,23 +114,21 @@ void IXFRDistDomain::doPutMeta(const string &keyname, const MDBInVal &val) const
   }
 }
 
-MDBOutVal IXFRDistDomain::doGetMeta(const string &keyname) const {
-  MDBOutVal val;
+int IXFRDistDomain::doGetMeta(const string &keyname, MDBOutVal &val) const {
   auto txn = mdbenv->getROTransaction();
+  int rc;
   try {
-    // XXX Handle MDB_NOTFOUND differently?
-    txn.get(metadb, keyname, val);
+    rc = txn.get(metadb, keyname, val);
   } catch(const std::runtime_error &e) {
-    throw std::runtime_error("Could not get " + keyname + " for " + domain.toString() + " from the database: " + e.what());
+    throw std::runtime_error("Could not get metdata " + keyname + " for " + domain.toString() + " from the database: " + e.what());
   }
-  return val;
+  return rc;
 }
 
 time_t IXFRDistDomain::getLastCheck() const {
   MDBOutVal val;
-  try {
-    val = doGetMeta(last_check_field_name);
-  } catch(...) {
+  int rc = doGetMeta(last_check_field_name, val);
+  if (rc == MDB_NOTFOUND) {
     return 0;
   }
   return val.get<time_t>();
@@ -143,9 +141,8 @@ void IXFRDistDomain::setLastCheck(const time_t value) {
 
 shared_ptr<SOARecordContent> IXFRDistDomain::getSOA() const {
   MDBOutVal val;
-  try {
-    val = doGetMeta(soa_field_name);
-  } catch(...) {
+  int rc = doGetMeta(soa_field_name, val);
+  if (rc == MDB_NOTFOUND) {
     return nullptr;
   }
   // return std::make_shared<SOARecordContent>(val.get<SOARecordContent>());
@@ -160,30 +157,34 @@ void IXFRDistDomain::storeNewZoneVersion(const records_t &records) {
   auto txn = mdbenv->getRWTransaction();
   auto axfrcursor = txn.getCursor(axfrsdb);
   MDBOutVal oldSOAVal, oldAXFRVal;
-
-  try {
-    std::ostringstream oss;
-    boost::archive::text_oarchive oa(oss);
-    oa<<records;
-    txn.put(axfrsdb, newSOA->d_st.serial, oss.str());
-
-  } catch(const std::runtime_error &e) {
-    throw std::runtime_error("Unable to store new AXFR with serial " + std::to_string(newSOA->d_st.serial) + " for domain " + domain.toLogString() + ": " + e.what());
-  }
+  bool storeOnly = false;
 
   try {
     if (axfrcursor.get(oldSOAVal, oldAXFRVal, MDB_FIRST) == MDB_NOTFOUND) { // No previous AXFR exists
-      txn.commit();
-      return; // No need to create IXFR-deltas
+      storeOnly = true;
     }
   } catch(const std::runtime_error &e) {
     throw std::runtime_error("Unable to retrieve old AXFR for domain " + domain.toLogString() + ": " + e.what());
   }
 
+  try {
+    std::stringstream ss;
+    boost::archive::text_oarchive oa{ss};
+    oa<<records;
+    txn.put(axfrsdb, newSOA->d_st.serial, ss.str());
+    if (storeOnly) {
+      txn.commit();
+      return;
+    }
+  } catch(const std::runtime_error &e) {
+    throw std::runtime_error("Unable to store new AXFR with serial " + std::to_string(newSOA->d_st.serial) + " for domain " + domain.toLogString() + ": " + e.what());
+  }
+
+  // There was an older AXFR, make IXFR diffs
   records_t oldAXFR;
   {
-    std::istringstream iss;
-    boost::archive::text_iarchive ia(iss);
+    std::stringstream iss;
+    boost::archive::text_iarchive ia{iss};
     ia>>oldAXFR;
   }
   getSOAFromRecords(oldAXFR, oldSOA, oldSOATTL);

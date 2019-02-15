@@ -35,11 +35,12 @@ class IXFRDistDomain
   public:
     explicit IXFRDistDomain(const DNSName &zone, const string &workdir) {
       domain = zone;
-      string p;
+      /*
       if (realpath(workdir.c_str(), &p[0]) == nullptr) {
         throw PDNSException("Could not determine work directory: " + stringerror());
       }
-      mdbenv = getMDBEnv((p + "/" + domain.toStringRootROOT()).c_str(), 0, 0600);
+      */
+      mdbenv = getMDBEnv((workdir + "/" + domain.toStringRootROOT()).c_str(), MDB_NOSUBDIR, 0600);
       metadb = mdbenv->openDB("meta", MDB_CREATE);
       axfrsdb = mdbenv->openDB("axfrs", MDB_CREATE);
       ixfrsdb = mdbenv->openDB("ixfrs", MDB_CREATE);
@@ -73,7 +74,7 @@ class IXFRDistDomain
     MDBDbi axfrsdb;
     MDBDbi ixfrsdb;
 
-    MDBOutVal doGetMeta(const string &keyname) const;
+    int doGetMeta(const string &keyname, MDBOutVal &val) const;
     void doPutMeta(const string &keyname, const MDBInVal &val) const;
 
     // All the fieldnames we'll use

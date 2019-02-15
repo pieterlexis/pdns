@@ -167,7 +167,7 @@ static void updateCurrentZoneInfo(const DNSName& domain, std::shared_ptr<ixfrinf
 /* Does the AXFR for domain from master, puts the new SOA in newSOA, the TTL of the SOA in soaTTL and all the records in records
  * Throws an exception on error
  */
-uint32_t doAXFR(const DNSName& domain, const ComboAddress& master, const uint16_t axfrTimeout, shared_ptr<SOARecordContent>& newSOA, uint32_t soaTTL, records_t records) {
+uint32_t doAXFR(const DNSName& domain, const ComboAddress& master, const uint16_t axfrTimeout, shared_ptr<SOARecordContent>& newSOA, uint32_t soaTTL, records_t &records) {
   g_log<<Logger::Info<<"Attempting to receive full zonedata for '"<<domain<<"'"<<endl;
   ComboAddress local = master.isIPv4() ? ComboAddress("0.0.0.0") : ComboAddress("::");
   TSIGTriplet tt;
@@ -230,7 +230,7 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
       shared_ptr<SOARecordContent> sr;
 
       try {
-        zoneLastCheck = now;
+        domain.setLastCheck(now);
         g_stats.incrementSOAChecks(domainName);
         auto newSerial = getSerialFromMaster(master, domainName, sr); // TODO TSIG
         if(current_soa != nullptr) {
@@ -300,7 +300,6 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
         g_log<<Logger::Warning<<"Could not retrieve AXFR for zone '"<<domainName<<"': "<<e.what()<<endl;
         continue;
       }
-
       g_log<<Logger::Notice<<"Retrieved all zone data for "<<domainName<<". Received "<<nrecords<<" records."<<endl;
 
       try {
@@ -308,6 +307,8 @@ void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& a
       } catch(const std::runtime_error &e) {
         g_log<<Logger::Warning<<"Unable to process new AXFR data: "<<e.what()<<endl;
         // TODO stats for LMDB failures
+      } catch(const PDNSException &e) {
+        g_log<<Logger::Warning<<"Unable to process new AXFR data: "<<e.reason<<endl;
       }
       // TODO clean up IXFRS
     } /* for (const auto &domain : domains) */
@@ -1049,6 +1050,7 @@ int main(int argc, char** argv) {
   /*  From hereon out, we known that all the values in config are valid. */
 
   for (auto const &domain : config["domains"]) {
+    g_log<<Logger::Debug<<domain["domain"].as<DNSName>()<<endl;
     IXFRDistDomain ixd(domain["domain"].as<DNSName>(), config["workdir"].as<string>());
     ixd.addMaster(domain["master"].as<ComboAddress>());
     g_domains.push_back(ixd);
