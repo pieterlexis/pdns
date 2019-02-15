@@ -67,9 +67,9 @@ void load(Archive & ar, QType& g, const unsigned int version)
 }
 
 template<class Archive>
-void serialize(Archive & ar, shared_ptr<DNSRecordContent>& d, const unsigned int version)
+void serialize(Archive & ar, DNSRecordContent& d, const unsigned int version)
 {
-  auto tmp = d->serialize(DNSName("."));
+  auto tmp = d.serialize(DNSName("."));
   ar & tmp;
 }
 
@@ -81,7 +81,7 @@ void serialize(Archive & ar, DNSRecord& d, const unsigned int version)
   ar & d.d_ttl;
   ar & d.d_class;
   ar & d.d_clen;
-  ar & d.d_content;
+  ar & *d.d_content;
 }
 } // namespace serialization
 } // namespace boost
@@ -148,7 +148,8 @@ shared_ptr<SOARecordContent> IXFRDistDomain::getSOA() const {
   } catch(...) {
     return nullptr;
   }
-  return std::make_shared<SOARecordContent>(val.get<SOARecordContent>());
+  // return std::make_shared<SOARecordContent>(val.get<SOARecordContent>());
+  return nullptr;
 }
 
 void IXFRDistDomain::storeNewZoneVersion(const records_t &records) {

@@ -629,6 +629,7 @@ ixfrdist_SOURCES = \
 	ixfrdist-lmdb.hh ixfrdist-lmdb.cc \
 	ixfrdist-stats.hh ixfrdist-stats.cc \
 	ixfrdist-web.hh ixfrdist-web.cc \
+	lmdb-safe.cc lmdb-safe.hh \
 	logger.cc logger.hh\
 	misc.cc misc.hh \
 	mplexer.hh \
@@ -649,8 +650,10 @@ ixfrdist_SOURCES = \
 
 ixfrdist_LDADD = \
 	$(BOOST_PROGRAM_OPTIONS_LIBS) \
+	$(BOOST_SERIALIZATION_LIBS) \
 	$(JSON11_LIBS) \
 	$(LIBCRYPTO_LIBS) \
+	$(LMDB_LIBS) \
 	$(YAHTTP_LIBS) \
 	$(YAML_LIBS)
 
