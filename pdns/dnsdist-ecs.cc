@@ -426,7 +426,13 @@ bool handleEDNSClientSubnet(DNSQuestion& dq, bool* ednsAdded, bool* ecsAdded, bo
 {
   assert(dq.remote != nullptr);
   string newECSOption;
-  generateECSOption(dq.ecsSet ? dq.ecs.getNetwork() : *dq.remote, newECSOption, dq.ecsSet ? dq.ecs.getBits() : dq.ecsPrefixLength);
+  try {
+    // Can throw in Netmask() when the prefix length is too large for the address
+    generateECSOption(dq.ecsSet ? dq.ecs.getNetwork() : *dq.remote, newECSOption, dq.ecsSet ? dq.ecs.getBits() : dq.ecsPrefixLength);
+  } catch (const NetmaskException &e) {
+    warnlog("Could not create ECS option in query for %s|%s: %s", (*dq.qname).toLogString(), QType(dq.qtype).getName(), e.reason);
+    return false;
+  }
   char* packet = reinterpret_cast<char*>(dq.dh);
 
   return handleEDNSClientSubnet(packet, dq.size, dq.consumed, &dq.len, ednsAdded, ecsAdded, dq.ecsOverride, newECSOption, preserveTrailingData);

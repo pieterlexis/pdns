@@ -507,16 +507,20 @@ bool TCPNameserver::canDoAXFR(shared_ptr<DNSPacket> q)
       }
       else
       {
-        Netmask nm = Netmask(*i);
-        if(nm.match( (ComboAddress *) &q->d_remote ))
-        {
-          g_log<<Logger::Warning<<"AXFR of domain '"<<q->qdomain<<"' allowed: client IP "<<q->getRemote()<<" is in per-domain ACL"<<endl;
-          // cerr<<"hit!"<<endl;
-          return true;
+        try {
+          Netmask nm = Netmask(*i);
+          if(nm.match( (ComboAddress *) &q->d_remote ))
+          {
+            g_log<<Logger::Warning<<"AXFR of domain '"<<q->qdomain<<"' allowed: client IP "<<q->getRemote()<<" is in per-domain ACL"<<endl;
+            // cerr<<"hit!"<<endl;
+            return true;
+          }
+        } catch(const NetmaskException &e) {
+          g_log<<Logger::Warning<<"Invalid netmask('"<<*i<<"') in ALLOW-AXFR-FROM for '"<<q->qdomain<<"': "<<e.reason<<endl;
         }
       }
     }
-  }  
+  }
 
   extern CommunicatorClass Communicator;
 

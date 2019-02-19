@@ -174,7 +174,13 @@ DNSAction::Action TeeAction::operator()(DNSQuestion* dq, string* ruleresult) con
       query.assign((char*) dq->dh, len);
 
       string newECSOption;
-      generateECSOption(dq->ecsSet ? dq->ecs.getNetwork() : *dq->remote, newECSOption, dq->ecsSet ? dq->ecs.getBits() :  dq->ecsPrefixLength);
+
+      try {
+        generateECSOption(dq->ecsSet ? dq->ecs.getNetwork() : *dq->remote, newECSOption, dq->ecsSet ? dq->ecs.getBits() :  dq->ecsPrefixLength);
+      } catch(const NetmaskException &e) {
+        warnlog("Could not create ECS option in query for %s|%s: %s", (*dq.qname).toLogString(), QType(dq.qtype).getName(), e.reason);
+        return DNSAction::Action::None;
+      }
 
       if (!handleEDNSClientSubnet(const_cast<char*>(query.c_str()), query.capacity(), dq->qname->wirelength(), &len, &ednsAdded, &ecsAdded, dq->ecsOverride, newECSOption, g_preserveTrailingData)) {
         return DNSAction::Action::None;

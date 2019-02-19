@@ -286,7 +286,11 @@ int asyncresolve(const ComboAddress& ip, const DNSName& domain, int type, bool d
               if(reso.scope.getBits()) {
                 uint8_t bits = std::min(reso.scope.getBits(), outgoingECSBits);
                 outgoingECSAddr.truncate(bits);
-                srcmask = Netmask(outgoingECSAddr, bits);
+                try {
+                  srcmask = Netmask(outgoingECSAddr, bits);
+                } catch(const NetmaskException &e) {
+                  g_log<<Logger::Warning<<"Upstream nameserver "<<ip<<" queried for "<<domain<<"|"<<QType(type).getName()<<" responded with a broken Netmask: "<<e.reason<<endl;
+                }
               }
             }
           }

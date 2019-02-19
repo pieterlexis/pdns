@@ -354,6 +354,9 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
 		      catch(std::exception& e) {
 			g_log<<Logger::Error<<"Error in addSortList: "<<e.what()<<endl;
 		      }
+		      catch(const NetmaskException& e) {
+			g_log<<Logger::Error<<"Error in addSortList: "<<e.reason<<endl;
+		      }
 		    });
 
   Lua.writeFunction("addTA", [&lci](const std::string& who, const std::string& what) {

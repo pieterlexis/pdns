@@ -3651,7 +3651,16 @@ static int serviceMain(int argc, char*argv[])
   }
 
   SyncRes::s_ecsipv4limit = ::arg().asNum("ecs-ipv4-bits");
+  if (::arg().asNum("ecs-ipv4-bits") > 32) {
+    g_log<<Logger::Warning<<"ecs-ipv4-bits is "<<std::to_string(::arg().asNum("ecs-ipv4-bits"))<<" reducing to 32."<<endl;
+    SyncRes::s_ecsipv4limit = 32;
+  }
+
   SyncRes::s_ecsipv6limit = ::arg().asNum("ecs-ipv6-bits");
+  if (::arg().asNum("ecs-ipv6-bits") > 128) {
+    g_log<<Logger::Warning<<"ecs-ipv6-bits is "<<std::to_string(::arg().asNum("ecs-ipv6-bits"))<<" reducing to 128."<<endl;
+    SyncRes::s_ecsipv6limit = 128;
+  }
 
   if (!::arg().isEmpty("ecs-scope-zero-address")) {
     ComboAddress scopeZero(::arg()["ecs-scope-zero-address"]);

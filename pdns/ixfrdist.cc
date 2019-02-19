@@ -1123,6 +1123,10 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config) {
       g_log<<Logger::Error<<"Unable to read 'webserver-acl' value: "<<e.what()<<endl;
       retval = false;
     }
+    catch (const NetmaskException &e) {
+      g_log<<Logger::Error<<"Unable to read 'webserver-acl' value: "<<e.reason<<endl;
+      retval = false;
+    }
   }
 
   return retval;
