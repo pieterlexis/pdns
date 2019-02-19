@@ -1010,7 +1010,7 @@ void setupLuaConfig(bool client)
 			   until.tv_sec += actualSeconds;
 			   for(const auto& capair : m) {
 			     unsigned int count = 0;
-                             auto got = slow.lookup(Netmask(capair.first));
+                             auto got = slow.lookup(capair.first);
                              bool expired=false;
 			     if(got) {
 			       if(until < got->second.until) // had a longer policy
@@ -1024,7 +1024,7 @@ void setupLuaConfig(bool client)
 			     db.blocks=count;
                              if(!got || expired)
                                warnlog("Inserting dynamic block for %s for %d seconds: %s", capair.first.toString(), actualSeconds, msg);
-			     slow.insert(Netmask(capair.first)).second=db;
+			     slow.insert(capair.first).second=db;
 			   }
 			   g_dynblockNMG.setState(slow);
 			 });
