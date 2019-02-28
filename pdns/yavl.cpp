@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <assert.h>
-#include "yaml.h"
+#include <yaml-cpp/yaml.h>
 #include "yavl.h"
 
 using namespace std;
@@ -68,24 +68,29 @@ ostream& operator << (ostream& os, const Errors& v)
   return os;
 }
 
-const string& Validator::type2str(YAML::CONTENT_TYPE t)
+// XXX const string& Validator::type2str(YAML::CONTENT_TYPE t)
+const string& Validator::type2str(YAML::NodeType::value t)
 {
   static string nonestr = "none";
   static string scalarstr = "scalar";
   static string liststr = "list";
   static string mapstr = "map";
+  static string undefinedstr = "undefined";
 
-  assert( (t >= YAML::CT_NONE) && (t <= YAML::CT_MAP) );
+  // XXX assert( (t >= YAML::CT_NONE) && (t <= YAML::CT_MAP) );
+  // assert( (t >= YAML::NodeType::Null) && (t <= YAML::NodeType::Map) );
 
   switch (t) {
-    case YAML::CT_NONE:
+    case YAML::NodeType::Null:
       return nonestr;
-    case YAML::CT_SCALAR:
+    case YAML::NodeType::Scalar:
       return scalarstr;
-    case YAML::CT_SEQUENCE:
+    case YAML::NodeType::Sequence:
       return liststr;
-    case YAML::CT_MAP:
+    case YAML::NodeType::Map:
       return mapstr;
+    case YAML::NodeType::Undefined:
+      return undefinedstr;
   }
   assert(0);
   return nonestr;
@@ -93,30 +98,37 @@ const string& Validator::type2str(YAML::CONTENT_TYPE t)
 
 int Validator::num_keys(const YAML::Node& doc)
 {
-  if (doc.GetType() != YAML::CT_MAP) {
+  // XXX if (doc.GetType() != YAML::CT_MAP) {
+  if (doc.Type() != YAML::NodeType::Map) {
     return 0;
   }
+  /* XXX
   int num = 0;
   for (YAML::Iterator i = doc.begin(); i != doc.end(); ++i) {
     num++;
   }
   return num;
+  */
+  return doc.size();
 }
 
 bool Validator::validate_map(const YAML::Node &mapNode, const YAML::Node &doc)
 {
-  if (doc.GetType() != YAML::CT_MAP) {
-    string reason = "expected map, but found " + type2str(doc.GetType());
+  // XXX if (doc.GetType() != YAML::CT_MAP) {
+  // XXX   string reason = "expected map, but found " + type2str(doc.GetType());
+  if(!doc.IsMap()) {
+    string reason = "expected map, but found " + type2str(doc.Type());
     gen_error(Exception(reason, gr_path, doc_path));
     return false;
   }
 
   bool ok = true;
-  for (YAML::Iterator i = mapNode.begin(); i != mapNode.end(); ++i) {
-    string key = i.first();
-    const YAML::Node &valueNode = i.second();
+  // XXX for (YAML::Iterator i = mapNode.begin(); i != mapNode.end(); ++i) {
+  for (auto &i : mapNode) {
+    string key = i.first.as<string>();
+    const YAML::Node &valueNode = i.second;
     const YAML::Node *docMapNode = 0;
-    if (!(docMapNode = doc.FindValue(key))) {
+    if (!(docMapNode = doc. FindValue(key))) {
       string reason = "key: " + key + " not found.";
       gen_error(Exception(reason, gr_path, doc_path));
       ok = false;
