@@ -128,10 +128,18 @@ class Config {
     Config();
     ~Config();
 
+    // enum class ConfigItemType { Bool, DNSName, IPEndpoint, IPNetmask, Number };
+
     template<typename T>
     void declareItem(const std::string &name, const std::string &description, const std::string &help, const bool runtime, const T &default_value);
 
+    void parseConfig();
+
+    template<typename T>
+    T getConfigItem(const std::string& name);
+
   private:
+    map<std::string, 
     bool d_configParsed{false};
     YAML::Node d_config;
 };
