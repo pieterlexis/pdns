@@ -10857,12 +10857,29 @@ BOOST_AUTO_TEST_CASE(test_dname_processing) {
   BOOST_CHECK(ret[2].d_type == QType::A);
   BOOST_CHECK_EQUAL(ret[2].d_name, cnameTarget);
 
-  // TODO add cached tests once the caching of DNAME is implemented
+  // Now check the cache
+  ret.clear();
+  res = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
+
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_REQUIRE_EQUAL(ret.size(), 3);
+
+  BOOST_CHECK_EQUAL(queries, 4);
+
+  BOOST_CHECK(ret[0].d_type == QType::DNAME);
+  BOOST_CHECK(ret[0].d_name == dnameOwner);
+  BOOST_CHECK_EQUAL(getRR<DNAMERecordContent>(ret[0])->getTarget(), dnameTarget);
+
+  BOOST_CHECK(ret[1].d_type == QType::CNAME);
+  BOOST_CHECK_EQUAL(ret[1].d_name, target);
+
+  BOOST_CHECK(ret[2].d_type == QType::A);
+  BOOST_CHECK_EQUAL(ret[2].d_name, cnameTarget);
 }
 
 BOOST_AUTO_TEST_CASE(test_dname_dnssec_secure) {
   std::unique_ptr<SyncRes> sr;
-  initSR(sr, true);
+  initSR(sr, true, true);
   setDNSSECValidation(sr, DNSSECMode::ValidateAll);
 
   primeHints();
@@ -10887,17 +10904,11 @@ BOOST_AUTO_TEST_CASE(test_dname_dnssec_secure) {
   sr->setAsyncCallback([dnameOwner, dnameTarget, target, cnameTarget, keys, &queries](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, LWResult* res, bool* chained) {
       queries++;
 
-      if (type == QType::DS || type == QType::DNSKEY) {
-        bool proveCut=true;
-        auto auth{domain};
-        if (domain.countLabels() > 1) {
-          auth.chopOff();
-          proveCut = false;
-        }
-        return genericDSAndDNSKEYHandler(res, domain, auth, type, keys, proveCut);
-      }
 
       if (isRootServer(ip)) {
+        if (type == QType::DS) {
+          return genericDSAndDNSKEYHandler(res, domain, auth, type, keys, proveCut);
+        }
         if (domain.isPartOf(dnameOwner)) {
           setLWResult(res, 0, false, false, true);
           addRecordToLW(res, dnameOwner, QType::NS, "a.gtld-servers.net.", DNSResourceRecord::AUTHORITY, 172800);
@@ -10958,7 +10969,32 @@ BOOST_AUTO_TEST_CASE(test_dname_dnssec_secure) {
   BOOST_CHECK(ret[4].d_type == QType::RRSIG);
   BOOST_CHECK_EQUAL(ret[4].d_name, cnameTarget);
 
-  // TODO add cached tests once the caching of DNAME is implemented
+  // And the cache
+  ret.clear();
+  res = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
+
+  BOOST_CHECK_EQUAL(res, RCode::NoError);
+  BOOST_CHECK_EQUAL(sr->getValidationState(), Secure);
+  BOOST_REQUIRE_EQUAL(ret.size(), 5); /* DNAME + RRSIG(DNAME) + CNAME + A + RRSIG(A) */
+
+  BOOST_CHECK_EQUAL(queries, 9);
+
+  BOOST_CHECK(ret[0].d_type == QType::DNAME);
+  BOOST_CHECK(ret[0].d_name == dnameOwner);
+  BOOST_CHECK_EQUAL(getRR<DNAMERecordContent>(ret[0])->getTarget(), dnameTarget);
+
+  BOOST_CHECK(ret[1].d_type == QType::RRSIG);
+  BOOST_CHECK_EQUAL(ret[1].d_name, dnameOwner);
+
+  BOOST_CHECK(ret[2].d_type == QType::CNAME);
+  BOOST_CHECK_EQUAL(ret[2].d_name, target);
+
+  BOOST_CHECK(ret[3].d_type == QType::A);
+  BOOST_CHECK_EQUAL(ret[3].d_name, cnameTarget);
+
+  BOOST_CHECK(ret[4].d_type == QType::RRSIG);
+  BOOST_CHECK_EQUAL(ret[4].d_name, cnameTarget);
+
 }
 
 /*
