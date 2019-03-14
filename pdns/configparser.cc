@@ -42,6 +42,10 @@ void Config::declareItem(const std::string &name, const ConfigItemType valType, 
     throw std::runtime_error("Configuration element '" + name + "' has no description"); // FIXME should be asserted
   }
 
+  if (defaultValue.empty()) {
+    throw std::runtime_error("Configuration element '" + name + "' has no default value"); // FIXME should be asserted
+  }
+
   try {
     if (isVector) {
       tryCastVector(defaultValue, valType);
