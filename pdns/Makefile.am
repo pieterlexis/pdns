@@ -1249,6 +1249,7 @@ testrunner_SOURCES = \
 	base64.cc \
 	bindlexer.l \
 	bindparser.yy \
+	configparser.cc \
 	dbdnsseckeeper.cc \
 	dns.cc \
 	dns_random.cc \
@@ -1288,6 +1289,7 @@ testrunner_SOURCES = \
 	test-base64_cc.cc \
 	test-bindparser_cc.cc \
 	test-common.hh \
+	test-configparser_cc.cc \
 	test-dnsrecordcontent.cc \
 	test-digests_hh.cc \
 	test-distributor_hh.cc \
@@ -1327,7 +1329,8 @@ testrunner_LDADD = \
 	$(BOOST_UNIT_TEST_FRAMEWORK_LIBS) \
 	$(RT_LIBS) \
 	$(LUA_LIBS) \
-	$(LIBDL)
+	$(LIBDL) \
+	$(YAML_LIBS)
 
 if PKCS11
 testrunner_SOURCES += pkcs11signers.cc pkcs11signers.hh

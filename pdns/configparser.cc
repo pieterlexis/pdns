@@ -21,10 +21,57 @@
  */
 #include "configparser.hh"
 
-template<typename T>
-void Config::declareItem(const std::string &name, const std::string &description, const std::string &help, const bool runtime, const T &default_value) {
+void Config::declareItem(const std::string &name, const ConfigItemType valType, const std::string &description, const std::string &help, const bool runtime, const bool isVector, const boost::any defaultValue) {
   if (d_configParsed) {
     throw std::runtime_error("Can not declare new items after the configuration has been parsed");
   }
-  d_config[name] = YAML::Node(default_value);
+
+  if (configElements.find(name) != configElements.end()) {
+    throw std::runtime_error("Configuration item " + name + " is already declared");
+  }
+
+  if (name.empty()) {
+    throw std::runtime_error("Configuration elements cannot be unnamed"); // FIXME should be asserted
+  }
+
+  if (help.empty()) {
+    throw std::runtime_error("Configuration element '" + name + "' has no help"); // FIXME should be asserted
+  }
+
+  if (description.empty()) {
+    throw std::runtime_error("Configuration element '" + name + "' has no description"); // FIXME should be asserted
+  }
+
+  try {
+    if (isVector) {
+      tryCastVector(defaultValue, valType);
+    } else {
+      tryCast(defaultValue, valType);
+    }
+  } catch(const std::runtime_error &e) {
+    throw runtime_error("Default value for '" + name + "' is not of the right type: " + e.what());
+  }
+
+  configI c;
+  c.t = valType;
+  c.val = defaultValue;
+  c.defaultValue = defaultValue;
+  c.description = description;
+  c.help = help;
+  c.runtime = runtime;
+
+  configElements[name] = c;
+}
+
+bool Config::getBool(const std::string &name) {
+  isDeclared(name);
+  if (configElements[name].t != ConfigItemType::Bool) {
+    throw runtime_error("wrong type"); // FIXME
+  }
+  return boost::any_cast<bool>(configElements[name].val);
+}
+
+string Config::emitConfig() {
+  // FIXME use YAML::Emitter
+  return "";
 }
