@@ -30,6 +30,105 @@
 #include "dnsname.hh"
 #include "iputils.hh"
 
+class ConfigItem {
+  public:
+    bool mandatory{true};
+    bool runtime{false};
+    std::string description;
+    std::string help;
+
+    virtual std::string getString() const;
+    virtual std::string getDefaultString() const;
+};
+
+class ConfigBool : ConfigItem {
+  public:
+    bool getBool() {
+      return d_v;
+    }
+
+    bool getDefaultBool() {
+      return d_default;
+    }
+
+    std::string getString() const {
+      if (d_v) {
+        return "true";
+      }
+      return "false";
+    }
+
+    std::string getDefaultString() const {
+      if (d_default) {
+        return "true";
+      }
+      return "false";
+    }
+
+  private:
+    bool d_v;
+    bool d_default;
+};
+
+class ConfigIPEndpoint : ConfigItem {
+  public:
+    ComboAddress getIPEndpoint() const {
+      return d_v;
+    }
+    ComboAddress getDefaultIPEndpoint() const {
+      return d_default;
+    }
+    std::string getString() const {
+      return d_v.toStringWithPort();
+    }
+    std::string getDefaultString() const {
+      return d_default.toStringWithPort();
+    }
+  private:
+    ComboAddress d_v;
+    ComboAddress d_default;
+};
+
+class ConfigIPEndpoints : ConfigItem {
+  public:
+    vector<ComboAddress> getIPEndpoints() const {
+      return d_v;
+    }
+    vector<ComboAddress> getDefaultIPEndpoint() const {
+      return d_default;
+    }
+
+    std::string getString() const {
+      string ret;
+      bool first = true;
+      for (auto const c : d_v) {
+        if (!first) {
+          ret += ", ";
+        }
+        first = false;
+        ret += c.toStringWithPort();
+      }
+      return ret;
+    }
+
+    std::string getDefaultString() const {
+      string ret;
+      bool first = true;
+      for (auto const c : d_default) {
+        if (!first) {
+          ret += ", ";
+        }
+        first = false;
+        ret += c.toStringWithPort();
+      }
+      return ret;
+    }
+
+  private:
+    vector<ComboAddress> d_v;
+    vector<ComboAddress> d_default;
+};
+
 class Config {
   public:
     typedef struct {
