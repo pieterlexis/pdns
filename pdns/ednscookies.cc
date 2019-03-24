@@ -20,6 +20,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "ednscookies.hh"
+#include <arpa/inet.h>
+#include "arguments.hh"
+#include "siphash.c"
 
 bool getEDNSCookiesOptFromString(const string& option, EDNSCookiesOpt* eco)
 {
@@ -48,4 +51,33 @@ string makeEDNSCookiesOptString(const EDNSCookiesOpt& eco)
   if (eco.server.length() != 0)
     ret.append(eco.server);
   return ret;
+}
+
+bool createEDNSServerCookie(const string &secret, EDNSCookiesOpt &eco) {
+  if (eco.client.size() != 8) {
+    return false;
+  }
+
+  string cookie = makeEDNSCookiesOptString(eco);
+
+  cookie.resize(8+16); // Client cookie (8) + server cookie (16)
+  cookie[8] = 1; // version
+  cookie[9] = 4; // Algorithm (siphash)
+  cookie[10] = 0; // Reserved
+  cookie[11] = 0; // Reserved
+
+  // Add the timestamp
+  uint32_t now = static_cast<uint32_t>(time(nullptr));
+  cookie[12] = now >> 24;
+  cookie[13] = now >> 16;
+  cookie[14] = now >> 8;
+  cookie[15] = now;
+
+  // Add the hash (in, inlen, secret, out, outlen)
+  siphash(reinterpret_cast<const uint8_t*>(&cookie[0]), 16,
+      reinterpret_cast<const uint8_t*>(&secret[0]),
+      reinterpret_cast<uint8_t*>(&cookie[16]), 8);
+
+  eco.server = cookie.substr(8);
+  return true;
 }

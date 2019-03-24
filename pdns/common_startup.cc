@@ -22,6 +22,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#include <sstream>
 #include "common_startup.hh"
 #include "ws-auth.hh"
 #include "secpoll-auth.hh"
@@ -143,6 +144,9 @@ void declareArguments()
   ::arg().setSwitch("prevent-self-notification","Don't send notifications to what we think is ourself")="yes";
   ::arg().setSwitch("any-to-tcp","Answer ANY queries with tc=1, shunting to TCP")="yes";
   ::arg().setSwitch("edns-subnet-processing","If we should act on EDNS Subnet options")="no";
+
+  ::arg().setSwitch("edns-cookie-processing", "Enable generation of EDNS server cookies")="no";
+  ::arg().set("edns-cookie-secret", "When set, set a server cookie in a response to a query with a Client cookie (in hex)")="";
 
   ::arg().setSwitch("webserver","Start a webserver for monitoring (api=yes also enables the HTTP listener)")="no";
   ::arg().setSwitch("webserver-print-arguments","If the webserver should print arguments")="no";
@@ -518,7 +522,18 @@ void mainthread()
 
    DNSPacket::s_udpTruncationThreshold = std::max(512, ::arg().asNum("udp-truncation-threshold"));
    DNSPacket::s_doEDNSSubnetProcessing = ::arg().mustDo("edns-subnet-processing");
-
+   DNSPacket::s_doEDNSCookieProcessing = ::arg().mustDo("edns-cookie-processing");
+   if (DNSPacket::s_doEDNSCookieProcessing) {
+     try {
+       if (::arg()["edns-cookie-secret"].size() != 32) {
+         throw std::range_error("wrong size (" + std::to_string(::arg()["edns-cookie-secret"].size()) + "), must be 32");
+       }
+       DNSPacket::s_EDNSCookieKey = makeBytesFromHex(::arg()["edns-cookie-secret"]);
+     } catch(const std::range_error &e) {
+       g_log<<Logger::Error<<"edns-cookie-secret invalid: "<<e.what()<<endl;
+       exit(1);
+     }
+   }
    PC.setTTL(::arg().asNum("cache-ttl"));
    PC.setMaxEntries(::arg().asNum("max-packet-cache-entries"));
    QC.setMaxEntries(::arg().asNum("max-cache-entries"));

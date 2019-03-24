@@ -184,6 +184,7 @@ pdns_server_SOURCES = \
 	dynmessenger.hh \
 	ednsoptions.cc ednsoptions.hh \
 	ednssubnet.cc ednssubnet.hh \
+	ednscookies.cc ednscookies.hh \
 	gss_context.cc gss_context.hh \
 	iputils.cc iputils.hh \
 	ixfr.cc ixfr.hh \
@@ -309,6 +310,7 @@ pdnsutil_SOURCES = \
 	dnssecsigner.cc \
 	dnswriter.cc dnswriter.hh \
 	dynlistener.cc \
+	ednscookies.cc ednscookies.hh \
 	ednsoptions.cc ednsoptions.hh \
 	ednssubnet.cc \
 	gss_context.cc gss_context.hh \

@@ -32,5 +32,6 @@ struct EDNSCookiesOpt
 
 bool getEDNSCookiesOptFromString(const char* option, unsigned int len, EDNSCookiesOpt* eco);
 bool getEDNSCookiesOptFromString(const string& option, EDNSCookiesOpt* eco);
+bool createEDNSServerCookie(const string &secret, EDNSCookiesOpt &eco);
 string makeEDNSCookiesOptString(const EDNSCookiesOpt& eco);
 #endif
