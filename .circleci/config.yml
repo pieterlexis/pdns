@@ -134,6 +134,8 @@ commands:
       - run: |
           apt-get install -qq -y --no-install-recommends \
             libboost-all-dev \
+            libkrb5-3 \
+            libldap-2.4-2 \
             liblmdb0 \
             libpq5 \
             libssl1.1 \
@@ -156,6 +158,8 @@ commands:
               g++ \
               git \
               libboost-all-dev \
+              libkrb5-dev \
+              libldap2-dev \
               liblmdb-dev \
               libpq-dev \
               libsqlite3-dev \
@@ -265,7 +269,7 @@ jobs:
             CXXFLAGS="-O1 -Werror=vla" \
             ./configure \
               --disable-lua-records \
-              --with-modules='bind lmdb gmysql gsqlite3 gpgsql godbc random' \
+              --with-modules='bind lmdb ldap gmysql gsqlite3 gpgsql godbc random' \
               --enable-tools \
               --with-lmdb=/usr \
               --prefix=/opt/pdns-auth
@@ -473,6 +477,32 @@ jobs:
       - auth-regress:
           context: gpgsql-nsec3-narrow
 
+  test-auth-regress-ldap:
+    docker:
+      - image: debian:stretch
+      - image: osixia/openldap:1.2.4
+    steps:
+      - auth-regress-setup
+      - run: DEBIAN_FRONTEND=noninteractive apt-get install -qq -y ldap-utils slapd
+      - run:
+          name: Upload schemas
+          command: |
+            mkdir config
+            for schema in /etc/ldap/schema/{core,cosine}.schema $PWD/modules/ldapbackend/{dnsdomain2,pdns-domaininfo}.schema ; do echo include $schema >> schema.conf; done
+            slaptest -f schema.conf -F config
+            slapcat -F config -n0 -s cn=schema,cn=config | slapadd
+            slapadd -f ./modules/ldapbackend/testfiles/add.ldif
+      - auth-regress:
+          context: ldap-nodnssec-both
+      - auth-regress:
+          context: ldap-both
+      - auth-regress:
+          context: ldap-nsec3-both
+      - auth-regress:
+          context: ldap-nsec3-optout-both
+      - auth-regress:
+          context: ldap-nsec3-narrow
+
   test-auth-regress-lmdb:
     docker:
       - image: debian:stretch
@@ -669,6 +699,9 @@ workflows:
           requires:
             - build-auth
       - test-auth-regress-lmdb:
+          requires:
+            - build-auth
+      - test-auth-regress-ldap:
           requires:
             - build-auth
 
