@@ -501,28 +501,22 @@ jobs:
   test-auth-regress-ldap:
     docker:
       - image: debian:stretch
-      - image: osixia/openldap:1.2.4
+        environment:
+          LDAPHOST: ldap://ldapserver/
+      - image: powerdns/ldap-regress:1.2.4-0 # OpenLDAP 2.4.47
+        name: ldapserver
     steps:
       - auth-regress-setup
-      - run: DEBIAN_FRONTEND=noninteractive apt-get install -qq -y ldap-utils slapd
-      - run:
-          name: Upload schemas
-          command: |
-            mkdir config
-            for schema in /etc/ldap/schema/{core,cosine}.schema $PWD/modules/ldapbackend/{dnsdomain2,pdns-domaininfo}.schema ; do echo include $schema >> schema.conf; done
-            slaptest -f schema.conf -F config
-            slapcat -F config -n0 -s cn=schema,cn=config | slapadd
-            slapadd -f ./modules/ldapbackend/testfiles/add.ldif
+      - run: DEBIAN_FRONTEND=noninteractive apt-get install -qq -y ldap-utils
       - auth-regress:
-          context: ldap-nodnssec-both
+          context: ldap-tree
+          doroot: false
       - auth-regress:
-          context: ldap-both
+          context: ldap-simple
+          doroot: false
       - auth-regress:
-          context: ldap-nsec3-both
-      - auth-regress:
-          context: ldap-nsec3-optout-both
-      - auth-regress:
-          context: ldap-nsec3-narrow
+          context: ldap-strict
+          doroot: false
 
   test-auth-regress-lmdb:
     docker:
