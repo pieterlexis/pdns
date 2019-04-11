@@ -553,12 +553,16 @@ jobs:
       - run:
           name: Run no backend tests
           command: |
-            NOTIFY="/opt/pdns-auth/bin/pdns_notify" \
-            NSEC3DIG="/opt/pdns-auth/bin/nsec3dig" \
-            PDNSSERVER="/opt/pdns-auth/sbin/pdns_server" \
-            PDNSUTIL="/opt/pdns-auth/bin/pdnsutil" \
-            SAXFR="/opt/pdns-auth/bin/saxfr" \
-            SDIG="/opt/pdns-auth/bin/sdig" \
+            PDNS=/opt/pdns-auth/sbin/pdns_server \
+            PDNS2=/opt/pdns-auth/sbin/pdns_server \
+            SDIG=/opt/pdns-auth/bin/sdig \
+            NOTIFY=/opt/pdns-auth/bin/pdns_notify \
+            NSEC3DIG=/opt/pdns-auth/bin/nsec3dig \
+            SAXFR=/opt/pdns-auth/bin/saxfr \
+            ZONE2SQL=/opt/pdns-auth/bin/zone2sql \
+            ZONE2LDAP=/opt/pdns-auth/bin/zone2ldap \
+            PDNSUTIL=/opt/pdns-auth/bin/pdnsutil \
+            PDNSCONTROL=/opt/pdns-auth/bin/pdns_control \
             ./runtests
           workdir: ~/project/regression-tests.nobackend
       - run:
