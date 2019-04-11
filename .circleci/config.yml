@@ -545,6 +545,26 @@ jobs:
       - auth-regress:
           context: lmdb-nsec3-narrow
 
+  test-auth-regress-nobackend:
+    docker:
+      - image: debian:stretch
+    steps:
+      - auth-regress-setup
+      - run:
+          name: Run no backend tests
+          command: |
+            NOTIFY="/opt/pdns-auth/bin/pdns_notify" \
+            NSEC3DIG="/opt/pdns-auth/bin/nsec3dig" \
+            PDNSSERVER="/opt/pdns-auth/sbin/pdns_server" \
+            PDNSUTIL="/opt/pdns-auth/bin/pdnsutil" \
+            SAXFR="/opt/pdns-auth/bin/saxfr" \
+            SDIG="/opt/pdns-auth/bin/sdig" \
+            ./runtests
+          workdir: ~/project/regression-tests.nobackend
+      - run:
+          command: test ! -s ./failed_tests
+          workdir: ~/project/regression-tests.nobackend
+
   test-auth-algorithms:
     docker:
       - image: debian:stretch
@@ -748,6 +768,10 @@ workflows:
       - test-auth-regress-tinydns:
           requires:
             - build-auth
+      - test-auth-regress-nobackend:
+          requires:
+            - build-auth
+
       - build-recursor
       - test-recursor-regression:
           requires:
