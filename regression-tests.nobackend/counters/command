@@ -20,7 +20,7 @@ $SDIG 127.0.0.1 $port example.com SOA >&2 >/dev/null
 $SDIG 127.0.0.1 $port random.example.com A tcp >&2 >/dev/null
 $SDIG 127.0.0.1 $port example.com SOA tcp >&2 >/dev/null
 
-# Disabled becaus ethere's no v6 in circleci
+# Disabled because there's no v6 in circleci
 # $SDIG ::1 $port random.example.com A >&2 >/dev/null
 # $SDIG ::1 $port random.example.com A tcp >&2 >/dev/null
 
