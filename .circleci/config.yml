@@ -154,6 +154,7 @@ commands:
             libssl1.1 \
             libsodium18 \
             libsystemd0 \
+            libzmq5 \
             default-libmysqlclient-dev \
             unixodbc
 
@@ -180,6 +181,7 @@ commands:
               libsodium-dev \
               libsqlite3-dev \
               libssl-dev \
+              libzmq3-dev \
               libtool \
               make \
               pkg-config \
@@ -285,10 +287,11 @@ jobs:
             CXXFLAGS="-O1 -Werror=vla" \
             ./configure \
               --disable-lua-records \
-              --with-modules='bind lmdb ldap pipe gmysql gsqlite3 gpgsql godbc mydns random tinydns' \
+              --with-modules='bind lmdb ldap pipe gmysql gsqlite3 gpgsql godbc mydns random remote tinydns' \
               --enable-tools \
               --with-lmdb=/usr \
               --with-libsodium \
+              --enable-remotebackend-zeromq \
               --prefix=/opt/pdns-auth
       - run:
           name: build
@@ -541,6 +544,42 @@ jobs:
           context: tinydns
           doroot: false
 
+  test-auth-regress-remote:
+    docker:
+      - image: debian:stretch
+    steps:
+      - auth-regress-setup
+      - run: apt-get -y -qq install ruby-json rubygems-integration socat
+      - run: gem update --system
+      - run: gem install bundler --no-rdoc --no-ri
+      - run:
+          command: ruby -S bundle install
+          workdir: ~/project/modules/remotebackend
+      - auth-regress:
+          doroot: false
+          context: remotebackend-pipe
+      - auth-regress:
+          doroot: false
+          context: remotebackend-pipe-dnssec
+      - auth-regress:
+          doroot: false
+          context: remotebackend-unix
+      - auth-regress:
+          doroot: false
+          context: remotebackend-unix-dnssec
+      - auth-regress:
+          doroot: false
+          context: remotebackend-http
+      - auth-regress:
+          doroot: false
+          context: remotebackend-http-dnssec
+      - auth-regress:
+          doroot: false
+          context: remotebackend-zeromq
+      - auth-regress:
+          doroot: false
+          context: remotebackend-zeromq-dnssec
+
   test-auth-regress-lmdb:
     docker:
       - image: debian:stretch
@@ -670,6 +709,9 @@ jobs:
           command: make check || (cat test-suite.log; false)
           working_directory: ~/project/pdns/recursordist
       - run:
+          name: Check if the remotebackend tests were successful
+          command: test -f modules/remotebackend/test-suite.log && cat modules/remotebackend/test-suite.log || true
+      - run:
           name: Install resulting binaries
           command: make install
           working_directory: ~/project/pdns/recursordist
@@ -781,6 +823,9 @@ workflows:
           requires:
             - build-auth
       - test-auth-regress-tinydns:
+          requires:
+            - build-auth
+      - test-auth-regress-remote:
           requires:
             - build-auth
       - test-auth-regress-nobackend:
