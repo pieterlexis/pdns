@@ -546,8 +546,8 @@ jobs:
           context: lmdb-nsec3-narrow
 
   test-auth-regress-nobackend:
-    machine:
-      enabled: true
+    docker:
+      - image: debian:stretch
     steps:
       - auth-regress-setup
       - run:
