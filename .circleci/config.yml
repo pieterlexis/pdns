@@ -113,6 +113,18 @@ commands:
                   PDNSCONTROL=<< parameters.prefix >>bin/pdns_control \
                   ./start-test-stop 5300 << parameters.context >>
 
+  setup-authbind:
+    description: Install and set up authbind for port 53
+    steps:
+      - run:
+          name: Install authbind
+          command: apt-get -y -qq install authbind
+      - run:
+          name: Set up authbind
+          command: |
+            touch /etc/authbind/byport/53
+            chmod 755 /etc/authbind/byport/53
+
   install-recursor-deps:
     description: "Install all libraries needed for the recursor"
     steps:
@@ -550,7 +562,8 @@ jobs:
       - image: debian:stretch
     steps:
       - auth-regress-setup
-      - run: apt-get -y -qq install sqlite3 faketime
+      - run: apt-get -y -qq install sqlite3 faketime jq validns
+      - setup-authbind
       - run:
           name: Run no backend tests
           command: |
@@ -670,13 +683,9 @@ jobs:
       - image: debian:stretch
     steps:
       - add-auth-repo
-      - run: apt-get --no-install-recommends install -qq -y pdns-server pdns-backend-bind pdns-tools daemontools authbind jq libfaketime lua-posix moreutils bc virtualenv protobuf-compiler
+      - run: apt-get --no-install-recommends install -qq -y pdns-server pdns-backend-bind pdns-tools daemontools jq libfaketime lua-posix moreutils bc virtualenv protobuf-compiler
       - install-recursor-deps
-      - run:
-          name: Set up authbind
-          command: |
-            touch /etc/authbind/byport/53
-            chmod 755 /etc/authbind/byport/53
+      - setup-authbind
       - checkout-shallow
       - attach_workspace:
           at: /opt
