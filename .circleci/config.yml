@@ -548,7 +548,6 @@ jobs:
   test-auth-regress-nobackend:
     machine:
       enabled: true
-      image: debian:stretch
     steps:
       - auth-regress-setup
       - run:
