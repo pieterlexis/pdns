@@ -551,7 +551,7 @@ jobs:
       - auth-regress-setup
       - run: apt-get -y -qq install ruby-json rubygems-integration socat
       - run: gem update --system
-      - run: gem install bundler --no-rdoc --no-ri
+      - run: gem install bundler --no-ri
       - run:
           command: ruby -S bundle install
           workdir: ~/project/modules/remotebackend
