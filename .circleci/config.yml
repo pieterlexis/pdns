@@ -552,6 +552,7 @@ jobs:
       - run: apt-get -y -qq install ruby-json rubygems-integration socat gcc ruby-dev libffi-dev make libsqlite3-dev sqlite3 gawk libzmq5 libzmq3-dev
       - run: gem update --system
       - run: gem install bundler
+      - run: ldd /opt/pdns-auth/sbin/pdns_server
       - run:
           command: ruby -S bundle install
           workdir: ~/project/modules/remotebackend
