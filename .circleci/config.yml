@@ -549,7 +549,7 @@ jobs:
       - image: debian:stretch
     steps:
       - auth-regress-setup
-      - run: apt-get -y -qq install ruby-json rubygems-integration socat gcc ruby-dev libffi-dev make libsqlite3-dev sqlite3
+      - run: apt-get -y -qq install ruby-json rubygems-integration socat gcc ruby-dev libffi-dev make libsqlite3-dev sqlite3 gawk
       - run: gem update --system
       - run: gem install bundler
       - run:
