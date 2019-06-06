@@ -21,6 +21,7 @@ endif
 %:
 	dh $@ \
 	  --with autoreconf \
+	  --parallel \
 	  $(DH_ARGS)
 
 override_dh_auto_configure:

@@ -19,9 +19,11 @@ else
 CONFIGURE_ARGS += --disable-systemd
 endif
 
+DH_VERBOSE=1
+
 
 %:
-	dh $@
+	dh $@ --parallel
 
 override_dh_auto_clean:
 	rm -f dnslabeltext.cc

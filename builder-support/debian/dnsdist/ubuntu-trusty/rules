@@ -13,7 +13,7 @@ include /usr/share/dpkg/default.mk
 LDFLAGS += -latomic
 
 %:
-	dh $@
+	dh $@ --parallel
 
 override_dh_auto_clean:
 	rm -f dnslabeltext.cc

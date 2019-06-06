@@ -21,7 +21,7 @@ endif
 
 
 %:
-	dh $@
+	dh $@ --parallel
 
 override_dh_auto_clean:
 	rm -f dnslabeltext.cc
