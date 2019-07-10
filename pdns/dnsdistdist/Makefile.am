@@ -245,6 +245,7 @@ testrunner_SOURCES = \
 	test-delaypipe_hh.cc \
 	test-dnscrypt_cc.cc \
 	test-dnsdist_cc.cc \
+	test-dnsdistcookies_cc.cc \
 	test-dnsdistdynblocks_hh.cc \
 	test-dnsdistpacketcache_cc.cc \
 	test-dnsdistrings_cc.cc \
@@ -255,6 +256,7 @@ testrunner_SOURCES = \
 	cachecleaner.hh \
 	dnsdist.hh \
 	dnsdist-cache.cc dnsdist-cache.hh \
+	dnsdist-cookies.cc dnsdist-cookies.hh \
 	dnsdist-ecs.cc dnsdist-ecs.hh \
 	dnsdist-xpf.cc dnsdist-xpf.hh \
 	dnscrypt.cc dnscrypt.hh \
@@ -274,6 +276,7 @@ testrunner_SOURCES = \
 	pollmplexer.cc \
 	qtype.cc qtype.hh \
 	sholder.hh \
+	siphash.c \
 	sodcrypto.cc \
 	sstuff.hh \
 	statnode.cc statnode.hh \
