@@ -588,6 +588,20 @@ string makeHexDump(const string& str)
   return ret;
 }
 
+string makeBytesFromHex(const string &in) {
+  if (in.size() % 2 != 0) {
+    throw std::range_error("odd number of bytes in hex string");
+  }
+  string ret;
+  for (size_t i = 0; i < in.size(); i+=2) {
+    string numStr = in.substr(i, 2);
+    unsigned int num = 0;
+    sscanf(numStr.c_str(), "%02x", &num);
+    ret.push_back((uint8_t)num);
+  }
+  return ret;
+}
+
 // shuffle, maintaining some semblance of order
 void shuffle(vector<DNSZoneRecord>& rrs)
 {

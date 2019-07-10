@@ -287,6 +287,7 @@ inline void unixDie(const string &why)
 }
 
 string makeHexDump(const string& str);
+string makeBytesFromHex(const string &in);
 struct DNSRecord;
 struct DNSZoneRecord;
 void shuffle(vector<DNSRecord>& rrs);
