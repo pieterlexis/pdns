@@ -19,18 +19,33 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_EDNSCOOKIES_HH
-#define PDNS_EDNSCOOKIES_HH
+#pragma once
 
 #include "namespaces.hh"
+#include "iputils.hh"
 
 struct EDNSCookiesOpt
 {
   string client;
-  string server;
+  struct server {
+    uint8_t version;
+    uint32_t timestamp;
+    string chash;
+    string toString() const {
+      string retval;
+      retval.resize(8, 0);
+      retval[0] = version;
+      retval[4] = timestamp >> 24;
+      retval[5] = timestamp >> 16;
+      retval[6] = timestamp >> 8;
+      retval[7] = timestamp;
+      retval += chash;
+      retval.resize(16,0);
+      return retval;
+    };
+  } server;
 };
 
-bool getEDNSCookiesOptFromString(const char* option, unsigned int len, EDNSCookiesOpt* eco);
 bool getEDNSCookiesOptFromString(const string& option, EDNSCookiesOpt* eco);
+bool createEDNSServerCookie(const string &secret, const ComboAddress &source, EDNSCookiesOpt &eco);
 string makeEDNSCookiesOptString(const EDNSCookiesOpt& eco);
-#endif

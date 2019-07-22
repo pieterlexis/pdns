@@ -55,7 +55,8 @@ EXTRA_DIST = \
 	ixfrdist.example.yml \
 	lua-record.cc \
 	minicurl.cc \
-	minicurl.hh
+	minicurl.hh \
+	siphash.cc
 
 BUILT_SOURCES = \
 	bind-dnssec.schema.sqlite3.sql.h \
@@ -183,6 +184,7 @@ pdns_server_SOURCES = \
 	dynhandler.cc dynhandler.hh \
 	dynlistener.cc dynlistener.hh \
 	dynmessenger.hh \
+	ednscookies.cc ednscookies.hh \
 	ednsoptions.cc ednsoptions.hh \
 	ednssubnet.cc ednssubnet.hh \
 	gss_context.cc gss_context.hh \
@@ -312,6 +314,7 @@ pdnsutil_SOURCES = \
 	dnswriter.cc dnswriter.hh \
 	dynlistener.cc \
 	ednsoptions.cc ednsoptions.hh \
+	ednscookies.cc ednscookies.hh \
 	ednssubnet.cc \
 	gss_context.cc gss_context.hh \
 	ipcipher.cc ipcipher.hh \
