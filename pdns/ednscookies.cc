@@ -29,11 +29,16 @@
 bool getEDNSCookiesOptFromString(const string& option, EDNSCookiesOpt* eco)
 {
   auto len = option.size();
-  if(len != 8 && len != 24)
+  if(len != 8 && len != 24) {
     return false;
+  }
   eco->client = option.substr(0, 8);
+  eco->server.version = 0;
   if (len == 24) {
     eco->server.version = static_cast<uint8_t>(option[8]);
+    eco->server.reserved[0] = static_cast<uint8_t>(option[9]);
+    eco->server.reserved[1] = static_cast<uint8_t>(option[10]);
+    eco->server.reserved[2] = static_cast<uint8_t>(option[11]);
     eco->server.timestamp = (option[12] << 24) +
                             (option[13] << 16) +
                             (option[14] << 8) +
@@ -54,32 +59,64 @@ string makeEDNSCookiesOptString(const EDNSCookiesOpt& eco)
   return ret;
 }
 
-bool createEDNSServerCookie(const string &secret, const ComboAddress &source, EDNSCookiesOpt &eco) {
-  if (eco.client.size() != 8) {
-    return false;
-  }
+void makeSipHash(const string &secret, const string &toHash, string &theHash) {
+  theHash.clear();
+  theHash.resize(8);
+  siphash(reinterpret_cast<const uint8_t*>(&toHash[0]), toHash.size(), // in, inlen,
+      reinterpret_cast<const uint8_t*>(&secret[0]),                    // secret,
+      reinterpret_cast<uint8_t*>(&theHash[0]), 8);                     // out, outlen
+}
 
-  uint32_t now = static_cast<uint32_t>(time(nullptr));
-  if (eco.server.version == 1) {
-    if (eco.server.timestamp + 3600 < now && eco.server.timestamp < now + 300) {
-      return true;
-    }
-  } else {
-    eco.server.version = 1;
-  }
-  eco.server.timestamp = now;
+bool createEDNSServerCookie(const string &secret, const ComboAddress &source, EDNSCookiesOpt &eco) {
+  eco.server.version = 1;
+  eco.server.reserved[0] = 0;
+  eco.server.reserved[1] = 0;
+  eco.server.reserved[2] = 0;
+  eco.server.timestamp = static_cast<uint32_t>(time(nullptr));
 
   string toHash = makeEDNSCookiesOptString(eco);
   toHash.resize(16); // Remove the existing hash, if any
   toHash += source.toByteString();
-
   string h;
-  h.resize(8);
 
-  // Add the hash (in, inlen, secret, out, outlen)
-  siphash(reinterpret_cast<const uint8_t*>(&toHash[0]), toHash.size(),
-      reinterpret_cast<const uint8_t*>(&secret[0]),
-      reinterpret_cast<uint8_t*>(&h[0]), 8);
+  makeSipHash(secret, toHash, h);
   eco.server.chash = h;
   return true;
+}
+
+bool checkEDNSCookie(const string &secret, const ComboAddress &source, const EDNSCookiesOpt &eco) {
+  if (eco.client.size() != 8) {
+    return false;
+  }
+
+  if (eco.server.chash.size() != 8) {
+    return false;
+  }
+
+  if (eco.server.version != 1) {
+    return false;
+  }
+
+  for (auto &r : eco.server.reserved) {
+    if (r != 0) {
+      return false;
+    }
+  }
+
+  uint32_t now = static_cast<uint32_t>(time(nullptr));
+  if (eco.server.timestamp - 300 > now) {
+    return false;
+  }
+
+  if (eco.server.timestamp + 3600 < now) {
+    return false;
+  }
+
+  string toHash = makeEDNSCookiesOptString(eco);
+  toHash.resize(16); // Remove the existing hash
+  toHash += source.toByteString();
+
+  string h;
+  makeSipHash(secret, toHash, h);
+  return h == eco.server.chash;
 }

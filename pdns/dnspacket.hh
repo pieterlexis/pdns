@@ -123,6 +123,10 @@ public:
   bool couldBeCached(); //!< returns 0 if this query should bypass the packet cache
   bool hasEDNSSubnet() const;
   bool hasEDNS();
+  bool hasEDNSCookie();
+  bool validEDNSCookie(); // Is the cookie still valid (time-wise and and hash-wise)
+  bool goodEDNSCookie(); // Is the cookie from the client well-formed?
+  bool hasEDNSServerCookie(); // Whether or not the packet has a EDNS Server cookie
   uint8_t getEDNSVersion() const { return d_ednsversion; };
   void setEDNSRcode(uint16_t extRCode)
   {
@@ -195,6 +199,7 @@ private:
   bool d_haveednssubnet{false};
   bool d_haveednssection{false};
   bool d_haveednscookie{false};
+  bool d_goodednscookie{false};
   bool d_isQuery;
 };
 

@@ -45,6 +45,7 @@
 #include "dnsproxy.hh"
 #include "version.hh"
 #include "common_startup.hh"
+#include "ednscookies.hh"
 
 #if 0
 #undef DLOG
@@ -1124,12 +1125,27 @@ DNSPacket *PacketHandler::doQuestion(DNSPacket *p)
     return 0;
   }
 
-  if (p->hasEDNS() && p->getEDNSVersion() > 0) {
-    r = p->replyPacket();
+  if (p->hasEDNS()) {
+    if (p->getEDNSVersion() > 0) {
+      r = p->replyPacket();
 
-    // PacketWriter::addOpt will take care of setting this correctly in the packet
-    r->setEDNSRcode(ERCode::BADVERS);
-    return r;
+      // PacketWriter::addOpt will take care of setting this correctly in the packet
+      r->setEDNSRcode(ERCode::BADVERS);
+      return r;
+    }
+    if (p->hasEDNSCookie()){
+      if (!p->goodEDNSCookie()) {
+        r = p->replyPacket();
+        r->setRcode(RCode::FormErr);
+        return r;
+      }
+      if (p->hasEDNSServerCookie() && !p->validEDNSCookie()) {
+        r = p->replyPacket();
+        // PacketWriter::addOpt will take care of setting this correctly in the packet
+        r->setEDNSRcode(ERCode::BADCOOKIE);
+        return r;
+      }
+    }
   }
 
   if(p->d_havetsig) {

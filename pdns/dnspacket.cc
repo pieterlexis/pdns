@@ -121,6 +121,7 @@ DNSPacket::DNSPacket(const DNSPacket &orig) :
   d_haveednssubnet(orig.d_haveednssubnet),
   d_haveednssection(orig.d_haveednssection),
   d_haveednscookie(orig.d_haveednscookie),
+  d_goodednscookie(orig.d_goodednscookie),
 
   d_isQuery(orig.d_isQuery)
 {
@@ -326,7 +327,7 @@ void DNSPacket::wrapup()
     optsize += d_eso.source.isIpv4() ? 4 : 16;
   }
 
-  if (d_haveednscookie) {
+  if (d_haveednscookie && d_eco.server.version != 0) {
     optsize += 24;
   }
 
@@ -370,11 +371,12 @@ void DNSPacket::wrapup()
         opts.push_back(make_pair(8, opt)); // 'EDNS SUBNET'
       }
 
-      if (d_haveednscookie) {
-        if (createEDNSServerCookie(s_EDNSCookieKey, getRemote(), d_eco)) {
-          string opt = makeEDNSCookiesOptString(d_eco);
-          opts.push_back(make_pair(EDNSOptionCode::COOKIE, opt));
+      if (d_haveednscookie && d_eco.server.version != 0) {
+        string opt = makeEDNSCookiesOptString(d_eco);
+        if (!validEDNSCookie() && createEDNSServerCookie(s_EDNSCookieKey, getRemote(), d_eco)) {
+          opt = makeEDNSCookiesOptString(d_eco);
         }
+        opts.push_back(make_pair(EDNSOptionCode::COOKIE, opt));
       }
 
       if(!opts.empty() || d_haveednssection || d_dnssecOk)
@@ -441,6 +443,7 @@ DNSPacket *DNSPacket::replyPacket() const
   r->d_haveednssubnet = d_haveednssubnet;
   r->d_haveednssection = d_haveednssection;
   r->d_haveednscookie = d_haveednscookie;
+  r->d_goodednscookie = d_goodednscookie;;
   r->d_eco = d_eco;
   r->d_ednsversion = 0;
   r->d_ednsrcode = 0;
@@ -603,9 +606,9 @@ try
           //cerr<<"Parsed, source: "<<d_eso.source.toString()<<", scope: "<<d_eso.scope.toString()<<", family = "<<d_eso.scope.getNetwork().sin4.sin_family<<endl;
           d_haveednssubnet=true;
         } 
-      } else if (s_doEDNSCookieProcessing && iter->first == EDNSOptionCode::COOKIE) {
-        getEDNSCookiesOptFromString(iter->second, &d_eco);
+      } else if (s_doEDNSCookieProcessing && iter->first == EDNSOptionCode::COOKIE && !d_haveednscookie) {
         d_haveednscookie = true;
+        d_goodednscookie = getEDNSCookiesOptFromString(iter->second, &d_eco);
       }
       else {
         // cerr<<"Have an option #"<<iter->first<<": "<<makeHexDump(iter->second)<<endl;
@@ -666,6 +669,24 @@ bool DNSPacket::hasEDNSSubnet() const
 bool DNSPacket::hasEDNS() 
 {
   return d_haveednssection;
+}
+
+bool DNSPacket::hasEDNSCookie()
+{
+  return d_haveednscookie;
+}
+
+bool DNSPacket::validEDNSCookie()
+{
+  return checkEDNSCookie(s_EDNSCookieKey, d_remote, d_eco);
+}
+
+bool DNSPacket::goodEDNSCookie() {
+  return d_goodednscookie;
+}
+
+bool DNSPacket::hasEDNSServerCookie() {
+  return d_eco.server.version != 0;
 }
 
 Netmask DNSPacket::getRealRemote() const

@@ -28,13 +28,17 @@ struct EDNSCookiesOpt
 {
   string client;
   struct server {
-    uint8_t version;
+    uint8_t version; // 0 means "no server cookie"
+    uint8_t reserved[3];
     uint32_t timestamp;
     string chash;
     string toString() const {
       string retval;
       retval.resize(8, 0);
       retval[0] = version;
+      retval[1] = reserved[0];
+      retval[2] = reserved[1];
+      retval[3] = reserved[2];
       retval[4] = timestamp >> 24;
       retval[5] = timestamp >> 16;
       retval[6] = timestamp >> 8;
@@ -48,4 +52,5 @@ struct EDNSCookiesOpt
 
 bool getEDNSCookiesOptFromString(const string& option, EDNSCookiesOpt* eco);
 bool createEDNSServerCookie(const string &secret, const ComboAddress &source, EDNSCookiesOpt &eco);
+bool checkEDNSCookie(const string &secret, const ComboAddress &source, const EDNSCookiesOpt &eco);
 string makeEDNSCookiesOptString(const EDNSCookiesOpt& eco);
