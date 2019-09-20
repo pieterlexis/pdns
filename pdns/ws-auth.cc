@@ -644,9 +644,6 @@ static void updateDomainSettingsFromDocument(UeberBackend& B, const DomainInfo& 
   if (account) {
     di.backend->setAccount(zonename, *account);
   }
-  if (arg()["default-soa-edit-api"] != "" && !document["soa_edit_api"].is_string()) {
-    di.backend->setDomainMetadataOne(zonename, "SOA-EDIT-API", arg()["default-soa-edit-api"]);
-  }
   if (document["soa_edit_api"].is_string()) {
     di.backend->setDomainMetadataOne(zonename, "SOA-EDIT-API", document["soa_edit_api"].string_value());
   }
@@ -1588,12 +1585,9 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
     if (!nameservers.is_null() && !nameservers.is_array() && zonekind != DomainInfo::Slave)
       throw ApiException("Nameservers is not a list");
 
-    string soa_edit_api_kind;
-    if (document["soa_edit_api"].is_string()) {
-      soa_edit_api_kind = document["soa_edit_api"].string_value();
-    }
-    else {
-      soa_edit_api_kind = "DEFAULT";
+    string soa_edit_api_kind = document["soa_edit_api"].string_value();
+    if (soa_edit_api_kind.empty() && !arg()["default-soa-edit-api"].empty()) {
+      soa_edit_api_kind = arg()["default-soa-edit-api"];
     }
     string soa_edit_kind = document["soa_edit"].string_value();
 
