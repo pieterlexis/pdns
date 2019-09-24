@@ -1,0 +1,27 @@
+@INCLUDE Dockerfile.target.centos-7
+
+# This defines the dstribution base layer
+# Put only the bare minimum of common commands here, without dev tools
+FROM centos:7 as image-base
+ARG BUILDER_CACHE_BUSTER=
+RUN yum install -y epel-release && mkdir /sdist
+
+COPY --from=package-builder /dist /dist
+
+@IF [ ! -z "$M_authoritative$M_all" ]
+RUN yum localinstall -y /dist/x86_64/pdns-*.rpm && mkdir /var/run/pdns
+# USER pdns
+ENTRYPOINT /sbin/pdns_server
+@ENDIF
+
+@IF [ ! -z "$M_recursor$M_all" ]
+RUN yum localinstall -y /dist/x86_64/pdns-recursor-*.rpm && mkdir /var/run/pdns-recursor
+# USER pdns-recursor
+ENTRYPOINT /sbin/pdns_recursor
+@ENDIF
+
+@IF [ ! -z "$M_dnsdist$M_all" ]
+RUN yum localinstall -y /dist/x86_64/dnsdist-*.rpm
+# USER dnsdist
+ENTRYPOINT ["/bin/dnsdist", "--supervised"]
+@ENDIF
