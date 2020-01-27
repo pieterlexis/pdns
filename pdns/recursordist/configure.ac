@@ -49,6 +49,12 @@ BOOST_REQUIRE([1.42])
 # Check against flat_set header that requires boost >= 1.48
 BOOST_FIND_HEADER([boost/container/flat_set.hpp], [AC_MSG_NOTICE([boost::container::flat_set not available, will fallback to std::set])])
 
+AC_ARG_WITH([allow-ucontext],
+  [AS_HELP_STRING([--with-allow-ucontext], [whether to allow the use of System V ucontexts @<:@default=no@:>@])],
+  [allow_ucontext=$withval],
+  [allow_ucontext=no]
+)
+
 # Boost Context was introduced in 1.51 (Aug 2012), but there was an immediate
 # API break in 1.52 (Nov 2012), so we only support that, and later.
 pdns_context_library=""
@@ -60,6 +66,9 @@ AS_IF([test x"$boost_cv_lib_context" = "xyes"], [
 ])
 AC_MSG_CHECKING([what context library to use for MTasker])
 AS_IF([test -n "$pdns_context_library"], [AC_MSG_RESULT([$pdns_context_library])], [AC_MSG_ERROR([neither boost::context nor System V ucontexts available])])
+
+AS_IF([test x"$allow_ucontext" != "xyes" -a "$pdns_context_library" = "System V ucontexts"],
+      [AC_MSG_ERROR([System V ucontexts selected as context implementation, but it is forbidden])])
 
 PDNS_ENABLE_UNIT_TESTS
 PDNS_ENABLE_REPRODUCIBLE
