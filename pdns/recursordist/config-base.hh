@@ -27,25 +27,30 @@
 #include "dnsname.hh"
 #include "dnsrecords.hh"
 
-namespace pdns {
-  namespace config {
-    struct dnssec_config {
-      std::string validation;
-      bool log_bogus;
-      std::vector<std::pair<DNSName, std::shared_ptr<DSRecordContent> > > trust_anchors;
-      std::vector<std::pair<DNSName, std::string> > negative_trust_anchors;
-    };
+namespace pdns
+{
+namespace config
+{
+  struct dnssec_config
+  {
+    std::string validation;
+    bool log_bogus;
+    std::vector<std::pair<DNSName, std::shared_ptr<DSRecordContent>>> trust_anchors;
+    std::vector<std::pair<DNSName, std::string>> negative_trust_anchors;
+  };
 
-    struct listen_address {
-      ComboAddress address;
-      bool non_local_bind;
-    };
+  struct listen_address
+  {
+    ComboAddress address;
+    bool non_local_bind;
+  };
 
-    class RecursorConfig {
-      // Base class for all different config parsers
-      public:
-        virtual dnssec_config dnssecConfig() = 0;
-        virtual std::vector<struct listen_address> listenAddresses() = 0;
-    };
-  }
+  class RecursorConfig
+  {
+    // Base class for all different config parsers
+  public:
+    virtual dnssec_config dnssecConfig() = 0;
+    virtual std::vector<struct listen_address> listenAddresses() = 0;
+  };
+}
 }
