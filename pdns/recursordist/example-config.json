@@ -1,0 +1,34 @@
+{
+  "pdns-recursor:dnssec": {
+    "validation": "off",
+    "negative-trust-anchor": [
+      {
+        "domain": "example.net.",
+        "reason": "botched keyroll"
+      },
+      {
+        "domain": "example.com."
+      }
+    ],
+    "trust-anchor": [
+      {
+        "domain": "example.nl.",
+        "ds-record": "44030 8 1 B763646757DF621DD1204AD3BFA0675B49BE3279"
+      }
+    ]
+  },
+  "pdns-recursor:listen-addresses": {
+    "listen-address": [
+      {
+        "ip-address": "127.0.0.1",
+        "name": "other",
+        "port": 53010
+      },
+      {
+        "name": "XXX",
+        "ip-address": "127.0.0.1",
+        "port": 5300
+      }
+    ]
+  }
+}

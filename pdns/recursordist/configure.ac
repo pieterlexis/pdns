@@ -117,6 +117,8 @@ AC_ARG_WITH([nod-cache-dir],
 
 PDNS_CHECK_DNSTAP([auto])
 
+PDNS_WITH_LIBYANG
+
 AC_MSG_CHECKING([whether we will enable compiler security checks])
 AC_ARG_ENABLE([hardening],
   [AS_HELP_STRING([--disable-hardening], [disable compiler security checks @<:@default=no@:>@])],

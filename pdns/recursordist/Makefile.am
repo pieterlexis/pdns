@@ -72,7 +72,8 @@ EXTRA_DIST = \
 	test_libcrypto \
 	pdns-recursor.service.in \
 	RECURSOR-MIB.txt \
-	builder-support/gen-version
+	builder-support/gen-version \
+	yang/*.yang
 
 dist-hook:
 	for file in $$(find $(distdir)/docs -type l); do \
@@ -85,8 +86,10 @@ bin_PROGRAMS = rec_control
 
 TESTS=test_libcrypto
 
+noinst_PROGRAMS =
+
 if UNIT_TESTS
-noinst_PROGRAMS = testrunner
+noinst_PROGRAMS += testrunner
 TESTS_ENVIRONMENT = env BOOST_TEST_LOG_LEVEL=message SRCDIR='$(srcdir)'
 TESTS += testrunner
 else
@@ -563,4 +566,31 @@ endif
 
 if !HAVE_LUA_HPP
 include lua_hpp.mk
+endif
+
+if HAVE_LIBYANG
+noinst_PROGRAMS += test_yang_config
+test_yang_config_SOURCES = test-yang-config.cc \
+  yang-config.cc \
+  iputils.cc \
+  misc.cc \
+  dnsname.cc \
+  dnslabeltext.cc \
+  dnsrecords.cc \
+  dnswriter.cc \
+  rcpgenerator.cc \
+  dnsparser.cc \
+  base32.cc \
+  qtype.cc \
+  sillyrecords.cc \
+  base64.cc \
+  nsecrecords.cc \
+  unix_utility.cc \
+  logger.cc
+test_yang_config_LDADD = \
+  $(LIBYANG_LIBS) \
+  $(LIBCRYPTO_LIBS)
+test_yang_config_LDFLAGS = \
+  $(LIBYANG_LDFLAGS) \
+  $(LIBCRYPTO_LDFLAGS)
 endif

@@ -1,0 +1,188 @@
+/*
+ * This file is part of PowerDNS or dnsdist.
+ * Copyright -- PowerDNS.COM B.V. and its contributors
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * In addition, for the avoidance of any doubt, permission is granted to
+ * link this program with OpenSSL and to (re)distribute the binaries
+ * produced as the result of such linking.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+module pdns-recursor {
+  yang-version 1.1;
+  namespace "https://yang.powerdns.com/pdns-recursor";
+  prefix "pdns-recursor";
+
+  import ietf-inet-types {
+    prefix inet;
+    revision-date 2013-07-15;
+  }
+
+  organization "PowerDNS.COM BV";
+  contact "Pieter Lexis <mailto:pieter.lexis@powerdns.com";
+  description "This module described the PowerDNS Recursor";
+
+  revision 2020-03-10 {
+    description "First version, not released";
+  }
+
+  // TODO: Move to pdns-common
+  grouping endpoint {
+    description
+      "An IP endpoint, including the port";
+    leaf ip-address {
+      type inet:ip-address;
+      mandatory true;
+    }
+    leaf port {
+      type inet:port-number;
+    }
+  }
+
+  // TODO: Move to pdns-common
+  grouping webserver {
+    description
+      "Webserver configuration";
+    uses endpoint {
+      refine ip-address {
+        mandatory false;
+      }
+    }
+    leaf password {
+      description
+        "Password required to access the non-API webserver paths";
+      type string;
+    }
+    leaf api-key {
+      description
+        "Pre-shared API key. Set this to enable the API";
+      type string;
+    }
+    leaf-list allow-from {
+      description
+        "ACL for the webserver";
+      type inet:ip-prefix;
+    }
+    leaf max-body-size {
+      description
+        "Maximum size of the response sent by the webserver in megabytes";
+      type uint32;
+    }
+    leaf loglevel {
+      description
+        "How much the webserver should log";
+      type enumeration {
+        enum "none";
+        enum "normal";
+        enum "detailed";
+      }
+    }
+  }
+
+  grouping dnssec-trust-anchor {
+    leaf domain {
+      type inet:domain-name;
+      mandatory true;
+    }
+    leaf ds-record {
+      // XXX do we need to define a container 'anchor' with seperate leafs for
+      // keytag, algo, digest, and data?
+      type string;
+      mandatory true;
+    }
+  }
+
+  grouping dnssec-negative-trust-anchor {
+    leaf domain {
+      type inet:domain-name;
+      mandatory true;
+    }
+    leaf reason {
+      type string;
+    }
+  }
+
+  typedef dnssec-validation {
+    description "DNSSEC Validation setting";
+
+    type enumeration {
+      enum "off" {
+        description "No DNSSEC processing whatsoever. Ignore DO-bits in queries, don’t request any DNSSEC information from authoritative servers. This behaviour is similar to PowerDNS Recursor pre-4.0.";
+      }
+      enum "process-no-validate" {
+        description "Respond with DNSSEC records to clients that ask for it, set the DO bit on all outgoing queries. Don’t do any validation.";
+      }
+      enum process {
+        description "Respond with DNSSEC records to clients that ask for it, set the DO bit on all outgoing queries. Do validation for clients that request it (by means of the AD- bit or DO-bit in the query).";
+      }
+      enum log-fail {
+        description "Similar behaviour to process, but validate RRSIGs on responses and log bogus responses.";
+      }
+      enum validate {
+        description "Full blown DNSSEC validation. Send SERVFAIL to clients on bogus responses.";
+      }
+    }
+  }
+
+  container listen-addresses {
+    list listen-address {
+      description "IP endpoint where PowerDNS Recursor should listen on";
+      uses endpoint{
+        refine port {
+          default 53;
+        }
+      }
+      key "name";
+      leaf name {
+        description "A name for this listen address";
+        type string;
+      }
+      leaf non-local-bind {
+        description "Bind to addresses even if the address not exist on this server. Setting this option will enable the needed socket options to allow binding to non-local addresses. This feature is intended to facilitate ip-failover setups, but it may also mask configuration issues and for this reason it is disabled by default.";
+        type boolean;
+        default false;
+      }
+      unique "ip-address port";
+      min-elements 1;
+    }
+  }
+
+  container webserver {
+    uses webserver {
+      refine port {
+        default 8081;
+      }
+    }
+  }
+
+  container dnssec {
+    leaf validation {
+      type dnssec-validation;
+      default "process-no-validate";
+    }
+    leaf log-bogus {
+      type boolean;
+      default false;
+    }
+    list trust-anchor {
+      uses dnssec-trust-anchor;
+      key "domain ds-record";
+    }
+    list negative-trust-anchor {
+      uses dnssec-negative-trust-anchor;
+      key "domain";
+    }
+  }
+}
