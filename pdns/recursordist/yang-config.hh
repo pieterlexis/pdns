@@ -54,6 +54,15 @@ namespace config
       */
     std::vector<listen_address> listenAddresses() override;
 
+    /**
+     * @brief Get a query local address
+     * 
+     * @param family  either AF_INET or AF_INET6
+     * @param port    Optional port for the returned ComboAddress
+     * @return ComboAddress 
+     */
+    ComboAddress getQueryLocalAddress(int family, uint16_t port) override;
+
   private:
     /**
       * @brief Get the Node at a certain path
@@ -92,6 +101,8 @@ namespace config
       */
     libyang::S_Set getPathSet(const std::string& expr);
 
+    void setQLA();
+
     /**
       * @brief The libyang::Context for this instance
       */
@@ -101,6 +112,20 @@ namespace config
       * @brief The root datanode
       */
     libyang::S_Data_Node d_config;
+
+    /**
+     * @brief Keep the QLA addresses on a per-family basis
+     * 
+     */
+    std::vector<ComboAddress> d_query_local_addresses4;
+    std::vector<ComboAddress> d_query_local_addresses6;
+
+    /**
+     * @brief Default QLA'a
+     * 
+     */
+    static const ComboAddress s_query_local_address4;
+    static const ComboAddress s_query_local_address6;
   };
 }
 }

@@ -43,7 +43,7 @@ module pdns-recursor {
     description
       "An IP endpoint, including the port";
     leaf ip-address {
-      type inet:ip-address;
+      type inet:ip-address-no-zone;
       mandatory true;
     }
     leaf port {
@@ -156,6 +156,30 @@ module pdns-recursor {
       }
       unique "ip-address port";
       min-elements 1;
+    }
+  }
+
+  leaf-list outgoing-addresses {
+    description "IP Addresses to use when sending out queries";
+    type inet:ip-address-no-zone;
+  }
+
+  container random {
+    leaf random-number-generator {
+      type enumeration {
+        enum "auto";
+        enum "sodium";
+        enum "openssl";
+        enum "getrandom";
+        enum "arcrandom";
+        enum "urandom";
+      }
+      default "auto";
+    }
+    leaf random-device {
+      when "../random-number-generator = 'urandom'";
+      type string;
+      default "/dev/urandom";
     }
   }
 

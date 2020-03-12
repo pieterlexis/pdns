@@ -586,7 +586,8 @@ test_yang_config_SOURCES = test-yang-config.cc \
   base64.cc \
   nsecrecords.cc \
   unix_utility.cc \
-  logger.cc
+  logger.cc \
+  dns_random.cc
 test_yang_config_LDADD = \
   $(LIBYANG_LIBS) \
   $(LIBCRYPTO_LIBS)

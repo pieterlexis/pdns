@@ -23,6 +23,7 @@
 #include <libyang/Tree_Data.hpp>
 
 #include "yang-config.hh"
+#include "dns_random.hh"
 
 namespace pdns
 {
@@ -39,6 +40,8 @@ namespace config
     if (d_config == nullptr) {
       throw std::runtime_error("Unable to parse file '" + configfile + "' to a libyang tree");
     }
+
+    setQLA();
   }
 
   struct dnssec_config YangRecursorConfig::dnssecConfig()
@@ -115,6 +118,37 @@ namespace config
     return ret;
   }
 
+  ComboAddress YangRecursorConfig::getQueryLocalAddress(int family, uint16_t port) {
+    ComboAddress ret;
+    if (family == AF_INET) {
+      ret = d_query_local_addresses4[dns_random(d_query_local_addresses4.size())];
+    }
+    else {
+      ret = d_query_local_addresses6[dns_random(d_query_local_addresses6.size())];
+    }
+    ret.setPort(port);
+    return ret;
+  }
+
+  void YangRecursorConfig::setQLA() {
+    auto addr_set = d_config->find_path("/pdns-server:outgoing-address");
+    for (auto const &addrNode : addr_set->data()) {
+      auto leaf = std::make_shared<libyang::Data_Node_Leaf_List>(addrNode);
+      ComboAddress addr(leaf->value_str());
+      if (addr.isIPv4()) {
+        d_query_local_addresses4.push_back(addr);
+      } else {
+        d_query_local_addresses6.push_back(addr);
+      }
+    }
+    if (d_query_local_addresses4.empty()) {
+      d_query_local_addresses4.push_back(s_query_local_address4);
+    }
+    if (d_query_local_addresses6.empty()) {
+      d_query_local_addresses6.push_back(s_query_local_address6);
+    }
+  }
+
   libyang::S_Set YangRecursorConfig::getPathSet(const std::string& expr)
   {
     auto val_set = d_config->find_path(expr.c_str());
@@ -149,5 +183,8 @@ namespace config
     }
     return leaf->value()->bln();
   }
+
+  const ComboAddress YangRecursorConfig::s_query_local_address4("0.0.0.0");
+  const ComboAddress YangRecursorConfig::s_query_local_address6("::");
 }
 }

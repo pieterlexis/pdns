@@ -51,6 +51,7 @@ namespace config
   public:
     virtual dnssec_config dnssecConfig() = 0;
     virtual std::vector<struct listen_address> listenAddresses() = 0;
+    virtual ComboAddress getQueryLocalAddress(int family, uint16_t port) = 0;
   };
 }
 }
