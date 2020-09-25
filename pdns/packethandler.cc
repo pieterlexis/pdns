@@ -1147,7 +1147,23 @@ bool PacketHandler::tryWildcard(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
   return true;
 }
 
-//! Called by the Distributor to ask a question. Returns 0 in case of an error
+void PacketHandler::finishPacket(const set<DNSName> &authSet, const SOAData &sd, DNSPacket& p, std::unique_ptr<DNSPacket>& r, bool noCache, bool doSigs) {
+    doAdditionalProcessing(p, r, sd);
+
+    for(const auto& loopRR: r->getRRS()) {
+      if(loopRR.scopeMask) {
+        noCache=true;
+        break;
+      }
+    }
+    if(doSigs)
+      addRRSigs(d_dk, B, authSet, r->getRRS());
+      
+    if(PC.enabled() && !noCache && p.couldBeCached())
+      PC.insert(p, *r, r->getMinTTL()); // in the packet cache
+}
+
+//! Called by the Distributor to ask a question. Returns nullptr in case of an error
 std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
 {
   DNSZoneRecord rr;
@@ -1273,10 +1289,10 @@ std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
 
     // catch chaos qclass requests
     if(p.qclass == QClass::CHAOS) {
-      if (doChaosRequest(p,r,target))
-        goto sendit;
-      else
-        return r;
+      if (doChaosRequest(p,r,target)) {
+        finishPacket(authSet, sd, p, r, noCache, doSigs);
+      }
+      return r;
     }
 
     // we only know about qclass IN (and ANY), send Refused for everything else.
@@ -1311,7 +1327,8 @@ std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
         r->setA(false); // drop AA if we never had a SOA in the first place
         r->setRcode(RCode::Refused); // send REFUSED - but only on empty 'no idea'
       }
-      goto sendit;
+      finishPacket(authSet, sd, p, r, noCache, doSigs);
+      return r;
     }
     DLOG(g_log<<Logger::Error<<"We have authority, zone='"<<sd.qname<<"', id="<<sd.domain_id<<endl);
 
@@ -1321,54 +1338,64 @@ std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
 
     if(!retargetcount) r->qdomainzone=sd.qname;
 
-    if(sd.qname==p.qdomain) {
-      if(!d_dk.isPresigned(sd.qname)) {
-        if(p.qtype.getCode() == QType::DNSKEY)
-        {
-          if(addDNSKEY(p, r, sd))
-            goto sendit;
+    if (sd.qname == p.qdomain) {
+      if (!d_dk.isPresigned(sd.qname)) {
+        if (p.qtype.getCode() == QType::DNSKEY) {
+          if (addDNSKEY(p, r, sd)) {
+            finishPacket(authSet, sd, p, r, noCache, doSigs);
+            return r;
+          }
         }
-        else if(p.qtype.getCode() == QType::CDNSKEY)
-        {
-          if(addCDNSKEY(p,r, sd))
-            goto sendit;
+        else if (p.qtype.getCode() == QType::CDNSKEY) {
+          if (addCDNSKEY(p, r, sd)) {
+            finishPacket(authSet, sd, p, r, noCache, doSigs);
+            return r;
+          }
         }
-        else if(p.qtype.getCode() == QType::CDS)
-        {
-          if(addCDS(p,r, sd))
-            goto sendit;
+        else if (p.qtype.getCode() == QType::CDS) {
+          if (addCDS(p, r, sd)) {
+            finishPacket(authSet, sd, p, r, noCache, doSigs);
+            return r;
+          }
         }
       }
-      if(d_dnssec && p.qtype.getCode() == QType::NSEC3PARAM)
-      {
-        if(addNSEC3PARAM(p,r, sd))
-          goto sendit;
+      if (d_dnssec && p.qtype.getCode() == QType::NSEC3PARAM) {
+        if (addNSEC3PARAM(p, r, sd)) {
+          finishPacket(authSet, sd, p, r, noCache, doSigs);
+          return r;
+        }
       }
     }
 
     if(p.qtype.getCode() == QType::SOA && sd.qname==p.qdomain) {
       rr=makeEditedDNSZRFromSOAData(d_dk, sd);
       r->addRecord(std::move(rr));
-      goto sendit;
+      finishPacket(authSet, sd, p, r, noCache, doSigs);
+      return r;
     }
 
     // this TRUMPS a cname!
     if(d_dnssec && p.qtype.getCode() == QType::NSEC && !d_dk.getNSEC3PARAM(sd.qname, 0)) {
       addNSEC(p, r, target, DNSName(), sd.qname, 5);
-      if (!r->isEmpty())
-        goto sendit;
+      if (!r->isEmpty()) {
+        finishPacket(authSet, sd, p, r, noCache, doSigs);
+        return r;
+      }
     }
 
     // this TRUMPS a cname!
     if(p.qtype.getCode() == QType::RRSIG) {
       g_log<<Logger::Info<<"Direct RRSIG query for "<<target<<" from "<<p.getRemote()<<endl;
       r->setRcode(RCode::Refused);
-      goto sendit;
+      finishPacket(authSet, sd, p, r, noCache, doSigs);
+      return r;
     }
 
     DLOG(g_log<<"Checking for referrals first, unless this is a DS query"<<endl);
-    if(p.qtype.getCode() != QType::DS && tryReferral(p, r, sd, target, retargetcount))
-      goto sendit;
+    if(p.qtype.getCode() != QType::DS && tryReferral(p, r, sd, target, retargetcount)) {
+      finishPacket(authSet, sd, p, r, noCache, doSigs);
+      return r;
+    }
 
     DLOG(g_log<<"Got no referrals, trying ANY"<<endl);
 
@@ -1467,7 +1494,8 @@ std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
     if(p.qtype.getCode() == QType::DS && weHaveUnauth &&  !weDone && !weRedirected) {
       DLOG(g_log<<"Q for DS of a name for which we do have NS, but for which we don't have DS; need to provide an AUTH answer that shows we don't"<<endl);
       makeNOError(p, r, target, DNSName(), sd, 1);
-      goto sendit;
+      finishPacket(authSet, sd, p, r, noCache, doSigs);
+      return r;
     }
 
     if(!haveAlias.empty() && (!weDone || p.qtype.getCode() == QType::ANY)) {
@@ -1506,7 +1534,8 @@ std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
         if(tryReferral(p, r, sd, target, retargetcount))
         {
           DLOG(g_log<<"Got referral for DS query"<<endl);
-          goto sendit;
+          finishPacket(authSet, sd, p, r, noCache, doSigs);
+          return r;
         }
       }
     }
@@ -1525,7 +1554,8 @@ std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
         if(nodata) 
           makeNOError(p, r, target, wildcard, sd, 2);
 
-        goto sendit;
+        finishPacket(authSet, sd, p, r, noCache, doSigs);
+        return r;
       }
       else if(tryDNAME(p, r, sd, target)) {
 	retargetcount++;
@@ -1536,8 +1566,9 @@ std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
         if (!(((p.qtype.getCode() == QType::CNAME) || (p.qtype.getCode() == QType::ANY)) && retargetcount > 0))
           makeNXDomain(p, r, target, wildcard, sd);
       }
-      
-      goto sendit;
+
+      finishPacket(authSet, sd, p, r, noCache, doSigs);
+      return r;
     }
                                        
     if(weRedirected) {
@@ -1570,12 +1601,15 @@ std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
       else
         makeNOError(p, r, target, DNSName(), sd, 0);
 
-      goto sendit;
+      finishPacket(authSet, sd, p, r, noCache, doSigs);
+      return r;
     }
     else if(weHaveUnauth) {
       DLOG(g_log<<"Have unauth data, so need to hunt for best NS records"<<endl);
-      if(tryReferral(p, r, sd, target, retargetcount))
-        goto sendit;
+      if(tryReferral(p, r, sd, target, retargetcount)) {
+        finishPacket(authSet, sd, p, r, noCache, doSigs);
+        return r;
+      }
       // check whether this could be fixed easily
       // if (*(rr.dr.d_name.rbegin()) == '.') {
       //      g_log<<Logger::Error<<"Should not get here ("<<p.qdomain<<"|"<<p.qtype.getCode()<<"): you have a trailing dot, this could be the problem (or run pdnsutil rectify-zone " <<sd.qname<<")"<<endl;
@@ -1588,20 +1622,6 @@ std::unique_ptr<DNSPacket> PacketHandler::doQuestion(DNSPacket& p)
       makeNOError(p, r, target, DNSName(), sd, 0);
     }
     
-  sendit:;
-    doAdditionalProcessing(p, r, sd);
-
-    for(const auto& loopRR: r->getRRS()) {
-      if(loopRR.scopeMask) {
-        noCache=true;
-        break;
-      }
-    }
-    if(doSigs)
-      addRRSigs(d_dk, B, authSet, r->getRRS());
-      
-    if(PC.enabled() && !noCache && p.couldBeCached())
-      PC.insert(p, *r, r->getMinTTL()); // in the packet cache
   }
   catch(const DBException &e) {
     g_log<<Logger::Error<<"Backend reported condition which prevented lookup ("+e.reason+") sending out servfail"<<endl;
