@@ -8,19 +8,29 @@ then
 	DIR=$1/
 fi
 
+if [ -z "${2}" ]; then
+  exit 1
+fi
+
+tmpf="${2}.tmp"
+rm -f "${tmpf}"
+touch "${tmpf}"
+
 for a in $(find ${DIR}html -type f | grep -v \~ | sort)
 do
 	c=$(echo $a | sed s:${DIR}html/:: | tr "/.-" "___")
-        echo "static const unsigned char g${c}Data[] = {"
-	od -v -t x1 "$a" | sed  's/^[0-7]*//' | sed 's/\([0-9a-f][0-9a-f]\)/0x\1,/g'
-	echo "};"
+        echo "static const unsigned char g${c}Data[] = {" >> "${tmpf}"
+	od -v -t x1 "$a" | sed  's/^[0-7]*//' | sed 's/\([0-9a-f][0-9a-f]\)/0x\1,/g' >> "${tmpf}"
+	echo "};" >> "${tmpf}"
 done
 
-echo "static const map<string,string> s_urlmap={"
+echo "static const map<string,string> s_urlmap={" >> "${tmpf}"
 for a in $(find ${DIR}html -type f | grep -v \~ | sort)
 do
 	b=$(echo $a | sed s:${DIR}html/::g)
 	c=$(echo $b | tr "/.-" "___")
-	echo "{\"$b\", string((const char*)g${c}Data, sizeof(g${c}Data))},"
+	echo "{\"$b\", string((const char*)g${c}Data, sizeof(g${c}Data))}," >> "${tmpf}"
 done
-echo "};"
+echo "};" >> "${tmpf}"
+
+mv "${tmpf}" "${2}"
