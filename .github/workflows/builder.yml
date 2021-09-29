@@ -35,3 +35,12 @@ jobs:
           name: ${{ matrix.product }}-${{ matrix.os }}-${{ steps.getversion.outputs.version }}
           path: built_pkgs/
           retention-days: 7
+      - name: Create provenance
+        uses: slsa-framework/github-actions-demo@v0.1
+        with:
+          artifact_path: built_pkgs/
+      - name: Upload provenance
+        uses: actions/upload-artifact@v2
+        with:
+          name: provenance-${{ matrix.product }}-${{ matrix.os }}-${{ steps.getversion.outputs.version }}
+          path: build.provenance
