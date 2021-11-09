@@ -210,6 +210,16 @@ void BaseLua4::prepareContext() {
   d_lw->registerFunction<void(NetmaskGroup::*)(const vector<pair<unsigned int, std::string>>&)>("addMasks", [](NetmaskGroup&nmg, const vector<pair<unsigned int, std::string>>& masks) { for(const auto& mask: masks) { nmg.addMask(mask.second); } });
   d_lw->registerFunction("match", (bool (NetmaskGroup::*)(const ComboAddress&) const)&NetmaskGroup::match);
 
+  d_lw->registerFunction<boost::optional<Netmask>(NetmaskGroup::*)(const std::string&addr)>("getMatch", [](NetmaskGroup &nmg, const std::string& addr) {
+      boost::optional<Netmask> ret;
+      Netmask nm;
+      ComboAddress ca(addr);
+      if (nmg.lookup(ca, &nm)) {
+        ret = nm;
+      }
+      return ret;
+  });
+
   // DNSRecord
   d_lw->writeFunction("newDR", [](const DNSName &name, const std::string &type, unsigned int ttl, const std::string &content, int place){ QType qtype; qtype = type; auto dr = DNSRecord(); dr.d_name = name; dr.d_type = qtype.getCode(); dr.d_ttl = ttl; dr.d_content = shared_ptr<DNSRecordContent>(DNSRecordContent::mastermake(dr.d_type, QClass::IN, content)); dr.d_place = static_cast<DNSResourceRecord::Place>(place); return dr; });
   d_lw->registerMember("name", &DNSRecord::d_name);

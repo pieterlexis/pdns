@@ -247,6 +247,33 @@ quiet=no
     allowedips = newNMG()
     allowedips:addMask("%s.0/24")
 
+    function preresolve(dw)
+      if dq.name == newDN("test-nmg-getmatch-nomatch.luahooks.example.") and dq.qtype == pdns.TXT then
+        match = allowedips:getMatch("192.0.2.1")
+        if match =~ nil then
+          dq:addAnswer(pdns.TXT, '"FAILED, not nil"')
+        else
+          dq:addAnswer(pdns.TXT, '"SUCCESS"')
+        end
+        return true
+      end
+
+      if dq.name == newDN("test-nmg-getmatch-match.luahooks.example.") and dq.qtype == pdns.TXT then
+        match = allowedips:getMatch("%s.1")
+        if match == nil then
+          dq:addAnswer(pdns.TXT, '"FAILED, was nil"')
+        else
+          if match:toString == "%s.0/24" then
+            dq:addAnswer(pdns.TXT, '"SUCCESS"')
+          else
+            dq:addAnswer(pdns.TXT, '"FAILED, wrong netmask returned"')
+          end
+        end
+        return true
+      end
+      return false
+    end
+
     function ipfilter(remoteip, localip, dh)
       -- allow only 127.0.0.1 and AD=0
       if allowedips:match(remoteip) and not dh:getAD() then
@@ -300,7 +327,7 @@ quiet=no
       return false
     end
 
-    """ % (os.environ['PREFIX'], os.environ['PREFIX'])
+    """ % (os.environ['PREFIX'], os.environ['PREFIX'], os.environ['PREFIX'], os.environ['PREFIX'])
 
     @classmethod
     def startResponders(cls):
@@ -401,6 +428,17 @@ quiet=no
             sender = getattr(self, method)
             res = sender(query)
             self.assertRcodeEqual(res, dns.rcode.NOERROR)
+
+    def testNmgGetMatch(self):
+        for qname in ('test-nmg-getmatch-nomatch.luahooks.example.', 'test-nmg-getmatch-match.luahooks.example.'):
+            expected = dns.rrset.from_text(qname, 3600, dns.rdataclass.IN, 'TXT', 'SUCCESS')
+            query = dns.message.make_query(qname, 'TXT', 'IN')
+
+            for method in ("sendUDPQuery", "sendTCPQuery"):
+                sender = getattr(self, method)
+                res = sender(query)
+                self.assertRcodeEqual(res, dns.rcode.NOERROR)
+                self.assertRRsetInAnswer(res, expected)
 
 class LuaHooksRecursorDistributesTest(LuaHooksRecursorTest):
     _confdir = 'LuaHooksDistributes'
