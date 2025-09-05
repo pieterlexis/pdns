@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "config.h"
+#include <vector>
 
 #ifndef DISABLE_PROTOBUF
 #include "base64.hh"
@@ -201,7 +202,7 @@ void DNSDistProtoBufMessage::serialize(std::string& data) const
   else {
     if (d_rcode) {
       msg.setResponseCode(*d_rcode);
-    }
+    } 
   }
 
   for (const auto& arr : d_additionalRRs) {
@@ -236,6 +237,34 @@ void DNSDistProtoBufMessage::serialize(std::string& data) const
       msg.setMeta(key, {std::string()}, {});
     }
   }
+
+  /*
+  if (d_traceSpans.has_value()) {
+    auto writer = protozero::basic_pbf_writer<std::string>();
+    for (const auto& traceSpan : d_traceSpans.value()) {
+      traceSpan.encode(writer);
+    }
+    writer.commit();
+  }
+  */
+}
+
+pdns::trace::SpanID DNSDistProtoBufMessage::addSpan(const pdns::trace::TraceID traceID, const struct timespec& begin, const struct timespec& end, pdns::trace::SpanID& parent)
+{
+  pdns::trace::Span span;
+  pdns::trace::SpanID id;
+  pdns::trace::random(id);
+
+  span.trace_id = traceID;
+  span.span_id = id;
+  if (!parent.empty()) {
+    span.parent_span_id = parent;
+  }
+  span.start_time_unix_nano = begin.tv_sec * 1000000 + begin.tv_nsec;
+  span.end_time_unix_nano = end.tv_sec * 1000000 + end.tv_nsec;
+
+  d_traceSpans->push_back(span);
+  return id;
 }
 
 ProtoBufMetaKey::ProtoBufMetaKey(const std::string& key)

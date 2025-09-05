@@ -200,6 +200,7 @@ common_sources += files(
   src_dir / 'libssl.cc',
   src_dir / 'misc.cc',
   src_dir / 'protozero.cc',
+  src_dir / 'protozero-trace.cc',
   src_dir / 'proxy-protocol.cc',
   src_dir / 'qtype.cc',
   src_dir / 'remote_logger.cc',

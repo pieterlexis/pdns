@@ -21,6 +21,7 @@
  */
 #pragma once
 
+#include <ctime>
 #include <unordered_map>
 
 #include "config.h"
@@ -31,6 +32,7 @@
 #include "gettime.hh"
 #include "iputils.hh"
 #include "noinitvector.hh"
+#include "protozero-trace.hh"
 #include "uuid-utils.hh"
 
 struct ClientState;
@@ -106,6 +108,32 @@ struct InternalQueryState
     std::string d_deviceID;
     std::string d_requestorID;
   };
+
+  // We need to collect some timestamps for Traces, even before we 
+  // know *if* we need to send out a trace
+  // TODO: make this a non-anonymous struct
+  struct {
+    struct timespec packetParsingStart{};
+    struct timespec packetParsingEnd{};
+
+    struct timespec rulesProcessingStart{};
+    struct timespec rulesProcessingEnd{};
+  } traceTimeStamps;
+
+  // This class is a helper that allows setting a traceTimeStamp when it goes out of scope
+  class EventScope
+  {
+  public:
+    EventScope(struct timespec& ts) : d_ts{ts} {};
+    ~EventScope() {
+      gettime(&d_ts);
+    }
+  private:
+    struct timespec& d_ts;
+  };
+
+  bool tracingEnabled = false; // Whether or not Open Telemetry tracing is enabled for this query
+  pdns::trace::TraceID traceID; // When tracingEnabled is true, this MUST be set
 
   InternalQueryState()
   {

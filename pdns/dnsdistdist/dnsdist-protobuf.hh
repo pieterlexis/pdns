@@ -22,6 +22,9 @@
 #pragma once
 
 #include "dnsname.hh"
+#include <boost/optional/optional.hpp>
+#include <ctime>
+#include <optional>
 
 #ifndef DISABLE_PROTOBUF
 #include <boost/multi_index_container.hpp>
@@ -29,6 +32,7 @@
 #include <boost/multi_index/key_extractors.hpp>
 
 #include "protozero.hh"
+#include "protozero-trace.hh"
 
 struct DNSQuestion;
 struct DNSResponse;
@@ -60,6 +64,17 @@ public:
   void addRR(DNSName&& qname, uint16_t uType, uint16_t uClass, uint32_t uTTL, const std::string& data);
 
   void serialize(std::string& data) const;
+
+  // Tracing related functions
+  /**
+   * @brief Adds an Open Telemetry Trace Span
+   *
+   * @param traceID the ID of the Trace
+   * @param begin The time of the beginning of the Span
+   * @param end The time of the end of the Span
+   * @param parent The parent Span ID (if any)
+   */
+  pdns::trace::SpanID addSpan(const pdns::trace::TraceID traceID, const struct timespec& begin, const struct timespec& end, pdns::trace::SpanID& parent);
 
   [[nodiscard]] std::string toDebugString() const;
 
@@ -110,6 +125,8 @@ private:
 
   pdns::ProtoZero::Message::MessageType d_type{pdns::ProtoZero::Message::MessageType::DNSQueryType};
   bool d_includeCNAME{false};
+
+  std::optional<std::vector<pdns::trace::Span>> d_traceSpans{std::nullopt};
 };
 
 class ProtoBufMetaKey

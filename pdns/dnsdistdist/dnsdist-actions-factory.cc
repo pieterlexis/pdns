@@ -1660,6 +1660,30 @@ private:
 
 #endif /* DISABLE_PROTOBUF */
 
+// TODO: wrap in #ifdef DISABLE_PROTOBUF
+class SetTraceAction: public DNSAction {
+public:
+  SetTraceAction(bool value) : d_value{value} {};
+
+  DNSAction::Action operator()(DNSQuestion* dnsquestion, std::string* ruleresult) const override {
+    (void)ruleresult;
+    dnsquestion->ids.tracingEnabled = d_value;
+    if (dnsquestion->ids.traceID.empty() && d_value) {
+      // Fill in the TraceID is there was none
+      pdns::trace::random(dnsquestion->ids.traceID);
+    }
+    return Action::None;
+  }
+
+  [[nodiscard]] std::string toString() const override
+  {
+    return string((d_value ? "en" : "dis")) + string("able OpenTelemetry Tracing");
+  }
+
+private:
+  bool d_value;
+};
+
 class SNMPTrapAction : public DNSAction
 {
 public:

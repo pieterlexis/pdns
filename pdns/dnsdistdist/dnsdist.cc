@@ -34,6 +34,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include "dnsdist-idstate.hh"
 #include "dnsdist-systemd.hh"
 #ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
@@ -1710,8 +1711,9 @@ std::unique_ptr<CrossProtocolQuery> getUDPCrossProtocolQueryFromDQ(DNSQuestion& 
 
 ProcessQueryResult processQuery(DNSQuestion& dnsQuestion, std::shared_ptr<DownstreamState>& selectedBackend)
 {
+  gettime(&dnsQuestion.ids.traceTimeStamps.rulesProcessingStart);
+  InternalQueryState::EventScope traceScope(dnsQuestion.ids.traceTimeStamps.rulesProcessingEnd);
   const uint16_t queryId = ntohs(dnsQuestion.getHeader()->id);
-
   try {
     /* we need an accurate ("real") value for the response and
        to store into the IDS, but not for insertion into the
@@ -1815,6 +1817,8 @@ static void processUDPQuery(ClientState& clientState, const struct msghdr* msgh,
   assert(responsesVect == nullptr || (queuedResponses != nullptr && respIOV != nullptr && respCBuf != nullptr));
   uint16_t queryId = 0;
   InternalQueryState ids;
+  gettime(&ids.traceTimeStamps.packetParsingStart);
+  InternalQueryState::EventScope traceScope(ids.traceTimeStamps.packetParsingEnd);
   ids.cs = &clientState;
   ids.origRemote = remote;
   ids.hopRemote = remote;
