@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
-import test_Protobuf
 import dns
 import time
+
+import opentelemetry.proto.trace.v1.trace_pb2
+import google.protobuf.json_format
+
+import test_Protobuf
 
 
 class DNSDistOpenTelemetryProtobufTest(test_Protobuf.DNSDistProtobufTest):
@@ -21,7 +25,8 @@ logging:
   open_telemetry_tracing: true
 
 backends:
-  - 127.0.0.1:%s
+  - address: 127.0.0.1:%s
+    protocol: Do53
 
 remote_logging:
  protobuf_loggers:
@@ -75,3 +80,34 @@ response_rules:
 
         # check the protobuf message corresponding to the UDP query
         msg = self.getFirstProtobufMessage()
+
+        self.assertTrue(msg.HasField("openTelemetryTraceID"))
+        self.assertTrue(msg.openTelemetryTraceID != "")
+
+        self.assertTrue(msg.HasField("openTelemetryData"))
+        data = opentelemetry.proto.trace.v1.trace_pb2.TracesData()
+        data.ParseFromString(msg.openTelemetryData)
+        json_data = google.protobuf.json_format.MessageToDict(
+            data, preserving_proto_field_name=True
+        )
+
+        self.assertEqual(len(json_data["resource_spans"]), 1)
+        self.assertEqual(
+            len(json_data["resource_spans"][0]["resource"]["attributes"]), 4
+        )
+
+        # Ensure all attributes exist
+        for field in json_data["resource_spans"][0]["resource"]["attributes"]:
+            self.assertTrue(
+                field["key"]
+                in ["service.name", "query.qname", "query.qtype", "query.remote"]
+            )
+
+        # Ensure the values are correct
+        # TODO: query.remote with port
+        for k, v in {
+            "service.name": "dnsdist",
+            "query.qname": "query.ot.tests.powerdns.com",
+            "query.qtype": "A",
+        }.items():
+            self.assertEqual(json_data["resource_spans"][0]["resource"]["attributes"])
