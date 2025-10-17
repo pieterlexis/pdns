@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include <exception>
 #include <thread>
 #include <netinet/tcp.h>
 #include <queue>
@@ -449,6 +450,28 @@ IOState IncomingTCPConnectionState::sendResponse(const struct timeval& now, TCPR
     auto iostate = d_handler.tryWrite(d_currentResponse.d_buffer, d_currentPos, d_currentResponse.d_buffer.size());
     if (iostate == IOState::Done) {
       DEBUGLOG("response sent from " << __PRETTY_FUNCTION__);
+      vinfolog("In %s, tracing is %sabled, size of delayedResponseMsgs is %d", __PRETTY_FUNCTION__, response.d_idstate.tracingEnabled ? "en" : "dis", response.d_idstate.delayedResponseMsgs.size());
+
+#ifndef DISABLE_PROTOBUF
+      if (response.d_idstate.tracingEnabled && !response.d_idstate.delayedResponseMsgs.empty()) {
+        static thread_local std::string data;
+        for (auto const& msg_logger : response.d_idstate.delayedResponseMsgs) {
+          vinfolog("sending stuff to logger");
+          data.clear();
+          try {
+            msg_logger.first->serialize(data);
+          } catch (const std::exception& e) {
+            vinfolog("Had exception creating data for logger: %s", e.what());
+          }
+          if (!response.d_idstate.d_rawProtobufContent.empty()) {
+            data.insert(data.end(), response.d_idstate.d_rawProtobufContent.begin(), response.d_idstate.d_rawProtobufContent.end());
+          }
+          vinfolog("Have data: %s", data);
+          msg_logger.second->queueData(data);
+        }
+      }
+#endif
+
       handleResponseSent(d_currentResponse, d_currentResponse.d_buffer.size());
       return iostate;
     }
