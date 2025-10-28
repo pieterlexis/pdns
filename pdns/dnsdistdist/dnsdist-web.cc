@@ -1452,6 +1452,7 @@ static void handleConfigDump(const YaHTTP::Request& req, YaHTTP::Response& resp)
     {"server-policy", runtimeConfiguration.d_lbPolicy->getName()},
     {"stale-cache-entries-ttl", static_cast<double>(runtimeConfiguration.d_staleCacheEntriesTTL)},
     {"tcp-recv-timeout", static_cast<double>(runtimeConfiguration.d_tcpRecvTimeout)},
+    {"tcp-idle-timeout", static_cast<double>(runtimeConfiguration.d_tcpIdleTimeout)},
     {"tcp-send-timeout", static_cast<double>(runtimeConfiguration.d_tcpSendTimeout)},
     {"truncate-tc", runtimeConfiguration.d_truncateTC},
     {"verbose", runtimeConfiguration.d_verbose},

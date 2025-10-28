@@ -143,6 +143,7 @@ struct RuntimeConfiguration
   uint32_t d_consoleOutputMsgMaxSize{10000000};
   uint16_t d_payloadSizeSelfGenAnswers{s_defaultPayloadSizeSelfGenAnswers};
   uint16_t d_tcpRecvTimeout{2};
+  uint16_t d_tcpIdleTimeout{2};
   uint16_t d_tcpSendTimeout{2};
   /* rfc7871: "11.1. Privacy" */
   uint16_t d_ECSSourcePrefixV4{24};

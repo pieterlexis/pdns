@@ -89,6 +89,7 @@ static const std::map<std::string, UnsignedIntegerConfigurationItems> s_unsigned
   {"setECSSourcePrefixV4", {[](dnsdist::configuration::RuntimeConfiguration& config, uint64_t newValue) { config.d_ECSSourcePrefixV4 = newValue; }, std::numeric_limits<uint16_t>::max()}},
   {"setECSSourcePrefixV6", {[](dnsdist::configuration::RuntimeConfiguration& config, uint64_t newValue) { config.d_ECSSourcePrefixV6 = newValue; }, std::numeric_limits<uint16_t>::max()}},
   {"setTCPRecvTimeout", {[](dnsdist::configuration::RuntimeConfiguration& config, uint64_t newValue) { config.d_tcpRecvTimeout = newValue; }, std::numeric_limits<uint16_t>::max()}},
+  {"setTCPIdleTimeout", {[](dnsdist::configuration::RuntimeConfiguration& config, uint64_t newValue) { config.d_tcpIdleTimeout = newValue; }, std::numeric_limits<uint16_t>::max()}},
   {"setTCPSendTimeout", {[](dnsdist::configuration::RuntimeConfiguration& config, uint64_t newValue) { config.d_tcpSendTimeout = newValue; }, std::numeric_limits<uint16_t>::max()}},
   {"setMaxTCPQueriesPerConnection", {[](dnsdist::configuration::RuntimeConfiguration& config, uint64_t newValue) { config.d_maxTCPQueriesPerConn = newValue; }, std::numeric_limits<uint64_t>::max()}},
   {"setMaxTCPConnectionDuration", {[](dnsdist::configuration::RuntimeConfiguration& config, uint64_t newValue) { config.d_maxTCPConnectionDuration = newValue; }, std::numeric_limits<uint32_t>::max()}},
