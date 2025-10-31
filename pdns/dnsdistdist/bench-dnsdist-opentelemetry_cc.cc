@@ -49,6 +49,25 @@ TEST_CASE("OpenTelemetry-base")
   };
 }
 
+TEST_CASE("OpenTelemetry-addSpanThroughCloser")
+{
+  auto tracer = pdns::trace::dnsdist::Tracer::getTracer();
+  auto spanID = pdns::trace::SpanID::getRandomSpanID();
+
+  BENCHMARK("unactivated")
+  {
+    return tracer->openSpan("unactivated", spanID);
+  };
+
+  tracer->activate();
+
+  BENCHMARK("activated")
+  {
+    return tracer->openSpan("activated", spanID);
+  };
+
+}
+
 TEST_CASE("OpenTelemetry-spaninfo")
 {
   auto tracer = pdns::trace::dnsdist::Tracer::getTracer();
