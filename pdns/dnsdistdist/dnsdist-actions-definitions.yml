@@ -409,6 +409,12 @@
     - name: "value"
       type: "bool"
       description: "Whether or not to enable tracing"
+    - name: "set_parenttrace_edns_option"
+      type: "bool"
+      description: "When set to true, add the TRACEPARENT EDNS option to the outgoing packet."
+    - name: "parenttrace_edns_option_number"
+      type: "u16"
+      description: "The TRACEPARENT EDNS option number, 65500 by default"
 - name: "SNMPTrap"
   description: "Send an SNMP trap, adding the message string as the query description. Subsequent rules are processed after this action"
   parameters:

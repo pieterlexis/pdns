@@ -1680,8 +1680,8 @@ private:
 class SetTraceAction : public DNSAction
 {
 public:
-  SetTraceAction(bool value) :
-    d_value{value} {};
+  SetTraceAction(bool value, bool setTraceparentEdnsOpt, uint16_t traceparentEdnsOpt) :
+    d_value{value}, d_setTraceparentEdnsOpt(setTraceparentEdnsOpt), d_traceparentEdnsOptNum(EDNSOptionCode::EDNSOptionCodeEnum{traceparentEdnsOpt}) {};
 
   DNSAction::Action operator()([[maybe_unused]] DNSQuestion* dnsquestion, [[maybe_unused]] std::string* ruleresult) const override
   {
@@ -1696,6 +1696,8 @@ public:
       tracer->setRootSpanAttribute("query.qtype", AnyValue{QType(dnsquestion->ids.qtype).toString()});
       tracer->setRootSpanAttribute("query.remote.address", AnyValue{dnsquestion->ids.origRemote.toString()});
       tracer->setRootSpanAttribute("query.remote.port", AnyValue{dnsquestion->ids.origRemote.getPort()});
+      dnsquestion->ids.setTraceparentEdnsOpt = d_setTraceparentEdnsOpt;
+      dnsquestion->ids.traceparentOptNum = d_traceparentEdnsOptNum;
     }
     dnsquestion->ids.tracingEnabled = d_value;
 #endif
@@ -1704,11 +1706,13 @@ public:
 
   [[nodiscard]] std::string toString() const override
   {
-    return string((d_value ? "en" : "dis")) + string("able OpenTelemetry Tracing");
+    return string((d_value ? "en" : "dis")) + string("able OpenTelemetry Tracing") + string(d_setTraceparentEdnsOpt ? " and set trace parent in outgoing packet" : "");
   }
 
 private:
   bool d_value;
+  bool d_setTraceparentEdnsOpt;
+  EDNSOptionCode::EDNSOptionCodeEnum d_traceparentEdnsOptNum;
 };
 
 class SNMPTrapAction : public DNSAction

@@ -35,6 +35,7 @@
 #include "dnsname.hh"
 #include "dnsdist-protocols.hh"
 #include "ednsextendederror.hh"
+#include "ednsoptions.hh"
 #include "gettime.hh"
 #include "iputils.hh"
 #include "noinitvector.hh"
@@ -217,6 +218,7 @@ public:
   std::optional<bool> dnssecOK;
   dnsdist::Protocol protocol; // 1
   uint8_t restartCount{0}; // 1
+  EDNSOptionCode::EDNSOptionCodeEnum traceparentOptNum{EDNSOptionCode::OTTRACEIDS}; // When adding a traceparent, use this Option Code
   bool ednsAdded{false};
   bool ecsAdded{false};
   bool skipCache{false};
@@ -226,6 +228,7 @@ public:
   bool cacheHit{false};
   bool staleCacheHit{false};
   bool tracingEnabled{false}; // Whether or not Open Telemetry tracing is enabled for this query
+  bool setTraceparentEdnsOpt{false}; // Whether to add a traceparent EDNS option
 };
 
 struct IDState
