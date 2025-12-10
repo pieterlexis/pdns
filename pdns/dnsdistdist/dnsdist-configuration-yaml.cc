@@ -51,7 +51,6 @@
 
 #include <variant>
 #include <boost/uuid/string_generator.hpp>
-#include <boost/variant.hpp>
 
 #endif /* HAVE_YAML_CONFIGURATION */
 
@@ -1265,7 +1264,7 @@ bool loadConfigurationFromFile(const std::string& fileName, [[maybe_unused]] boo
 void addLuaBindingsForYAMLObjects([[maybe_unused]] LuaContext& luaCtx)
 {
 #if defined(HAVE_YAML_CONFIGURATION)
-  using ReturnValue = std::optional<boost::variant<std::shared_ptr<DNSDistPacketCache>, std::shared_ptr<DNSRule>, std::shared_ptr<DNSAction>, std::shared_ptr<DNSResponseAction>, std::shared_ptr<NetmaskGroup>, std::shared_ptr<KeyValueStore>, std::shared_ptr<KeyValueLookupKey>, std::shared_ptr<RemoteLoggerInterface>, std::shared_ptr<ServerPolicy>, std::shared_ptr<TimedIPSetRule>, std::shared_ptr<XSKMap>>>;
+  using ReturnValue = std::optional<std::variant<std::shared_ptr<DNSDistPacketCache>, std::shared_ptr<DNSRule>, std::shared_ptr<DNSAction>, std::shared_ptr<DNSResponseAction>, std::shared_ptr<NetmaskGroup>, std::shared_ptr<KeyValueStore>, std::shared_ptr<KeyValueLookupKey>, std::shared_ptr<RemoteLoggerInterface>, std::shared_ptr<ServerPolicy>, std::shared_ptr<TimedIPSetRule>, std::shared_ptr<XSKMap>>>;
 
   luaCtx.writeFunction("getObjectFromYAMLConfiguration", [](const std::string& name) -> ReturnValue {
     auto map = s_registeredTypesMap.lock();

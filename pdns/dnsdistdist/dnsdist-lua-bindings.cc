@@ -33,6 +33,7 @@
 
 #include "dolog.hh"
 #include "xsk.hh"
+#include <variant>
 
 void setupLuaBindingsLogging(LuaContext& luaCtx)
 {
@@ -282,7 +283,7 @@ void setupLuaBindings(LuaContext& luaCtx, bool client, bool configCheck)
     }
     state->setLazyAuto();
   });
-  luaCtx.registerFunction<void (std::shared_ptr<DownstreamState>::*)(std::optional<LuaAssociativeTable<boost::variant<size_t>>>)>("setHealthCheckParams", [](std::shared_ptr<DownstreamState>& state, std::optional<LuaAssociativeTable<boost::variant<size_t>>> vars) {
+  luaCtx.registerFunction<void (std::shared_ptr<DownstreamState>::*)(std::optional<LuaAssociativeTable<std::variant<size_t>>>)>("setHealthCheckParams", [](std::shared_ptr<DownstreamState>& state, std::optional<LuaAssociativeTable<std::variant<size_t>>> vars) {
     if (!state) {
       return;
     }
@@ -516,54 +517,46 @@ void setupLuaBindings(LuaContext& luaCtx, bool client, bool configCheck)
 
 #ifndef DISABLE_SUFFIX_MATCH_BINDINGS
   /* SuffixMatchNode */
-  luaCtx.registerFunction<void (SuffixMatchNode::*)(const boost::variant<DNSName, std::string, LuaArray<DNSName>, LuaArray<std::string>>& name)>("add", [](SuffixMatchNode& smn, const boost::variant<DNSName, std::string, LuaArray<DNSName>, LuaArray<std::string>>& name) {
-    if (name.type() == typeid(DNSName)) {
-      const auto& actualName = boost::get<DNSName>(name);
-      smn.add(actualName);
+  luaCtx.registerFunction<void (SuffixMatchNode::*)(const std::variant<DNSName, std::string, LuaArray<DNSName>, LuaArray<std::string>>& name)>("add", [](SuffixMatchNode& smn, const std::variant<DNSName, std::string, LuaArray<DNSName>, LuaArray<std::string>>& name) {
+    if (const auto& actualName = std::get_if<DNSName>(&name)) {
+      smn.add(*actualName);
       return;
     }
-    if (name.type() == typeid(std::string)) {
-      const auto& actualName = boost::get<std::string>(name);
-      smn.add(actualName);
+    if (const auto& actualName = std::get_if<std::string>(&name)) {
+      smn.add(*actualName);
       return;
     }
-    if (name.type() == typeid(LuaArray<DNSName>)) {
-      const auto& names = boost::get<LuaArray<DNSName>>(name);
-      for (const auto& actualName : names) {
+    if (const auto& names = std::get_if<LuaArray<DNSName>>(&name)) {
+      for (const auto& actualName : *names) {
         smn.add(actualName.second);
       }
       return;
     }
-    if (name.type() == typeid(LuaArray<std::string>)) {
-      const auto& names = boost::get<LuaArray<string>>(name);
-      for (const auto& actualName : names) {
+    if (const auto& names = std::get_if<LuaArray<std::string>>(&name)) {
+      for (const auto& actualName : *names) {
         smn.add(actualName.second);
       }
       return;
     }
   });
-  luaCtx.registerFunction<void (SuffixMatchNode::*)(const boost::variant<DNSName, string, LuaArray<DNSName>, LuaArray<std::string>>& name)>("remove", [](SuffixMatchNode& smn, const boost::variant<DNSName, string, LuaArray<DNSName>, LuaArray<std::string>>& name) {
-    if (name.type() == typeid(DNSName)) {
-      const auto& actualName = boost::get<DNSName>(name);
-      smn.remove(actualName);
+  luaCtx.registerFunction<void (SuffixMatchNode::*)(const std::variant<DNSName, string, LuaArray<DNSName>, LuaArray<std::string>>& name)>("remove", [](SuffixMatchNode& smn, const std::variant<DNSName, string, LuaArray<DNSName>, LuaArray<std::string>>& name) {
+    if (const auto& actualName = std::get_if<DNSName>(&name)) {
+      smn.remove(*actualName);
       return;
     }
-    if (name.type() == typeid(string)) {
-      const auto& actualName = boost::get<string>(name);
-      DNSName dnsName(actualName);
+    if (const auto& actualName = std::get_if<std::string>(&name)) {
+      DNSName dnsName(*actualName);
       smn.remove(dnsName);
       return;
     }
-    if (name.type() == typeid(LuaArray<DNSName>)) {
-      const auto& names = boost::get<LuaArray<DNSName>>(name);
-      for (const auto& actualName : names) {
+    if (const auto& names = std::get_if<LuaArray<DNSName>>(&name)) {
+      for (const auto& actualName : *names) {
         smn.remove(actualName.second);
       }
       return;
     }
-    if (name.type() == typeid(LuaArray<std::string>)) {
-      const auto& names = boost::get<LuaArray<std::string>>(name);
-      for (const auto& actualName : names) {
+    if (const auto& names = std::get_if<LuaArray<std::string>>(&name)) {
+      for (const auto& actualName : *names) {
         DNSName dnsName(actualName.second);
         smn.remove(dnsName);
       }
@@ -586,17 +579,15 @@ void setupLuaBindings(LuaContext& luaCtx, bool client, bool configCheck)
 
 #ifndef DISABLE_NETMASK_BINDINGS
   /* Netmask */
-  luaCtx.writeFunction("newNetmask", [](boost::variant<std::string, ComboAddress> addrOrStr, std::optional<uint8_t> bits) {
-    if (addrOrStr.type() == typeid(ComboAddress)) {
-      const auto& comboAddr = boost::get<ComboAddress>(addrOrStr);
+  luaCtx.writeFunction("newNetmask", [](std::variant<std::string, ComboAddress> addrOrStr, std::optional<uint8_t> bits) {
+    if (const auto& comboAddr = std::get_if<ComboAddress>(&addrOrStr)) {
       if (bits) {
-        return Netmask(comboAddr, *bits);
+        return Netmask(*comboAddr, *bits);
       }
-      return Netmask(comboAddr);
+      return Netmask(*comboAddr);
     }
-    if (addrOrStr.type() == typeid(std::string)) {
-      const auto& str = boost::get<std::string>(addrOrStr);
-      return Netmask(str);
+    if (const auto& str = std::get_if<std::string>(&addrOrStr)) {
+      return Netmask(*str);
     }
     throw std::runtime_error("Invalid parameter passed to 'newNetmask()'");
   });
@@ -704,7 +695,7 @@ void setupLuaBindings(LuaContext& luaCtx, bool client, bool configCheck)
 
   /* BPF Filter */
 #ifdef HAVE_EBPF
-  using bpfopts_t = LuaAssociativeTable<boost::variant<bool, uint32_t, std::string>>;
+  using bpfopts_t = LuaAssociativeTable<std::variant<bool, uint32_t, std::string>>;
   luaCtx.writeFunction("newBPFFilter", [client](bpfopts_t opts) {
     if (client) {
       return std::shared_ptr<BPFFilter>(nullptr);
@@ -716,19 +707,19 @@ void setupLuaBindings(LuaContext& luaCtx, bool client, bool configCheck)
       config.d_type = type;
       if (const string key = name + "MaxItems"; opts.count(key)) {
         const auto& tmp = opts.at(key);
-        if (tmp.type() != typeid(uint32_t)) {
+        if (!std::holds_alternative<uint32_t>(tmp)) {
           throw std::runtime_error("params is invalid");
         }
-        const auto& params = boost::get<uint32_t>(tmp);
+        const auto& params = std::get<uint32_t>(tmp);
         config.d_maxItems = params;
       }
 
       if (const string key = name + "PinnedPath"; opts.count(key)) {
         auto& tmp = opts.at(key);
-        if (tmp.type() != typeid(string)) {
+        if (!std::holds_alternative<string>(tmp)) {
           throw std::runtime_error("params is invalid");
         }
-        auto& params = boost::get<string>(tmp);
+        auto& params = std::get<string>(tmp);
         config.d_pinnedPath = std::move(params);
       }
       mapsConfig[name] = std::move(config);
@@ -744,10 +735,10 @@ void setupLuaBindings(LuaContext& luaCtx, bool client, bool configCheck)
     bool external = false;
     if (opts.count("external") != 0) {
       const auto& tmp = opts.at("external");
-      if (tmp.type() != typeid(bool)) {
+      if (std::holds_alternative<bool>(tmp)) {
         throw std::runtime_error("params is invalid");
       }
-      external = boost::get<bool>(tmp);
+      external = std::get<bool>(tmp);
       if (external) {
         format = BPFFilter::MapFormat::WithActions;
       }
@@ -929,13 +920,13 @@ void setupLuaBindings(LuaContext& luaCtx, bool client, bool configCheck)
       return;
     }
 
-    if (ranges.type() == typeid(LuaArray<std::string>)) {
-      for (const auto& range : *boost::get<LuaArray<std::string>>(&ranges)) {
+    if (const auto& rangesLaStr = std::get_if<LuaArray<std::string>>(&ranges)) {
+      for (const auto& range : *rangesLaStr) {
         dbpf->excludeRange(Netmask(range.second));
       }
     }
     else {
-      dbpf->excludeRange(Netmask(*boost::get<std::string>(&ranges)));
+      dbpf->excludeRange(Netmask(std::get<std::string>(ranges)));
     }
   });
 
@@ -944,18 +935,18 @@ void setupLuaBindings(LuaContext& luaCtx, bool client, bool configCheck)
       return;
     }
 
-    if (ranges.type() == typeid(LuaArray<std::string>)) {
-      for (const auto& range : *boost::get<LuaArray<std::string>>(&ranges)) {
+    if (const auto& rangesLaStr = std::get_if<LuaArray<std::string>>(&ranges)) {
+      for (const auto& range : *rangesLaStr) {
         dbpf->includeRange(Netmask(range.second));
       }
     }
     else {
-      dbpf->includeRange(Netmask(*boost::get<std::string>(&ranges)));
+      dbpf->includeRange(Netmask(std::get<std::string>(ranges)));
     }
   });
 #endif /* HAVE_EBPF */
 #ifdef HAVE_XSK
-  using xskopt_t = LuaAssociativeTable<boost::variant<uint32_t, std::string>>;
+  using xskopt_t = LuaAssociativeTable<std::variant<uint32_t, std::string>>;
   luaCtx.writeFunction("newXsk", [client](xskopt_t opts) {
     if (dnsdist::configuration::isImmutableConfigurationDone()) {
       throw std::runtime_error("newXsk() only can be used at configuration time!");
@@ -968,22 +959,22 @@ void setupLuaBindings(LuaContext& luaCtx, bool client, bool configCheck)
     std::string ifName;
     std::string path("/sys/fs/bpf/dnsdist/xskmap");
     if (opts.count("ifName") == 1) {
-      ifName = boost::get<std::string>(opts.at("ifName"));
+      ifName = std::get<std::string>(opts.at("ifName"));
     }
     else {
       throw std::runtime_error("ifName field is required!");
     }
     if (opts.count("NIC_queue_id") == 1) {
-      queue_id = boost::get<uint32_t>(opts.at("NIC_queue_id"));
+      queue_id = std::get<uint32_t>(opts.at("NIC_queue_id"));
     }
     else {
       throw std::runtime_error("NIC_queue_id field is required!");
     }
     if (opts.count("frameNums") == 1) {
-      frameNums = boost::get<uint32_t>(opts.at("frameNums"));
+      frameNums = std::get<uint32_t>(opts.at("frameNums"));
     }
     if (opts.count("xskMapPath") == 1) {
-      path = boost::get<std::string>(opts.at("xskMapPath"));
+      path = std::get<std::string>(opts.at("xskMapPath"));
     }
     auto socket = std::make_shared<XskSocket>(frameNums, ifName, queue_id, path);
     dnsdist::xsk::g_xsk.push_back(socket);

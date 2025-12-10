@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <variant>
 
 #include "config.h"
 #include "dnsdist.hh"
@@ -31,7 +32,7 @@
 void setupLuaBindingsPacketCache(LuaContext& luaCtx, bool client)
 {
   /* PacketCache */
-  luaCtx.writeFunction("newPacketCache", [client](size_t maxEntries, std::optional<LuaAssociativeTable<boost::variant<bool, size_t, LuaArray<uint16_t>>>> vars) {
+  luaCtx.writeFunction("newPacketCache", [client](size_t maxEntries, std::optional<LuaAssociativeTable<std::variant<bool, size_t, LuaArray<uint16_t>>>> vars) {
 
     DNSDistPacketCache::CacheSettings settings {
       .d_maxEntries = maxEntries,
@@ -130,17 +131,17 @@ void setupLuaBindingsPacketCache(LuaContext& luaCtx, bool client)
       }
       return static_cast<size_t>(0);
     });
-  luaCtx.registerFunction<void(std::shared_ptr<DNSDistPacketCache>::*)(const boost::variant<DNSName, string>& dname, std::optional<uint16_t> qtype, std::optional<bool> suffixMatch)>("expungeByName", [](
+  luaCtx.registerFunction<void(std::shared_ptr<DNSDistPacketCache>::*)(const std::variant<DNSName, string>& dname, std::optional<uint16_t> qtype, std::optional<bool> suffixMatch)>("expungeByName", [](
               std::shared_ptr<DNSDistPacketCache>& cache,
-              const boost::variant<DNSName, string>& dname,
+              const std::variant<DNSName, string>& dname,
               std::optional<uint16_t> qtype,
               std::optional<bool> suffixMatch) {
                 DNSName qname;
-                if (dname.type() == typeid(DNSName)) {
-                  qname = boost::get<DNSName>(dname);
+                if (std::holds_alternative<DNSName>(dname)) {
+                  qname = std::get<DNSName>(dname);
                 }
-                if (dname.type() == typeid(string)) {
-                  qname = DNSName(boost::get<string>(dname));
+                if (std::holds_alternative<string>(dname)) {
+                  qname = DNSName(std::get<string>(dname));
                 }
                 if (cache) {
                   g_outputBuffer+="Expunged " + std::to_string(cache->expungeByName(qname, qtype ? *qtype : QType(QType::ANY).getCode(), suffixMatch ? *suffixMatch : false)) + " records\n";

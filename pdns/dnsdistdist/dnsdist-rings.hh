@@ -24,7 +24,7 @@
 #include <time.h>
 #include <unordered_map>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 #include "circular_buffer.hh"
 #include "dnsname.hh"
@@ -73,7 +73,7 @@ struct Rings
     LockGuarded<boost::circular_buffer<Response>> respRing;
   };
 
-  std::unordered_map<int, vector<boost::variant<string, double>>> getTopBandwidth(unsigned int numentries);
+  std::unordered_map<int, vector<std::variant<string, double>>> getTopBandwidth(unsigned int numentries);
   size_t numDistinctRequestors();
 
   /* This function should only be called at configuration time before any query or response has been inserted */

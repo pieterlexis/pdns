@@ -375,11 +375,11 @@ namespace {
 template<typename T, typename C>
 bool doCompare(const T& var, const std::string& res, const C& cmp)
 {
-  if(auto country = boost::get<string>(&var))
+  if(const auto& country = std::get_if<string>(&var))
     return cmp(*country, res);
 
-  auto countries=boost::get<vector<pair<int,string> > >(&var);
-  for(const auto& country : *countries) {
+  auto countries = std::get<vector<pair<int,string>>>(var);
+  for(const auto& country : countries) {
     if(cmp(country.second, res))
       return true;
   }
@@ -685,15 +685,15 @@ static vector<ComboAddress> convComboAddressList(const iplist_t& items, uint16_t
  * - {{'192.0.2.1', '192.0.2.2'}, {'198.51.100.1'}}
  */
 
-static vector<vector<ComboAddress>> convMultiComboAddressList(const boost::variant<iplist_t, ipunitlist_t>& items, uint16_t port = 0)
+static vector<vector<ComboAddress>> convMultiComboAddressList(const std::variant<iplist_t, ipunitlist_t>& items, uint16_t port = 0)
 {
   vector<vector<ComboAddress>> candidates;
 
-  if(auto simple = boost::get<iplist_t>(&items)) {
+  if(const auto& simple = std::get_if<iplist_t>(&items)) {
     vector<ComboAddress> unit = convComboAddressList(*simple, port);
     candidates.push_back(unit);
   } else {
-    auto units = boost::get<ipunitlist_t>(items);
+    auto units = std::get<ipunitlist_t>(items);
     for(const auto& u : units) {
       vector<ComboAddress> unit = convComboAddressList(u.second, port);
       candidates.push_back(unit);
@@ -889,7 +889,7 @@ static std::string pickConsistentWeightedHashed(const ComboAddress& bestwho, con
   return {};
 }
 
-static vector<string> genericIfUp(const boost::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options, const std::function<int(const ComboAddress&, const opts_t&)>& upcheckf, uint16_t port = 0)
+static vector<string> genericIfUp(const std::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options, const std::function<int(const ComboAddress&, const opts_t&)>& upcheckf, uint16_t port = 0)
 {
   vector<vector<ComboAddress> > candidates;
   opts_t opts;
@@ -1237,7 +1237,7 @@ static vector<string> lua_filterForward(const string& address, NetmaskGroup& nmg
  *
  * @example ifportup(443, { '1.2.3.4', '5.4.3.2' })"
  */
-static vector<string> lua_ifportup(int port, const boost::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options)
+static vector<string> lua_ifportup(int port, const std::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options)
 {
   port = std::max(port, 0);
   port = std::min(port, static_cast<int>(std::numeric_limits<uint16_t>::max()));
@@ -1293,7 +1293,7 @@ static vector<string> lua_ifurlextup(const vector<pair<int, opts_t> >& ipurls, b
   return convComboAddressListToString(res);
 }
 
-static vector<string> lua_ifurlup(const std::string& url, const boost::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options)
+static vector<string> lua_ifurlup(const std::string& url, const std::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options)
 {
   auto checker = [&url](const ComboAddress& addr, const opts_t& opts) -> int {
     return g_up.isUp(addr, url, opts);
@@ -1435,7 +1435,7 @@ static string lua_geoiplookup(const string &address, const GeoIPInterface::GeoIP
   return getGeo(address, attr);
 }
 
-using combovar_t = const boost::variant<string,vector<pair<int,string> > >;
+using combovar_t = const std::variant<string,vector<pair<int,string> > >;
 
 static bool lua_asnum(const combovar_t& asns)
 {
@@ -1654,7 +1654,7 @@ static void setupLuaRecords(LuaContext& lua)
       return lua_filterForward(address, nmg, std::move(fallback));
     });
 
-  lua.writeFunction("ifportup", [](int port, const boost::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options) -> vector<string> {
+  lua.writeFunction("ifportup", [](int port, const std::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options) -> vector<string> {
       return lua_ifportup(port, ips, std::move(options));
     });
 
@@ -1662,7 +1662,7 @@ static void setupLuaRecords(LuaContext& lua)
       return lua_ifurlextup(ipurls, std::move(options));
     });
 
-  lua.writeFunction("ifurlup", [](const std::string& url, const boost::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options) -> vector<string> {
+  lua.writeFunction("ifurlup", [](const std::string& url, const std::variant<iplist_t, ipunitlist_t>& ips, boost::optional<opts_t> options) -> vector<string> {
       return lua_ifurlup(url, ips, std::move(options));
     });
 
@@ -1795,13 +1795,13 @@ std::vector<shared_ptr<DNSRecordContent>> luaSynth(const std::string& code, cons
     else
       actual = code.substr(1);
 
-    auto content=lua.executeCode<boost::variant<string, vector<pair<int, string> > > >(actual);
+    auto content=lua.executeCode<std::variant<string, vector<pair<int, string> > > >(actual);
 
     vector<string> contents;
-    if(auto str = boost::get<string>(&content))
+    if(const auto& str = std::get_if<string>(&content))
       contents.push_back(*str);
     else
-      for(const auto& c : boost::get<vector<pair<int,string>>>(content))
+      for(const auto& c : std::get<vector<pair<int,string>>>(content))
         contents.push_back(c.second);
 
     for(const auto& content_it: contents) {

@@ -58,14 +58,13 @@ void setupLuaBindingsKVS([[maybe_unused]] LuaContext& luaCtx, [[maybe_unused]] b
     return std::shared_ptr<KeyValueLookupKey>(new KeyValueLookupKeyTag(tag));
   });
 
-  luaCtx.registerFunction<std::string(std::shared_ptr<KeyValueStore>::*)(const boost::variant<ComboAddress, DNSName, std::string>, std::optional<bool> wireFormat)>("lookup", [](std::shared_ptr<KeyValueStore>& kvs, const boost::variant<ComboAddress, DNSName, std::string> keyVar, std::optional<bool> wireFormat) {
+  luaCtx.registerFunction<std::string(std::shared_ptr<KeyValueStore>::*)(const std::variant<ComboAddress, DNSName, std::string>, std::optional<bool> wireFormat)>("lookup", [](std::shared_ptr<KeyValueStore>& kvs, const std::variant<ComboAddress, DNSName, std::string> keyVar, std::optional<bool> wireFormat) {
     std::string result;
     if (!kvs) {
       return result;
     }
 
-    if (keyVar.type() == typeid(ComboAddress)) {
-      const auto ca = boost::get<ComboAddress>(&keyVar);
+    if (const auto& ca = std::get_if<ComboAddress>(&keyVar)) {
       KeyValueLookupKeySourceIP lookup(32, 128, false);
       for (const auto& key : lookup.getKeys(*ca)) {
         if (kvs->getValue(key, result)) {
@@ -73,8 +72,7 @@ void setupLuaBindingsKVS([[maybe_unused]] LuaContext& luaCtx, [[maybe_unused]] b
         }
       }
     }
-    else if (keyVar.type() == typeid(DNSName)) {
-      const DNSName* dn = boost::get<DNSName>(&keyVar);
+    else if (const auto& dn = std::get_if<DNSName>(&keyVar)) {
       KeyValueLookupKeyQName lookup(wireFormat ? *wireFormat : true);
       for (const auto& key : lookup.getKeys(*dn)) {
         if (kvs->getValue(key, result)) {
@@ -82,8 +80,7 @@ void setupLuaBindingsKVS([[maybe_unused]] LuaContext& luaCtx, [[maybe_unused]] b
         }
       }
     }
-    else if (keyVar.type() == typeid(std::string)) {
-      const std::string* keyStr = boost::get<std::string>(&keyVar);
+    else if (const auto& keyStr = std::get_if<std::string>(&keyVar)) {
       kvs->getValue(*keyStr, result);
     }
 

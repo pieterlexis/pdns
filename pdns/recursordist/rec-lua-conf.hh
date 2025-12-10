@@ -22,7 +22,7 @@
 #pragma once
 
 #include <set>
-#include <boost/variant.hpp>
+#include <variant>
 
 #include "sholder.hh"
 #include "sortlist.hh"
@@ -109,7 +109,7 @@ struct OpenTelemetryTraceCondition
 
 using OpenTelemetryTraceConditions = NetmaskTree<OpenTelemetryTraceCondition>;
 
-using rpzOptions_t = std::unordered_map<std::string, boost::variant<bool, uint32_t, std::string, std::vector<std::pair<int, std::string>>>>;
+using rpzOptions_t = std::unordered_map<std::string, std::variant<bool, uint32_t, std::string, std::vector<std::pair<int, std::string>>>>;
 
 class LuaConfigItems
 {

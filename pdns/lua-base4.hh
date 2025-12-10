@@ -1,6 +1,7 @@
 #pragma once
 #include "namespaces.hh"
-#include <boost/variant/variant.hpp>
+#include <boost/noncopyable.hpp>
+#include <variant>
 #include <utility>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -26,7 +27,7 @@ protected:
   virtual void postPrepareContext() = 0;
   virtual void postLoad() = 0;
   typedef vector<pair<string, int>> in_t;
-  vector<pair<string, boost::variant<int, in_t, struct timeval*>>> d_pd;
-  typedef vector<pair<string, boost::variant<string, bool, int, double>>> Features;
+  vector<pair<string, std::variant<int, in_t, struct timeval*>>> d_pd;
+  typedef vector<pair<string, std::variant<string, bool, int, double>>> Features;
   virtual void getFeatures(Features&);
 };

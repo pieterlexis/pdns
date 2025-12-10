@@ -25,6 +25,7 @@
 #include "dnsdist.hh"
 
 #include "ext/luawrapper/include/LuaContext.hpp"
+#include <variant>
 
 extern RecursiveLockGuarded<LuaContext> g_lua;
 extern std::string g_outputBuffer; // locking for this is ok, as locked by g_luamutex
@@ -34,11 +35,11 @@ using LuaArray = std::vector<std::pair<int, T>>;
 template <class T>
 using LuaAssociativeTable = std::unordered_map<std::string, T>;
 template <class T>
-using LuaTypeOrArrayOf = boost::variant<T, LuaArray<T>>;
+using LuaTypeOrArrayOf = std::variant<T, LuaArray<T>>;
 
 using luaruleparams_t = LuaAssociativeTable<std::string>;
 
-using luadnsrule_t = boost::variant<string, LuaArray<std::string>, std::shared_ptr<DNSRule>, DNSName, LuaArray<DNSName>>;
+using luadnsrule_t = std::variant<string, LuaArray<std::string>, std::shared_ptr<DNSRule>, DNSName, LuaArray<DNSName>>;
 std::shared_ptr<DNSRule> makeRule(const luadnsrule_t& var, const std::string& calledFrom);
 
 void parseRuleParams(std::optional<luaruleparams_t>& params, boost::uuids::uuid& uuid, std::string& name, uint64_t& creationOrder);
@@ -103,6 +104,17 @@ namespace dnsdist::configuration::lua
 void loadLuaConfigurationFile(LuaContext& luaCtx, const std::string& config, bool configCheck);
 }
 
+template<typename T> struct is_variant : std::false_type {};
+
+template<typename ...Args>
+struct is_variant<std::variant<Args...>> : std::true_type {};
+
+template<typename ...Args>
+struct is_variant<boost::variant<Args...>> : std::true_type {};
+
+template<typename T>
+inline constexpr bool is_variant_v = is_variant<T>::value;
+
 /**
  * getOptionalValue(vars, key, value)
  *
@@ -120,16 +132,20 @@ static inline int getOptionalValue(std::optional<V>& vars, const std::string& ke
   }
 
   if (vars->count(key)) {
-    try {
-      value = boost::get<G>((*vars)[key]);
-    }
-    catch (const boost::bad_get& e) {
-      /* key is there but isn't compatible */
-      if (warnOnWrongType) {
-        warnlog("Invalid type for key '%s' - ignored", key);
-        vars->erase(key);
+    if constexpr (is_variant_v<typename V::mapped_type>) {
+      try {
+        value = std::get<G>((*vars)[key]);
       }
-      return -1;
+      catch (const std::bad_variant_access& e) {
+        /* key is there but isn't compatible */
+        if (warnOnWrongType) {
+          warnlog("Invalid type for key '%s' - ignored", key);
+          vars->erase(key);
+        }
+        return -1;
+      }
+    } else {
+      value = (*vars)[key];
     }
   }
   return vars->erase(key);

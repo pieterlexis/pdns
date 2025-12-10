@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include <unordered_set>
+#include <variant>
 
 #include "lua-recursor4.hh"
 #include "logger.hh"
@@ -354,20 +355,20 @@ void RecursorLua4::postPrepareContext() // NOLINT(readability-function-cognitive
     });
 
   d_lw->writeFunction("newDS", []() { return SuffixMatchNode(); });
-  d_lw->registerFunction<void(SuffixMatchNode::*)(boost::variant<string,DNSName, vector<pair<unsigned int,string> > >)>(
+  d_lw->registerFunction<void(SuffixMatchNode::*)(std::variant<string,DNSName, vector<pair<unsigned int,string> > >)>(
     "add",
-    [](SuffixMatchNode&smn, const boost::variant<string,DNSName,vector<pair<unsigned int,string> > >& arg){
+    [](SuffixMatchNode&smn, const std::variant<string,DNSName,vector<pair<unsigned int,string> > >& arg){
       try {
-        if (const auto *name = boost::get<string>(&arg)) {
+        if (const auto& name = std::get_if<string>(&arg)) {
           smn.add(DNSName(*name));
         }
-        else if (const auto *vec = boost::get<vector<pair<unsigned int, string> > >(&arg)) {
+        else if (const auto& vec = std::get_if<vector<pair<unsigned int, string> > >(&arg)) {
           for (const auto& entry : *vec) {
             smn.add(DNSName(entry.second));
           }
         }
         else {
-          smn.add(boost::get<DNSName>(arg));
+          smn.add(std::get<DNSName>(arg));
         }
       }
       catch(std::exception& e) {
@@ -430,15 +431,15 @@ void RecursorLua4::postPrepareContext() // NOLINT(readability-function-cognitive
 
   d_pd.emplace_back("now", &g_now);
 
-  d_lw->writeFunction("getMetric", [](const std::string& str, std::optional<boost::variant<std::string, std::unordered_map<std::string, std::string>>> opts){
+  d_lw->writeFunction("getMetric", [](const std::string& str, std::optional<std::variant<std::string, std::unordered_map<std::string, std::string>>> opts){
     std::string prometheusName;
     std::string prometheusTypeName;
     std::string prometheusDescr;
 
     if (opts) {
-      if (const auto* optPrometheusName = boost::get<std::string>(&*opts); optPrometheusName != nullptr) {
+      if (const auto& optPrometheusName = std::get_if<std::string>(&*opts); optPrometheusName != nullptr) {
         prometheusName = *optPrometheusName;
-      } else if (auto* vars = boost::get<std::unordered_map<std::string, std::string>>(&*opts); vars != nullptr) {
+      } else if (const auto& vars = std::get_if<std::unordered_map<std::string, std::string>>(&*opts); vars != nullptr) {
         prometheusName = (*vars)["prometheusName"];
         prometheusTypeName = (*vars)["type"];
         prometheusDescr = (*vars)["description"];

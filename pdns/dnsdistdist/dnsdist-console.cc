@@ -400,26 +400,26 @@ void doConsole()
         resetLuaSideEffect();
         auto ret = lua->executeCode<
           std::optional<
-            boost::variant<
+            std::variant<
               string,
               shared_ptr<DownstreamState>,
               ClientState*,
               std::unordered_map<string, double>>>>(withReturn ? ("return " + *line) : *line);
         if (ret) {
-          if (const auto* dsValue = boost::get<shared_ptr<DownstreamState>>(&*ret)) {
-            if (*dsValue) {
+          if (const auto& dsValue = std::get_if<shared_ptr<DownstreamState>>(&*ret)) {
+            if(dsValue) {
               cout << (*dsValue)->getName() << endl;
             }
           }
-          else if (const auto* csValue = boost::get<ClientState*>(&*ret)) {
+          else if (const auto& csValue = std::get_if<ClientState*>(&*ret)) {
             if (*csValue != nullptr) {
               cout << (*csValue)->local.toStringWithPort() << endl;
             }
           }
-          else if (const auto* strValue = boost::get<string>(&*ret)) {
+          else if (const auto& strValue = std::get_if<std::string>(&*ret)) {
             cout << *strValue << endl;
           }
-          else if (const auto* mapValue = boost::get<std::unordered_map<string, double>>(&*ret)) {
+          else if (const auto& mapValue = std::get_if<std::unordered_map<string, double>>(&*ret)) {
             using namespace json11;
             Json::object obj;
             for (const auto& value : *mapValue) {
@@ -541,14 +541,14 @@ static void controlClientThread(ConsoleConnection&& conn)
           resetLuaSideEffect();
           auto ret = lua->executeCode<
             std::optional<
-              boost::variant<
+              std::variant<
                 string,
                 shared_ptr<DownstreamState>,
                 ClientState*,
                 std::unordered_map<string, double>>>>(withReturn ? ("return " + line) : line);
 
           if (ret) {
-            if (const auto* dsValue = boost::get<shared_ptr<DownstreamState>>(&*ret)) {
+            if (const auto* dsValue = std::get_if<shared_ptr<DownstreamState>>(&*ret)) {
               if (*dsValue) {
                 response = (*dsValue)->getName() + "\n";
               }
@@ -556,7 +556,7 @@ static void controlClientThread(ConsoleConnection&& conn)
                 response = "";
               }
             }
-            else if (const auto* csValue = boost::get<ClientState*>(&*ret)) {
+            else if (const auto* csValue = std::get_if<ClientState*>(&*ret)) {
               if (*csValue != nullptr) {
                 response = (*csValue)->local.toStringWithPort() + "\n";
               }
@@ -564,10 +564,10 @@ static void controlClientThread(ConsoleConnection&& conn)
                 response = "";
               }
             }
-            else if (const auto* strValue = boost::get<string>(&*ret)) {
+            else if (const auto* strValue = std::get_if<string>(&*ret)) {
               response = *strValue + "\n";
             }
-            else if (const auto* mapValue = boost::get<std::unordered_map<string, double>>(&*ret)) {
+            else if (const auto* mapValue = std::get_if<std::unordered_map<string, double>>(&*ret)) {
               using namespace json11;
               Json::object obj;
               for (const auto& value : *mapValue) {

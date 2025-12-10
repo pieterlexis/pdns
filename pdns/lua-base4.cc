@@ -187,19 +187,19 @@ void BaseLua4::prepareContext() {
 
   // cas_t
   d_lw->writeFunction("newCAS", []{ return cas_t(); });
-  d_lw->registerFunction<void(cas_t::*)(boost::variant<string,ComboAddress, vector<pair<unsigned int,string> > >)>("add",
-    [](cas_t& cas, const boost::variant<string,ComboAddress,vector<pair<unsigned int,string> > >& in)
+  d_lw->registerFunction<void(cas_t::*)(std::variant<string,ComboAddress, vector<pair<unsigned int,string> > >)>("add",
+    [](cas_t& cas, const std::variant<string,ComboAddress,vector<pair<unsigned int,string> > >& in)
     {
       try {
-      if(auto s = boost::get<string>(&in)) {
+      if(const auto& s = std::get_if<string>(&in)) {
         cas.insert(ComboAddress(*s));
       }
-      else if(auto v = boost::get<vector<pair<unsigned int, string> > >(&in)) {
+      else if(const auto& v = std::get_if<vector<pair<unsigned int, string> > >(&in)) {
         for(const auto& str : *v)
           cas.insert(ComboAddress(str.second));
       }
       else
-        cas.insert(boost::get<ComboAddress>(in));
+        cas.insert(std::get<ComboAddress>(in));
       }
       catch(std::exception& e) {
         SLOG(g_log <<Logger::Error<<e.what()<<endl,

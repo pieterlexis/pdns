@@ -101,36 +101,36 @@ struct SVCRecordParameters parseSVCParameters(const svcParamsLua_t& params)
   struct SVCRecordParameters parameters;
   for (const auto& p : params) {
     if (p.first == "mandatory") {
-      for (auto const& entry : boost::get<std::vector<std::pair<int, std::string>>>(p.second)) {
+      for (auto const& entry : std::get<std::vector<std::pair<int, std::string>>>(p.second)) {
         parameters.mandatoryParams.insert(SvcParam::keyFromString(entry.second));
       }
     }
     else if (p.first == "alpn") {
-      for (auto const& entry : boost::get<std::vector<std::pair<int, std::string>>>(p.second)) {
+      for (auto const& entry : std::get<std::vector<std::pair<int, std::string>>>(p.second)) {
         parameters.alpns.push_back(entry.second);
       }
     }
     else if (p.first == "noDefaultAlpn") {
-      parameters.noDefaultAlpn = boost::get<bool>(p.second);
+      parameters.noDefaultAlpn = std::get<bool>(p.second);
     }
     else if (p.first == "port") {
-      parameters.port = boost::get<uint16_t>(p.second);
+      parameters.port = std::get<uint16_t>(p.second);
     }
     else if (p.first == "ipv4hint") {
-      for (auto const& entry : boost::get<std::vector<std::pair<int, std::string>>>(p.second)) {
+      for (auto const& entry : std::get<std::vector<std::pair<int, std::string>>>(p.second)) {
         parameters.ipv4hints.push_back(ComboAddress(entry.second));
       }
     }
     else if (p.first == "ech") {
-      parameters.ech = boost::get<std::string>(p.second);
+      parameters.ech = std::get<std::string>(p.second);
     }
     else if (p.first == "ipv6hint") {
-      for (auto const& entry : boost::get<std::vector<std::pair<int, std::string>>>(p.second)) {
+      for (auto const& entry : std::get<std::vector<std::pair<int, std::string>>>(p.second)) {
         parameters.ipv6hints.push_back(ComboAddress(entry.second));
       }
     }
     else {
-      parameters.additionalParams.push_back({SvcParam::keyFromString(p.first), boost::get<std::string>(p.second)});
+      parameters.additionalParams.push_back({SvcParam::keyFromString(p.first), std::get<std::string>(p.second)});
     }
   }
   return parameters;

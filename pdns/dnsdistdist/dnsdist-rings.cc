@@ -21,6 +21,7 @@
  */
 
 #include <fstream>
+#include <variant>
 
 #include "dnsdist-rings.hh"
 
@@ -69,7 +70,7 @@ size_t Rings::numDistinctRequestors()
   return requestors.size();
 }
 
-std::unordered_map<int, vector<boost::variant<string, double>>> Rings::getTopBandwidth(unsigned int numentries)
+std::unordered_map<int, vector<std::variant<string, double>>> Rings::getTopBandwidth(unsigned int numentries)
 {
   map<ComboAddress, unsigned int, ComboAddress::addressOnlyLessThan> counts;
   uint64_t total = 0;
@@ -100,7 +101,7 @@ std::unordered_map<int, vector<boost::variant<string, double>>> Rings::getTopBan
   partial_sort(rcounts.begin(), rcounts.begin() + numentries, rcounts.end(), [](const ret_t::value_type& lhs, const ret_t::value_type& rhs) {
     return (rhs.first < lhs.first);
   });
-  std::unordered_map<int, vector<boost::variant<string, double>>> ret;
+  std::unordered_map<int, vector<std::variant<string, double>>> ret;
   uint64_t rest = 0;
   int count = 1;
   for (const auto& rcount : rcounts) {
@@ -108,15 +109,15 @@ std::unordered_map<int, vector<boost::variant<string, double>>> Rings::getTopBan
       rest += rcount.first;
     }
     else {
-      ret.insert({count++, {rcount.second.toString(), rcount.first, 100.0 * rcount.first / static_cast<double>(total)}});
+      ret.insert({count++, {rcount.second.toString(), (double) rcount.first, 100.0 * rcount.first / static_cast<double>(total)}});
     }
   }
 
   if (total > 0) {
-    ret.insert({count, {"Rest", rest, 100.0 * static_cast<double>(rest) / static_cast<double>(total)}});
+    ret.insert({count, {"Rest", (double) rest, 100.0 * static_cast<double>(rest) / static_cast<double>(total)}});
   }
   else {
-    ret.insert({count, {"Rest", rest, 100.0}});
+    ret.insert({count, {"Rest", (double) rest, 100.0}});
   }
 
   return ret;

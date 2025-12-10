@@ -31,8 +31,9 @@
 
 #include "protozero.hh"
 #include <string>
+#include <variant>
 
-static void addMetaKeyAndValuesToProtobufContent([[maybe_unused]] DNSQuestion& dnsQuestion, [[maybe_unused]] const std::string& key, [[maybe_unused]] const LuaArray<boost::variant<int64_t, std::string>>& values)
+static void addMetaKeyAndValuesToProtobufContent([[maybe_unused]] DNSQuestion& dnsQuestion, [[maybe_unused]] const std::string& key, [[maybe_unused]] const LuaArray<std::variant<int64_t, std::string>>& values)
 {
 #if !defined(DISABLE_PROTOBUF)
   protozero::pbf_writer pbfWriter{dnsQuestion.ids.d_rawProtobufContent};
@@ -40,11 +41,11 @@ static void addMetaKeyAndValuesToProtobufContent([[maybe_unused]] DNSQuestion& d
   pbfMetaWriter.add_string(static_cast<protozero::pbf_tag_type>(pdns::ProtoZero::Message::MetaField::key), key);
   protozero::pbf_writer pbfMetaValueWriter{pbfMetaWriter, static_cast<protozero::pbf_tag_type>(pdns::ProtoZero::Message::MetaField::value)};
   for (const auto& value : values) {
-    if (value.second.type() == typeid(std::string)) {
-      pbfMetaValueWriter.add_string(static_cast<protozero::pbf_tag_type>(pdns::ProtoZero::Message::MetaValueField::stringVal), boost::get<std::string>(value.second));
+    if (std::holds_alternative<std::string>(value.second)) {
+      pbfMetaValueWriter.add_string(static_cast<protozero::pbf_tag_type>(pdns::ProtoZero::Message::MetaValueField::stringVal), std::get<std::string>(value.second));
     }
     else {
-      pbfMetaValueWriter.add_uint64(static_cast<protozero::pbf_tag_type>(pdns::ProtoZero::Message::MetaValueField::intVal), boost::get<int64_t>(value.second));
+      pbfMetaValueWriter.add_uint64(static_cast<protozero::pbf_tag_type>(pdns::ProtoZero::Message::MetaValueField::intVal), std::get<int64_t>(value.second));
     }
   }
   pbfMetaValueWriter.commit();
@@ -242,7 +243,7 @@ void setupLuaBindingsDNSQuestion([[maybe_unused]] LuaContext& luaCtx)
     return *dnsQuestion.ids.qTag;
   });
 
-  luaCtx.registerFunction<void (DNSQuestion::*)(std::string, LuaArray<boost::variant<int64_t, std::string>>)>("setMetaKey", [](DNSQuestion& dnsQuestion, const std::string& key, const LuaArray<boost::variant<int64_t, std::string>>& values) {
+  luaCtx.registerFunction<void (DNSQuestion::*)(std::string, LuaArray<std::variant<int64_t, std::string>>)>("setMetaKey", [](DNSQuestion& dnsQuestion, const std::string& key, const LuaArray<std::variant<int64_t, std::string>>& values) {
     addMetaKeyAndValuesToProtobufContent(dnsQuestion, key, values);
   });
 
@@ -290,23 +291,21 @@ void setupLuaBindingsDNSQuestion([[maybe_unused]] LuaContext& luaCtx)
     return true;
   });
 
-  luaCtx.registerFunction<void (DNSQuestion::*)(const boost::variant<LuaArray<ComboAddress>, LuaArray<std::string>>&, std::optional<uint16_t>)>("spoof", [](DNSQuestion& dnsQuestion, const boost::variant<LuaArray<ComboAddress>, LuaArray<std::string>>& response, std::optional<uint16_t> typeForAny) {
+  luaCtx.registerFunction<void (DNSQuestion::*)(const std::variant<LuaArray<ComboAddress>, LuaArray<std::string>>&, std::optional<uint16_t>)>("spoof", [](DNSQuestion& dnsQuestion, const std::variant<LuaArray<ComboAddress>, LuaArray<std::string>>& response, std::optional<uint16_t> typeForAny) {
     dnsdist::ResponseConfig responseConfig;
-    if (response.type() == typeid(LuaArray<ComboAddress>)) {
+    if (const auto& responses = std::get_if<LuaArray<ComboAddress>>(&response)) {
       std::vector<ComboAddress> data;
-      auto responses = boost::get<LuaArray<ComboAddress>>(response);
-      data.reserve(responses.size());
-      for (const auto& resp : responses) {
+      data.reserve(responses->size());
+      for (const auto& resp : *responses) {
         data.push_back(resp.second);
       }
       dnsdist::self_answers::generateAnswerFromIPAddresses(dnsQuestion, data, responseConfig);
       return;
     }
-    if (response.type() == typeid(LuaArray<std::string>)) {
+    if (const auto& responses = std::get_if<LuaArray<std::string>>(&response)) {
       std::vector<std::string> data;
-      auto responses = boost::get<LuaArray<std::string>>(response);
-      data.reserve(responses.size());
-      for (const auto& resp : responses) {
+      data.reserve(responses->size());
+      for (const auto& resp : *responses) {
         data.push_back(resp.second);
       }
       dnsdist::self_answers::generateAnswerFromRDataEntries(dnsQuestion, data, typeForAny ? *typeForAny : std::optional<uint16_t>(), responseConfig);
@@ -728,7 +727,7 @@ void setupLuaBindingsDNSQuestion([[maybe_unused]] LuaContext& luaCtx)
     return dnsResponse.ids.restartCount;
   });
 
-  luaCtx.registerFunction<void (DNSResponse::*)(std::string, LuaArray<boost::variant<int64_t, std::string>>)>("setMetaKey", [](DNSResponse& dnsResponse, const std::string& key, const LuaArray<boost::variant<int64_t, std::string>>& values) {
+  luaCtx.registerFunction<void (DNSResponse::*)(std::string, LuaArray<std::variant<int64_t, std::string>>)>("setMetaKey", [](DNSResponse& dnsResponse, const std::string& key, const LuaArray<std::variant<int64_t, std::string>>& values) {
     addMetaKeyAndValuesToProtobufContent(dnsResponse, key, values);
   });
 

@@ -35,7 +35,7 @@
 #include "statnode.hh"
 
 #ifndef DISABLE_TOP_N_BINDINGS
-static LuaArray<std::vector<boost::variant<string, double>>> getGenResponses(uint64_t top, std::optional<int> labels, const std::function<bool(const Rings::Response&)>& pred)
+static LuaArray<std::vector<std::variant<string, double>>> getGenResponses(uint64_t top, std::optional<int> labels, const std::function<bool(const Rings::Response&)>& pred)
 {
   setLuaNoSideEffect();
   map<DNSName, unsigned int> counts;
@@ -78,7 +78,7 @@ static LuaArray<std::vector<boost::variant<string, double>>> getGenResponses(uin
     return rhs.first < lhs.first;
   });
 
-  LuaArray<vector<boost::variant<string, double>>> ret;
+  LuaArray<vector<std::variant<string, double>>> ret;
   ret.reserve(std::min(rcounts.size(), static_cast<size_t>(top + 1U)));
   int count = 1;
   unsigned int rest = 0;
@@ -87,15 +87,15 @@ static LuaArray<std::vector<boost::variant<string, double>>> getGenResponses(uin
       rest += rcEntry.first;
     }
     else {
-      ret.emplace_back(count++, std::vector<boost::variant<string, double>>{rcEntry.second.toString(), rcEntry.first, 100.0 * rcEntry.first / total});
+      ret.emplace_back(count++, std::vector<std::variant<string, double>>{rcEntry.second.toString(), (double) rcEntry.first, 100.0 * rcEntry.first / total});
     }
   }
 
   if (total > 0) {
-    ret.push_back({count, {"Rest", rest, 100.0 * rest / total}});
+    ret.push_back({count, {"Rest", (double) rest, 100.0 * rest / total}});
   }
   else {
-    ret.push_back({count, {"Rest", rest, 100.0}});
+    ret.push_back({count, {"Rest", (double) rest, 100.0}});
   }
 
   return ret;
@@ -292,12 +292,11 @@ static std::optional<GrepQParams> parseGrepQParams(const LuaTypeOrArrayOf<std::s
   }
 
   vector<string> filters;
-  const auto* str = boost::get<string>(&inp);
-  if (str != nullptr) {
+  if (const auto& str = std::get_if<string>(&inp)) {
     filters.push_back(*str);
   }
   else {
-    auto values = boost::get<LuaArray<std::string>>(inp);
+    auto values = std::get<LuaArray<std::string>>(inp);
     for (const auto& filter : values) {
       filters.push_back(filter.second);
     }
@@ -463,7 +462,7 @@ void setupLuaInspection(LuaContext& luaCtx)
       return rhs.first < lhs.first;
     });
 
-    std::unordered_map<unsigned int, vector<boost::variant<string, double>>> ret;
+    std::unordered_map<unsigned int, vector<std::variant<string, double>>> ret;
     unsigned int count = 1;
     unsigned int rest = 0;
     for (const auto& entry : rcounts) {
@@ -471,15 +470,15 @@ void setupLuaInspection(LuaContext& luaCtx)
         rest += entry.first;
       }
       else {
-        ret.insert({count++, {entry.second.toString(), entry.first, 100.0 * entry.first / total}});
+        ret.insert({count++, {entry.second.toString(), (double) entry.first, 100.0 * entry.first / total}});
       }
     }
 
     if (total > 0) {
-      ret.insert({count, {"Rest", rest, 100.0 * rest / total}});
+      ret.insert({count, {"Rest", (double) rest, 100.0 * rest / total}});
     }
     else {
-      ret.insert({count, {"Rest", rest, 100.0}});
+      ret.insert({count, {"Rest", (double) rest, 100.0}});
     }
 
     return ret;
@@ -499,7 +498,7 @@ void setupLuaInspection(LuaContext& luaCtx)
       }
       totalEntries += rings.back().size();
     }
-    vector<std::unordered_map<string, boost::variant<unsigned int, string>>> ret;
+    vector<std::unordered_map<string, std::variant<unsigned int, string>>> ret;
     ret.reserve(totalEntries);
     for (const auto& ring : rings) {
       for (const auto& entry : ring) {
@@ -1005,53 +1004,53 @@ void setupLuaInspection(LuaContext& luaCtx)
       group->setMasks(v4addr, v6addr, port);
     }
   });
-  luaCtx.registerFunction<void (std::shared_ptr<DynBlockRulesGroup>::*)(boost::variant<std::string, LuaArray<std::string>, NetmaskGroup>)>("excludeRange", [](std::shared_ptr<DynBlockRulesGroup>& group, boost::variant<std::string, LuaArray<std::string>, NetmaskGroup> ranges) {
-    if (ranges.type() == typeid(LuaArray<std::string>)) {
-      for (const auto& range : *boost::get<LuaArray<std::string>>(&ranges)) {
+  luaCtx.registerFunction<void (std::shared_ptr<DynBlockRulesGroup>::*)(std::variant<std::string, LuaArray<std::string>, NetmaskGroup>)>("excludeRange", [](std::shared_ptr<DynBlockRulesGroup>& group, std::variant<std::string, LuaArray<std::string>, NetmaskGroup> ranges) {
+    if (const auto& rangesStr = std::get_if<LuaArray<std::string>>(&ranges)) {
+      for (const auto& range : *rangesStr) {
         group->excludeRange(Netmask(range.second));
       }
     }
-    else if (ranges.type() == typeid(NetmaskGroup)) {
-      group->excludeRange(*boost::get<NetmaskGroup>(&ranges));
+    else if (const auto& rangesNmg = std::get_if<NetmaskGroup>(&ranges)) {
+      group->excludeRange(*rangesNmg);
     }
     else {
-      group->excludeRange(Netmask(*boost::get<std::string>(&ranges)));
+      group->excludeRange(Netmask(std::get<std::string>(ranges)));
     }
   });
-  luaCtx.registerFunction<void (std::shared_ptr<DynBlockRulesGroup>::*)(boost::variant<std::string, LuaArray<std::string>, NetmaskGroup>)>("includeRange", [](std::shared_ptr<DynBlockRulesGroup>& group, boost::variant<std::string, LuaArray<std::string>, NetmaskGroup> ranges) {
-    if (ranges.type() == typeid(LuaArray<std::string>)) {
-      for (const auto& range : *boost::get<LuaArray<std::string>>(&ranges)) {
+  luaCtx.registerFunction<void (std::shared_ptr<DynBlockRulesGroup>::*)(std::variant<std::string, LuaArray<std::string>, NetmaskGroup>)>("includeRange", [](std::shared_ptr<DynBlockRulesGroup>& group, std::variant<std::string, LuaArray<std::string>, NetmaskGroup> ranges) {
+    if (const auto& rangesStr = std::get_if<LuaArray<std::string>>(&ranges)) {
+      for (const auto& range : *rangesStr) {
         group->includeRange(Netmask(range.second));
       }
     }
-    else if (ranges.type() == typeid(NetmaskGroup)) {
-      group->includeRange(*boost::get<NetmaskGroup>(&ranges));
+    else if (const auto& rangesNmg = std::get_if<NetmaskGroup>(&ranges)) {
+      group->includeRange(*rangesNmg);
     }
     else {
-      group->includeRange(Netmask(*boost::get<std::string>(&ranges)));
+      group->includeRange(Netmask(std::get<std::string>(ranges)));
     }
   });
-  luaCtx.registerFunction<void (std::shared_ptr<DynBlockRulesGroup>::*)(boost::variant<std::string, LuaArray<std::string>, NetmaskGroup>)>("removeRange", [](std::shared_ptr<DynBlockRulesGroup>& group, boost::variant<std::string, LuaArray<std::string>, NetmaskGroup> ranges) {
-    if (ranges.type() == typeid(LuaArray<std::string>)) {
-      for (const auto& range : *boost::get<LuaArray<std::string>>(&ranges)) {
+  luaCtx.registerFunction<void (std::shared_ptr<DynBlockRulesGroup>::*)(std::variant<std::string, LuaArray<std::string>, NetmaskGroup>)>("removeRange", [](std::shared_ptr<DynBlockRulesGroup>& group, std::variant<std::string, LuaArray<std::string>, NetmaskGroup> ranges) {
+    if (const auto& rangesStr = std::get_if<LuaArray<std::string>>(&ranges)) {
+      for (const auto& range : *rangesStr) {
         group->removeRange(Netmask(range.second));
       }
     }
-    else if (ranges.type() == typeid(NetmaskGroup)) {
-      group->removeRange(*boost::get<NetmaskGroup>(&ranges));
+    else if (const auto& rangesNmg = std::get_if<NetmaskGroup>(&ranges)) {
+      group->removeRange(*rangesNmg);
     }
     else {
-      group->removeRange(Netmask(*boost::get<std::string>(&ranges)));
+      group->removeRange(Netmask(std::get<std::string>(ranges)));
     }
   });
   luaCtx.registerFunction<void (std::shared_ptr<DynBlockRulesGroup>::*)(LuaTypeOrArrayOf<std::string>)>("excludeDomains", [](std::shared_ptr<DynBlockRulesGroup>& group, LuaTypeOrArrayOf<std::string> domains) {
-    if (domains.type() == typeid(LuaArray<std::string>)) {
-      for (const auto& range : *boost::get<LuaArray<std::string>>(&domains)) {
+    if (const auto& ranges = std::get_if<LuaArray<std::string>>(&domains)) {
+      for (const auto& range : *ranges) {
         group->excludeDomain(DNSName(range.second));
       }
     }
     else {
-      group->excludeDomain(DNSName(*boost::get<std::string>(&domains)));
+      group->excludeDomain(DNSName(std::get<std::string>(domains)));
     }
   });
   luaCtx.registerFunction<void (std::shared_ptr<DynBlockRulesGroup>::*)()>("apply", [](std::shared_ptr<DynBlockRulesGroup>& group) {
@@ -1125,15 +1124,15 @@ void setupLuaInspection(LuaContext& luaCtx)
 
   luaCtx.writeFunction("addDynamicBlock",
                        // NOLINTNEXTLINE(performance-unnecessary-value-param): optional parameters cannot be passed by const reference
-                       [](const boost::variant<ComboAddress, std::string>& clientIP, const std::string& msg, const std::optional<DNSAction::Action> action, const std::optional<int> seconds, std::optional<uint8_t> clientIPMask, std::optional<uint8_t> clientIPPortMask, DynamicActionOptionalParameters optionalParameters) {
+                       [](const std::variant<ComboAddress, std::string>& clientIP, const std::string& msg, const std::optional<DNSAction::Action> action, const std::optional<int> seconds, std::optional<uint8_t> clientIPMask, std::optional<uint8_t> clientIPPortMask, DynamicActionOptionalParameters optionalParameters) {
                          setLuaSideEffect();
 
                          ComboAddress clientIPCA;
-                         if (clientIP.type() == typeid(ComboAddress)) {
-                           clientIPCA = boost::get<ComboAddress>(clientIP);
+                         if (const auto& tmpClientIPCA = std::get_if<ComboAddress>(&clientIP)) {
+                           clientIPCA = *tmpClientIPCA;
                          }
                          else {
-                           const auto& clientIPStr = boost::get<std::string>(clientIP);
+                           const auto& clientIPStr = std::get<std::string>(clientIP);
                            try {
                              clientIPCA = ComboAddress(clientIPStr);
                            }

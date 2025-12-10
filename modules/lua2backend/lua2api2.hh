@@ -34,30 +34,30 @@ private:
 
   typedef std::vector<std::pair<string, string>> lookup_context_t;
 
-  typedef std::vector<std::pair<int, std::vector<std::pair<string, boost::variant<bool, int, DNSName, string, QType>>>>> lookup_result_t;
+  typedef std::vector<std::pair<int, std::vector<std::pair<string, std::variant<bool, int, DNSName, string, QType>>>>> lookup_result_t;
   typedef std::function<lookup_result_t(const QType& qtype, const DNSName& qname, domainid_t domain_id, const lookup_context_t& ctx)> lookup_call_t;
 
-  typedef boost::variant<bool, lookup_result_t> list_result_t;
+  typedef std::variant<bool, lookup_result_t> list_result_t;
   typedef std::function<list_result_t(const DNSName& qname, domainid_t domain_id)> list_call_t;
 
-  typedef vector<pair<string, boost::variant<bool, long, string, vector<string>>>> domaininfo_result_t;
-  typedef boost::variant<bool, domaininfo_result_t> get_domaininfo_result_t;
+  typedef vector<pair<string, std::variant<bool, long, string, vector<string>>>> domaininfo_result_t;
+  typedef std::variant<bool, domaininfo_result_t> get_domaininfo_result_t;
   typedef vector<pair<DNSName, domaininfo_result_t>> get_all_domains_result_t;
   typedef std::function<get_domaininfo_result_t(const DNSName& domain)> get_domaininfo_call_t;
   typedef std::function<get_all_domains_result_t()> get_all_domains_call_t;
 
   typedef vector<pair<int, string>> domain_metadata_result_t;
-  typedef boost::variant<bool, domain_metadata_result_t> get_domain_metadata_result_t;
-  typedef boost::variant<bool, vector<pair<string, domain_metadata_result_t>>> get_all_domain_metadata_result_t;
+  typedef std::variant<bool, domain_metadata_result_t> get_domain_metadata_result_t;
+  typedef std::variant<bool, vector<pair<string, domain_metadata_result_t>>> get_all_domain_metadata_result_t;
   typedef std::function<get_domain_metadata_result_t(const DNSName& domain, const string& kind)> get_domain_metadata_call_t;
   typedef std::function<get_all_domain_metadata_result_t(const DNSName& domain)> get_all_domain_metadata_call_t;
 
-  typedef vector<pair<string, boost::variant<bool, int, string>>> keydata_result_t;
-  typedef boost::variant<bool, vector<pair<int, keydata_result_t>>> get_domain_keys_result_t;
+  typedef vector<pair<string, std::variant<bool, int, string>>> keydata_result_t;
+  typedef std::variant<bool, vector<pair<int, keydata_result_t>>> get_domain_keys_result_t;
   typedef std::function<get_domain_keys_result_t(const DNSName& domain)> get_domain_keys_call_t;
 
-  typedef std::vector<std::pair<string, boost::variant<string, DNSName>>> before_and_after_names_result_t;
-  typedef boost::variant<bool, before_and_after_names_result_t> get_before_and_after_names_absolute_result_t;
+  typedef std::vector<std::pair<string, std::variant<string, DNSName>>> before_and_after_names_result_t;
+  typedef std::variant<bool, before_and_after_names_result_t> get_before_and_after_names_absolute_result_t;
   typedef std::function<get_before_and_after_names_absolute_result_t(domainid_t id, const DNSName& qname)> get_before_and_after_names_absolute_call_t;
 
   typedef std::function<void(domainid_t, long)> set_notified_call_t;
@@ -138,47 +138,47 @@ public:
       DNSResourceRecord rec;
       for (const auto& item : row.second) {
         if (item.first == "type") {
-          if (item.second.which() == 1) {
-            rec.qtype = QType(boost::get<int>(item.second));
+          if (const auto& ival = std::get_if<int>(&item.second)) {
+            rec.qtype = QType(*ival);
           }
-          else if (item.second.which() == 3) {
-            rec.qtype = boost::get<string>(item.second);
+          else if (const auto& sval = std::get_if<string>(&item.second)) {
+            rec.qtype = *sval;
           }
-          else if (item.second.which() == 4) {
-            rec.qtype = boost::get<QType>(item.second);
+          else if (const auto& qtval = std::get_if<QType>(&item.second)) {
+            rec.qtype = *qtval;
           }
           else {
             throw PDNSException("Unsupported value for type");
           }
         }
         else if (item.first == "name") {
-          if (item.second.which() == 3) {
-            rec.qname = DNSName(boost::get<string>(item.second));
+          if (const auto& sval = std::get_if<string>(&item.second)) {
+            rec.qname = DNSName(*sval);
           }
-          else if (item.second.which() == 2) {
-            rec.qname = boost::get<DNSName>(item.second);
+          else if (const auto& dnsnameval = std::get_if<DNSName>(&item.second)) {
+            rec.qname = *dnsnameval;
           }
           else {
             throw PDNSException("Unsupported value for name");
           }
         }
         else if (item.first == "domain_id") {
-          rec.domain_id = boost::get<int>(item.second);
+          rec.domain_id = std::get<int>(item.second);
         }
         else if (item.first == "auth") {
-          rec.auth = boost::get<bool>(item.second);
+          rec.auth = std::get<bool>(item.second);
         }
         else if (item.first == "last_modified") {
-          rec.last_modified = static_cast<time_t>(boost::get<int>(item.second));
+          rec.last_modified = static_cast<time_t>(std::get<int>(item.second));
         }
         else if (item.first == "ttl") {
-          rec.ttl = boost::get<int>(item.second);
+          rec.ttl = std::get<int>(item.second);
         }
         else if (item.first == "content") {
-          rec.setContent(boost::get<string>(item.second));
+          rec.setContent(std::get<string>(item.second));
         }
         else if (item.first == "scopeMask") {
-          rec.scopeMask = boost::get<int>(item.second);
+          rec.scopeMask = std::get<int>(item.second);
         }
         else {
           g_log << Logger::Warning << "Unsupported key '" << item.first << "' in lookup or list result" << endl;
@@ -210,11 +210,11 @@ public:
     }
     list_result_t result = f_list(target.operator const DNSName&(), domain_id);
 
-    if (result.which() == 0) {
+    if (std::get_if<bool>(&result)) {
       return false;
     }
 
-    parseLookup(boost::get<lookup_result_t>(result));
+    parseLookup(std::get<lookup_result_t>(result));
 
     return true;
   }
@@ -283,27 +283,27 @@ public:
     di.id = UnknownDomainID;
     for (const auto& item : row) {
       if (item.first == "account") {
-        di.account = boost::get<string>(item.second);
+        di.account = std::get<string>(item.second);
       }
       else if (item.first == "last_check") {
-        di.last_check = static_cast<time_t>(boost::get<long>(item.second));
+        di.last_check = static_cast<time_t>(std::get<long>(item.second));
       }
       else if (item.first == "masters") {
-        for (const auto& primary : boost::get<vector<string>>(item.second)) {
+        for (const auto& primary : std::get<vector<string>>(item.second)) {
           di.primaries.push_back(ComboAddress(primary, 53));
         }
       }
       else if (item.first == "id") {
-        di.id = static_cast<domainid_t>(boost::get<long>(item.second));
+        di.id = static_cast<domainid_t>(std::get<long>(item.second));
       }
       else if (item.first == "notified_serial") {
-        di.notified_serial = static_cast<unsigned int>(boost::get<long>(item.second));
+        di.notified_serial = static_cast<unsigned int>(std::get<long>(item.second));
       }
       else if (item.first == "serial") {
-        di.serial = static_cast<unsigned int>(boost::get<long>(item.second));
+        di.serial = static_cast<unsigned int>(std::get<long>(item.second));
       }
       else if (item.first == "kind") {
-        di.kind = DomainInfo::stringToKind(boost::get<string>(item.second));
+        di.kind = DomainInfo::stringToKind(std::get<string>(item.second));
       }
       else {
         g_log << Logger::Warning << "Unsupported key '" << item.first << "' in domaininfo result" << endl;
@@ -342,12 +342,12 @@ public:
     }
     get_domaininfo_result_t result = f_get_domaininfo(domain.operator const DNSName&());
 
-    if (result.which() == 0) {
+    if (std::get_if<bool>(&result)) {
       return false;
     }
 
     di.zone = domain;
-    parseDomainInfo(boost::get<domaininfo_result_t>(result), di);
+    parseDomainInfo(std::get<domaininfo_result_t>(result), di);
 
     return true;
   }
@@ -382,11 +382,11 @@ public:
       g_log << Logger::Debug << "[" << getPrefix() << "] Calling " << "get_all_domain_metadata" << "(" << "name=" << name << ")" << endl;
     }
     get_all_domain_metadata_result_t result = f_get_all_domain_metadata(name.operator const DNSName&());
-    if (result.which() == 0) {
+    if (std::get_if<bool>(&result)) {
       return false;
     }
 
-    for (const auto& row : boost::get<vector<pair<string, domain_metadata_result_t>>>(result)) {
+    for (const auto& row : std::get<vector<pair<string, domain_metadata_result_t>>>(result)) {
       meta[row.first].clear();
       for (const auto& item : row.second) {
         meta[row.first].push_back(item.second);
@@ -409,12 +409,12 @@ public:
       g_log << Logger::Debug << "[" << getPrefix() << "] Calling " << "get_domain_metadata" << "(" << "name=" << name << ",kind=" << kind << ")" << endl;
     }
     get_domain_metadata_result_t result = f_get_domain_metadata(name.operator const DNSName&(), kind);
-    if (result.which() == 0) {
+    if (std::get_if<bool>(&result)) {
       return false;
     }
 
     meta.clear();
-    for (const auto& item : boost::get<domain_metadata_result_t>(result)) {
+    for (const auto& item : std::get<domain_metadata_result_t>(result)) {
       meta.push_back(item.second);
     }
 
@@ -435,28 +435,28 @@ public:
     }
     get_domain_keys_result_t result = f_get_domain_keys(name.operator const DNSName&());
 
-    if (result.which() == 0) {
+    if (std::get_if<bool>(&result)) {
       return false;
     }
 
-    for (const auto& row : boost::get<vector<pair<int, keydata_result_t>>>(result)) {
+    for (const auto& row : std::get<vector<pair<int, keydata_result_t>>>(result)) {
       DNSBackend::KeyData key;
       key.published = true;
       for (const auto& item : row.second) {
         if (item.first == "content") {
-          key.content = boost::get<string>(item.second);
+          key.content = std::get<string>(item.second);
         }
         else if (item.first == "id") {
-          key.id = static_cast<unsigned int>(boost::get<int>(item.second));
+          key.id = static_cast<unsigned int>(std::get<int>(item.second));
         }
         else if (item.first == "flags") {
-          key.flags = static_cast<unsigned int>(boost::get<int>(item.second));
+          key.flags = static_cast<unsigned int>(std::get<int>(item.second));
         }
         else if (item.first == "active") {
-          key.active = boost::get<bool>(item.second);
+          key.active = std::get<bool>(item.second);
         }
         else if (item.first == "published") {
-          key.published = boost::get<bool>(item.second);
+          key.published = std::get<bool>(item.second);
         }
         else {
           g_log << Logger::Warning << "[" << getPrefix() << "] Unsupported key '" << item.first << "' in keydata result" << endl;
@@ -482,22 +482,22 @@ public:
     }
     get_before_and_after_names_absolute_result_t result = f_get_before_and_after_names_absolute(id, qname);
 
-    if (result.which() == 0) {
+    if (std::get_if<bool>(&result)) {
       return false;
     }
 
-    before_and_after_names_result_t row = boost::get<before_and_after_names_result_t>(result);
+    before_and_after_names_result_t row = std::get<before_and_after_names_result_t>(result);
     if (row.size() != 3) {
       g_log << Logger::Error << "Invalid result from dns_get_before_and_after_names_absolute, expected array with 3 items, got " << row.size() << "item(s)" << endl;
       return false;
     }
     for (const auto& item : row) {
       DNSName value;
-      if (item.second.which() == 0) {
-        value = DNSName(boost::get<string>(item.second));
+      if (const auto& sval = std::get_if<string>(&item.second)) {
+        value = DNSName(*sval);
       }
       else {
-        value = DNSName(boost::get<DNSName>(item.second));
+        value = DNSName(std::get<DNSName>(item.second));
       }
       if (item.first == "unhashed") {
         unhashed = value;

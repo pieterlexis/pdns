@@ -30,8 +30,9 @@
 #include "dnstap.hh"
 #include "remote_logger.hh"
 #include <stdexcept>
+#include <variant>
 
-using responseParams_t = std::unordered_map<std::string, boost::variant<bool, uint32_t>>;
+using responseParams_t = std::unordered_map<std::string, std::variant<bool, uint32_t>>;
 
 static dnsdist::ResponseConfig parseResponseConfig(std::optional<responseParams_t>& vars)
 {
@@ -106,11 +107,11 @@ void setupLuaActions(LuaContext& luaCtx)
 
   luaCtx.writeFunction("SpoofAction", [](LuaTypeOrArrayOf<std::string> inp, std::optional<responseParams_t> vars) {
     vector<ComboAddress> addrs;
-    if (auto* ipaddr = boost::get<std::string>(&inp)) {
+    if (const auto& ipaddr = std::get_if<std::string>(&inp)) {
       addrs.emplace_back(*ipaddr);
     }
     else {
-      const auto& ipsArray = boost::get<LuaArray<std::string>>(inp);
+      const auto& ipsArray = std::get<LuaArray<std::string>>(inp);
       for (const auto& ipAddr : ipsArray) {
         addrs.emplace_back(ipAddr.second);
       }
@@ -139,11 +140,11 @@ void setupLuaActions(LuaContext& luaCtx)
 
   luaCtx.writeFunction("SpoofRawAction", [](LuaTypeOrArrayOf<std::string> inp, std::optional<responseParams_t> vars) {
     vector<string> raws;
-    if (const auto* str = boost::get<std::string>(&inp)) {
+    if (const auto& str = std::get_if<std::string>(&inp)) {
       raws.push_back(*str);
     }
     else {
-      const auto& vect = boost::get<LuaArray<std::string>>(inp);
+      const auto& vect = std::get<LuaArray<std::string>>(inp);
       for (const auto& raw : vect) {
         raws.push_back(raw.second);
       }
@@ -208,12 +209,11 @@ void setupLuaActions(LuaContext& luaCtx)
 
   luaCtx.writeFunction("ClearRecordTypesResponseAction", [](LuaTypeOrArrayOf<int> types) {
     std::unordered_set<QType> qtypes{};
-    if (types.type() == typeid(int)) {
-      qtypes.insert(boost::get<int>(types));
+    if (const auto& typeInt = std::get_if<int>(&types)) {
+      qtypes.insert(*typeInt);
     }
-    else if (types.type() == typeid(LuaArray<int>)) {
-      const auto& typesArray = boost::get<LuaArray<int>>(types);
-      for (const auto& tpair : typesArray) {
+    else if (const auto& typesArray = std::get_if<LuaArray<int>>(&types)) {
+      for (const auto& tpair : *typesArray) {
         qtypes.insert(tpair.second);
       }
     }

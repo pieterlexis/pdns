@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <boost/variant.hpp>
+#include <variant>
 
 #include "dnsname.hh"
 #include "iputils.hh"
@@ -51,7 +51,7 @@ struct SVCRecordParameters
 
 using svcParamsLua_t = std::unordered_map<
   std::string,
-  boost::variant<
+  std::variant<
     uint16_t,
     bool,
     std::string,

@@ -27,6 +27,7 @@
 #include <thread>
 
 #include "ext/json11/json11.hpp"
+#include <variant>
 #include <yahttp/yahttp.hpp>
 
 #include "base64.hh"
@@ -1439,7 +1440,7 @@ static void handleConfigDump(const YaHTTP::Request& req, YaHTTP::Response& resp)
   Json::array doc;
   const auto& runtimeConfiguration = dnsdist::configuration::getCurrentRuntimeConfiguration();
   const auto& immutableConfig = dnsdist::configuration::getImmutableConfiguration();
-  using configentry_t = boost::variant<bool, double, std::string>;
+  using configentry_t = std::variant<bool, double, std::string>;
   std::vector<std::pair<std::string, configentry_t>> configEntries{
     {"acl", runtimeConfiguration.d_ACL.toString()},
     {"allow-empty-response", runtimeConfiguration.d_allowEmptyResponse},
@@ -1457,19 +1458,19 @@ static void handleConfigDump(const YaHTTP::Request& req, YaHTTP::Response& resp)
     {"verbose", runtimeConfiguration.d_verbose},
     {"verbose-health-checks", runtimeConfiguration.d_verboseHealthChecks}};
   for (const auto& item : configEntries) {
-    if (const auto& bval = boost::get<bool>(&item.second)) {
+    if (const auto& bval = std::get_if<bool>(&item.second)) {
       doc.emplace_back(Json::object{
         {"type", "ConfigSetting"},
         {"name", item.first},
         {"value", *bval}});
     }
-    else if (const auto& sval = boost::get<string>(&item.second)) {
+    else if (const auto& sval = std::get_if<string>(&item.second)) {
       doc.emplace_back(Json::object{
         {"type", "ConfigSetting"},
         {"name", item.first},
         {"value", *sval}});
     }
-    else if (const auto& dval = boost::get<double>(&item.second)) {
+    else if (const auto& dval = std::get_if<double>(&item.second)) {
       doc.emplace_back(Json::object{
         {"type", "ConfigSetting"},
         {"name", item.first},
