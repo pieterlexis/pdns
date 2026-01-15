@@ -1,0 +1,16 @@
+# First do the source builds
+@INCLUDE Dockerfile.target.sdist
+
+# This defines the distribution base layer
+# Put only the bare minimum of common commands here, without dev tools
+FROM registry.suse.com/suse/sle15:15.7 as dist-base
+
+ARG BUILDER_CACHE_BUSTER=
+
+# Do the actual rpm build
+#@INCLUDE Dockerfile.rpmbuild
+@INCLUDE Dockerfile.rpmbuild-sles
+
+# Do a test install and verify
+# Can be skipped with skippackagetest=1 in the environment
+@EXEC [ "$skippackagetest" = "" ] && include Dockerfile.rpmtest

@@ -1,0 +1,91 @@
+FROM dist-base AS package-builder
+
+RUN zypper addrepo -fc https://download.opensuse.org/repositories/devel:tools/15.7/devel:tools.repo && \
+  zypper addrepo -fc http://download.opensuse.org/repositories/openSUSE:/Backports:/SLE-15-SP7/standard/openSUSE:Backports:SLE-15-SP7.repo && \
+  zypper --non-interactive --gpg-auto-import-keys refresh && \
+  zypper install -y gcc autoconf automake rpm-build python311 curl jq ninja hostname python311-pip meson rpmdevtools
+
+RUN mkdir /dist /pdns
+WORKDIR /pdns
+RUN rpmdev-setuptree
+
+# Only ADD/COPY the files you really need for efficient docker caching.
+ADD builder/helpers/ /pdns/builder/helpers/
+ADD builder-support/helpers/ /pdns/builder-support/helpers/
+
+@IF [ -n "$M_recursor$M_all" ]
+RUN cd /pdns/builder-support/helpers/ && ./install_rust.sh
+RUN cd /pdns/builder-support/helpers/ && ./install_cargo_cyclonedx.sh
+RUN cd /pdns/builder-support/helpers/ && \
+    zypper install -y git cmake clang
+RUN cd /pdns/builder-support/helpers/ && ./install_meson.sh
+@ENDIF
+
+@IF [ -n "$M_dnsdist$M_all" ]
+RUN cd /pdns/builder-support/helpers/ && ./install_rust.sh
+RUN cd /pdns/builder-support/helpers/ && ./install_cargo_cyclonedx.sh
+RUN cd /pdns/builder-support/helpers/ && \
+    zypper install -y git cmake clang && \
+    cd /pdns/builder-support/helpers/ && \
+    ./install_quiche.sh
+RUN cd /pdns/builder-support/helpers/ && ./install_meson.sh
+@ENDIF
+
+# Used for -p option to only build specific spec files
+ARG BUILDER_PACKAGE_MATCH
+
+ARG BUILDER_VERSION
+ARG BUILDER_RELEASE
+COPY --from=sdist /sdist /sdist
+RUN for file in /sdist/* ; do ln -s $file /root/rpmbuild/SOURCES/ ; done && ls /root/rpmbuild/SOURCES/
+
+ADD builder-support/specs/ /pdns/builder-support/specs
+RUN find /pdns/builder-support/specs/ -not -name '*.spec' -exec ln -s {} /root/rpmbuild/SOURCES/ \;
+
+@IF [ -n "$M_authoritative$M_all" ]
+RUN touch /var/lib/rpm/* && if grep -q 'release 8' /etc/redhat-release; then \
+      scl enable gcc-toolset-13 -- builder/helpers/build-specs.sh builder-support/specs/pdns.spec; \
+    else \
+      builder/helpers/build-specs.sh builder-support/specs/pdns.spec; \
+    fi
+@ENDIF
+
+@IF [ -n "$M_recursor$M_all" ]
+RUN touch /var/lib/rpm/* && if grep -q 'release 8' /etc/redhat-release; then \
+      scl enable gcc-toolset-13 -- builder/helpers/build-specs.sh builder-support/specs/pdns-recursor.spec; \
+    else \
+      builder/helpers/build-specs.sh builder-support/specs/pdns-recursor.spec; \
+    fi
+RUN cd /tmp && \
+  tar xf /sdist/pdns-recursor-${BUILDER_VERSION}.tar.xz && \
+  cd pdns-recursor-${BUILDER_VERSION}/rec-rust-lib/ && \
+  python3 generate.py ./ ./ && \
+  cd rust && \
+  /bin/cargo-cyclonedx cyclonedx -f json --spec-version 1.5 && \
+  cp recrust.cdx.json /dist/
+@ENDIF
+
+@IF [ -n "$M_dnsdist$M_all" ]
+RUN touch /var/lib/rpm/* && if grep -q 'release 8' /etc/redhat-release; then \
+      scl enable gcc-toolset-13 -- builder/helpers/build-specs.sh builder-support/specs/dnsdist.spec; \
+    else \
+      builder/helpers/build-specs.sh builder-support/specs/dnsdist.spec; \
+    fi
+RUN cd /tmp && \
+  tar xf /sdist/dnsdist-${BUILDER_VERSION}.tar.xz && \
+  cd dnsdist-${BUILDER_VERSION}/dnsdist-rust-lib/ && \
+  python3 dnsdist-settings-generator.py ../ ./ ../ && \
+  cd rust && \
+  /bin/cargo-cyclonedx cyclonedx -f json --spec-version 1.5 && \
+  cp dnsdist-rust.cdx.json /dist/
+@ENDIF
+
+# Generate provenance
+RUN zypper install --allowerasing -y python3
+@EVAL RUN python builder/helpers/generate-dnf-provenance.py /dist/packages-${BUILDER_TARGET}.json || python3 builder/helpers/generate-dnf-provenance.py /dist/packages-${BUILDER_TARGET}.json
+
+# mv across layers with overlay2 is buggy in some kernel versions (results in empty dirs)
+# See: https://github.com/moby/moby/issues/33733
+#RUN mv /root/rpmbuild/RPMS/* /dist/
+RUN cp -R /root/rpmbuild/RPMS/* /dist/
+RUN cp -R /root/rpmbuild/SRPMS/* /dist/
