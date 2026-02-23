@@ -114,7 +114,14 @@ class DNSDistOpenTelemetryProtobufTest(test_Protobuf.DNSDistProtobufTest):
         ]
         self.assertListEqual(
             root_span_attr_keys,
-            ["query.qname", "query.qtype", "query.remote.address", "query.remote.port"],
+            [
+                "dns.question.name",
+                "dns.question.type",
+                "client.address",
+                "client.port",
+                "server.address",
+                "server.port",
+            ],
         )
 
         # No way to guess the test port, but check the rest of the values
@@ -123,13 +130,14 @@ class DNSDistOpenTelemetryProtobufTest(test_Protobuf.DNSDistProtobufTest):
             for v in otData["resource_spans"][0]["scope_spans"][0]["spans"][0][
                 "attributes"
             ]
-            if v["key"] not in ["query.remote.port"]
+            if v["key"] not in ["server.port", "client.port"]
         }
         self.assertDictEqual(
             {
-                "query.qname": "query.ot.tests.powerdns.com",
-                "query.qtype": "A",
-                "query.remote.address": "127.0.0.1",
+                "dns.question.name": "query.ot.tests.powerdns.com",
+                "dns.question.type": "A",
+                "client.address": "127.0.0.1",
+                "server.address": "127.0.0.1",
             },
             root_span_attrs,
         )

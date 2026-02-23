@@ -1737,10 +1737,12 @@ public:
     }
 
     dnsquestion->ids.ottraceLoggers = d_loggers;
-    tracer->setRootSpanAttribute("query.qname", AnyValue{dnsquestion->ids.qname.toStringNoDot()});
-    tracer->setRootSpanAttribute("query.qtype", AnyValue{QType(dnsquestion->ids.qtype).toString()});
-    tracer->setRootSpanAttribute("query.remote.address", AnyValue{dnsquestion->ids.origRemote.toString()});
-    tracer->setRootSpanAttribute("query.remote.port", AnyValue{dnsquestion->ids.origRemote.getPort()});
+    tracer->setRootSpanAttribute("dns.question.name", AnyValue{dnsquestion->ids.qname.toStringNoDot()});
+    tracer->setRootSpanAttribute("dns.question.type", AnyValue{QType(dnsquestion->ids.qtype).toString()});
+    tracer->setRootSpanAttribute("client.address", AnyValue{dnsquestion->ids.origRemote.toString()});
+    tracer->setRootSpanAttribute("client.port", AnyValue{dnsquestion->ids.origRemote.getPort()});
+    tracer->setRootSpanAttribute("server.address", AnyValue{dnsquestion->ids.origDest.toString()});
+    tracer->setRootSpanAttribute("server.port", AnyValue{dnsquestion->ids.origDest.getPort()});
 
     if (d_sendDownstreamTraceparent) {
       dnsquestion->ids.sendTraceParentToDownstreamID = d_traceparentOptionCode;
