@@ -1887,6 +1887,12 @@ bool assignOutgoingUDPQueryToBackend(std::shared_ptr<DownstreamState>& downstrea
     dnsQuestion.ids.origID = queryID;
     dnsQuestion.ids.forwardedOverUDP = true;
 
+    if (closer != std::nullopt) {
+      closer->setAttribute("server.address", AnyValue{downstream->d_config.remote.toString()});
+      closer->setAttribute("server.port", AnyValue{downstream->d_config.remote.getPort()});
+      // TODO: Get our (client) address and port and add as client.{address,port}
+    }
+
     VERBOSESLOG(infolog("Got query for %s|%s from %s%s, relayed to %s%s", dnsQuestion.ids.qname.toLogString(), QType(dnsQuestion.ids.qtype).toString(), dnsQuestion.ids.origRemote.toStringWithPort(), (doh ? " (https)" : ""), downstream->getNameWithAddr(), actuallySend ? "" : " (xsk)"),
                 dnsQuestion.getLogger()->info("Relayed query to backend", "backend.name", Logging::Loggable(downstream->getName()), "backend.address", Logging::Loggable(downstream->d_config.remote), "dnsdist.xsk", Logging::Loggable(!actuallySend)));
 

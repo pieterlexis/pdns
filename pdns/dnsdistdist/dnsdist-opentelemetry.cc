@@ -61,6 +61,17 @@ TracesData Tracer::getTracesData()
 
     otTrace.resource_spans.at(0).scope_spans.at(0).scope.attributes.push_back(hostnameAttr);
 
+    // Insert a "fake" span to serve as an overarching root span
+    otTrace.resource_spans.at(0).scope_spans.at(0).spans.push_back({
+      .trace_id = traceid,
+      .span_id = data->d_oldAndNewRootSpanID.oldID == pdns::trace::s_emptySpanID ? pdns::trace::SpanID::getRandomSpanID() : data->d_oldAndNewRootSpanID.newID,
+          .name = "handle",
+          .kind = ,
+          .start_time_unix_nano = span.start_time_unix_nano,
+          .end_time_unix_nano = span.end_time_unix_nano,
+          .attributes = span.attributes,
+    });
+
     for (auto const& span : data->d_spans) {
       otTrace.resource_spans.at(0).scope_spans.at(0).spans.push_back(
         {
