@@ -155,6 +155,20 @@ struct InternalQueryState
   std::optional<pdns::trace::dnsdist::Tracer::Closer> getCloser([[maybe_unused]] const std::string_view& name);
   std::optional<pdns::trace::dnsdist::Tracer::Closer> getRulesCloser([[maybe_unused]] const std::string_view& ruleName, [[maybe_unused]] const std::string& ruleType);
 
+  /**
+   * @brief Update the Span's kind in the Closer to Server
+   *
+   * @param
+   */
+  void setSpanKindToServer(std::optional<pdns::trace::dnsdist::Tracer::Closer> &closer);
+
+  /**
+   * @brief Update the Span's kind in the Closer to Client
+   *
+   * @param closer
+   */
+  void setSpanKindToClient(std::optional<pdns::trace::dnsdist::Tracer::Closer> &closer);
+
   InternalQueryState()
   {
     origDest.sin4.sin_family = 0;

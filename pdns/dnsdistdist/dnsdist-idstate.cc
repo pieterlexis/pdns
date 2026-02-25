@@ -26,8 +26,13 @@
 #include "doh3.hh"
 #include "doq.hh"
 #include "protozero.hh"
+#include <optional>
 #include <string>
 #include <string_view>
+
+#ifndef DISABLE_PROTOBUF
+#include "protozero-trace.hh"
+#endif
 
 InternalQueryState InternalQueryState::partialCloneForXFR() const
 {
@@ -162,6 +167,25 @@ std::optional<pdns::trace::dnsdist::Tracer::Closer> InternalQueryState::getRules
   }
 #endif
   return ret;
+}
+
+void InternalQueryState::setSpanKindToServer([[maybe_unused]] std::optional<pdns::trace::dnsdist::Tracer::Closer> &closer)
+{
+#ifndef DISABLE_PROTOBUF
+  if (closer != std::nullopt) {
+    closer->setKind(pdns::trace::Span::SpanKind::SPAN_KIND_SERVER);
+  }
+#endif
+  return;
+}
+
+void InternalQueryState::setSpanKindToClient(std::optional<pdns::trace::dnsdist::Tracer::Closer> &closer) {
+#ifndef DISABLE_PROTOBUF
+  if (closer != std::nullopt) {
+    closer->setKind(pdns::trace::Span::SpanKind::SPAN_KIND_CLIENT);
+  }
+#endif
+  return;
 }
 
 std::shared_ptr<const Logr::Logger> InternalQueryState::getLogger(std::shared_ptr<const Logr::Logger> parent) const

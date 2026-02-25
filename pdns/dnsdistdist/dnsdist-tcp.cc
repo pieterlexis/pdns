@@ -853,6 +853,7 @@ IncomingTCPConnectionState::QueryProcessingResult IncomingTCPConnectionState::ha
 
   static const std::string classnamePrefix = "IncomingTCPConnectionState::";
   auto closer = ids.getCloser(classnamePrefix + __func__); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+  ids.setSpanKindToServer(closer);
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast
   ids.qname = DNSName(reinterpret_cast<const char*>(query.data()), static_cast<int>(query.size()), sizeof(dnsheader), false, &ids.qtype, &ids.qclass);

@@ -285,6 +285,7 @@ IOState TCPConnectionToBackend::queueNextQuery(std::shared_ptr<TCPConnectionToBa
 IOState TCPConnectionToBackend::sendQuery(std::shared_ptr<TCPConnectionToBackend>& conn, const struct timeval& now)
 {
   auto closer = conn->d_currentQuery.d_query.d_idstate.getCloser(classnamePrefix + __func__);
+  conn->d_currentQuery.d_query.d_idstate.setSpanKindToClient(closer);
   (void)now;
   DEBUGLOG("sending query to backend " << conn->getDS()->getNameWithAddr() << " over FD " << conn->d_handler->getDescriptor());
 

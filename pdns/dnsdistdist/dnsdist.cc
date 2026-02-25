@@ -1855,6 +1855,7 @@ ProcessQueryResult processQuery(DNSQuestion& dnsQuestion, std::shared_ptr<Downst
 bool assignOutgoingUDPQueryToBackend(std::shared_ptr<DownstreamState>& downstream, uint16_t queryID, DNSQuestion& dnsQuestion, PacketBuffer& query, bool actuallySend)
 {
   auto closer = dnsQuestion.ids.getCloser(__func__); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+  dnsQuestion.ids.setSpanKindToClient(closer);
 
   bool doh = dnsQuestion.ids.du != nullptr;
 
@@ -1946,6 +1947,7 @@ static void processUDPQuery(ClientState& clientState, const struct msghdr* msgh,
   InternalQueryState ids;
 
   auto closer = ids.getCloser(__func__, SpanID{}); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+  ids.setSpanKindToServer(closer);
 
   ids.cs = &clientState;
   ids.origRemote = remote;
