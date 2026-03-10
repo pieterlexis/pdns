@@ -967,6 +967,7 @@ if get_option('unit-tests')
 endif
 
 benchmark_sources = files(
+  src_dir / 'bench-dnsname_cc.cc',
   src_dir / 'bench-misc_hh.cc',
   src_dir / 'bench-hash.cc',
 )
