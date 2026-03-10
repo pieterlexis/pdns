@@ -967,6 +967,7 @@ endif
 
 benchmark_sources = files(
   src_dir / 'bench-misc_hh.cc',
+  src_dir / 'bench-hash.cc',
 )
 
 if get_option('benchmark')
