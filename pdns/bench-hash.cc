@@ -23,6 +23,7 @@
 #include "dnsname.hh" // Required to expose dns_tolower in burtle.hh
 // NOLINTEND
 #include "burtle.hh"
+#include "xxhash.hpp"
 #include <string>
 #include <vector>
 
@@ -56,6 +57,30 @@ TEST_CASE("hash string", "[hash]")
     BENCHMARK(benchmarkNameSuffix.c_str())
     {
       return burtleCI(ucInStr, inStr.length(), 0);
+    };
+
+    benchmarkNameSuffix = "xxhash/32 " + std::to_string(inStr.length()) + " chars";
+    BENCHMARK(benchmarkNameSuffix.c_str())
+    {
+      return xxh::xxhash<32>(inStr);
+    };
+
+    benchmarkNameSuffix = "xxhash/64 " + std::to_string(inStr.length()) + " chars";
+    BENCHMARK(benchmarkNameSuffix.c_str())
+    {
+      return xxh::xxhash<64>(inStr);
+    };
+
+    benchmarkNameSuffix = "xxhash3/64 " + std::to_string(inStr.length()) + " chars";
+    BENCHMARK(benchmarkNameSuffix.c_str())
+    {
+      return xxh::xxhash3<64>(inStr);
+    };
+
+    benchmarkNameSuffix = "xxhash3/128 " + std::to_string(inStr.length()) + " chars";
+    BENCHMARK(benchmarkNameSuffix.c_str())
+    {
+      return xxh::xxhash3<128>(inStr);
     };
   }
 }

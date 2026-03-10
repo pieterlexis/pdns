@@ -99,6 +99,7 @@ subdir('ext' / 'json11')
 subdir('ext' / 'luawrapper')
 subdir('ext' / 'protozero')
 subdir('ext' / 'yahttp')
+subdir('ext' / 'xxhash')
 
 libpdns_gettime = declare_dependency(
   link_whole: static_library(
@@ -982,6 +983,7 @@ if get_option('benchmark')
       ],
       'deps-extra': [
         dep_catch2,
+        dep_xxhash,
       ],
     }
   }
