@@ -82,6 +82,7 @@ subdir('meson' / 'cdb')                     # CDB
 subdir('meson' / 'geoip')                   # GeoIP
 subdir('meson' / 'mmdb')                    # MaxMindDB
 subdir('meson' / 'cxx-fs')                  # C++ stdlib Filesystem Module
+subdir('meson' / 'catch2')                  # Microbenchmark
 
 common_sources = []
 
@@ -964,6 +965,27 @@ if get_option('unit-tests')
   }
 endif
 
+benchmark_sources = files(
+  src_dir / 'bench-misc_hh.cc',
+)
+
+if get_option('benchmark')
+  tools += {
+    'benchmarkrunner' : {
+      'main': [
+        src_dir / 'benchmarkrunner.cc',
+      ],
+      'files-extra': [
+        benchmark_sources,
+        config_h,
+      ],
+      'deps-extra': [
+        dep_catch2,
+      ],
+    }
+  }
+endif
+
 if get_option('fuzz-targets')
   fuzz_extra_sources = []
   fuzzer_ldflags = []
@@ -1205,6 +1227,10 @@ if get_option('unit-tests-backends')
       )
     endif
   endforeach
+endif
+
+if get_option('benchmark')
+  benchmark('benchmarkrunner', benchmarkrunner, timeout:240)
 endif
 
 if python.found()

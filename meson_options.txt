@@ -42,3 +42,4 @@ option('systemd-service-group', type: 'string', value: 'pdns', description: 'Sys
 option('auto-var-init', type: 'combo', value: 'disabled', choices: ['zero', 'pattern', 'disabled'], description: 'Enable initialization of automatic variables')
 option('malloc-trace', type: 'boolean', value: false, description: 'Enable malloc-trace')
 option('clang-coverage-format', type: 'boolean', value: false, description: 'Whether to generate coverage data in clang format')
+option('benchmark', type: 'boolean', value: false, description: 'Whether to build/run microbenchmarks')
