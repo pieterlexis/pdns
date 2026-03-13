@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import http.server
+import os
+
 from backend import BackendHandler
 from dnsbackend import DNSBackendHandler
-import os
 
 
 class DNSBackendServer(http.server.HTTPServer):

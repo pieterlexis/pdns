@@ -1,27 +1,25 @@
 #!/usr/bin/env python3
 
+import argparse
+import base64
 import binascii
 import datetime
+import json
 import socket
 import struct
 import sys
 import threading
-import requests
-import json
-import base64
-import argparse
 
 # run: protoc -I=../pdns/ --python_out=. ../pdns/dnsmessage.proto
 # to generate dnsmessage_pb2
-
 # to generate opentelemetry support, assuming opentelemetry-proto is a checkout of https://github.com/open-telemetry/opentelemetry-proto
 # run:
 # protoc -I opentelemetry-proto opentelemetry-proto/opentelemetry/proto/trace/v1/trace.proto --python_out=.
 # protoc -I opentelemetry-proto opentelemetry-proto/opentelemetry/proto/common/v1/common.proto --python_out=.
 # protoc -I opentelemetry-proto opentelemetry-proto/opentelemetry/proto/resource/v1/resource.proto --python_out=.
-
 import dnsmessage_pb2
 import google.protobuf.message
+import requests
 
 try:
     import google.protobuf.json_format

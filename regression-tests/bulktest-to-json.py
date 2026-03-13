@@ -1,6 +1,8 @@
 #!/usr/bin/env python2
 from __future__ import print_function
-import glob, json
+
+import glob
+import json
 
 varnames = set()
 statnames = set()

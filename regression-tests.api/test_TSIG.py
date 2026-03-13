@@ -1,7 +1,9 @@
 from __future__ import print_function
+
 import json
 import unittest
-from test_helper import ApiTestCase, unique_tsigkey_name, is_auth
+
+from test_helper import ApiTestCase, is_auth, unique_tsigkey_name
 
 
 class AuthTSIGHelperMixin(object):

@@ -2,6 +2,7 @@
 import ssl
 import struct
 import time
+
 import dns
 from dnsdisttests import DNSDistTest, pickAvailablePort
 

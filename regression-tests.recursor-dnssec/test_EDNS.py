@@ -1,7 +1,7 @@
-import dns
 import sys
 import unittest
 
+import dns
 from recursortests import RecursorTest
 
 ednsBufferReactorRunning = False

@@ -1,9 +1,9 @@
-import dns
-import dns.serial
-import time
 import itertools
 import socket
+import time
 
+import dns
+import dns.serial
 from ixfrdisttests import IXFRDistTest
 from xfrserver.xfrserver import AXFRServer
 

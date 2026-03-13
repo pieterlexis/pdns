@@ -12,25 +12,19 @@ import sys
 import threading
 import time
 import unittest
-
-import clientsubnetoption
-
-import dns
-import dns.message
-
-import libnacl
-import libnacl.utils
-
-import h2.connection
-import h2.events
-import h2.config
-
-import pycurl
 from io import BytesIO
 
-from doh3client import doh3_query
+import clientsubnetoption
+import dns
+import dns.message
 import doqclient
-
+import h2.config
+import h2.connection
+import h2.events
+import libnacl
+import libnacl.utils
+import pycurl
+from doh3client import doh3_query
 from eqdnsmessage import AssertEqualDNSMessageMixin
 from proxyprotocol import ProxyProtocol
 

@@ -1,12 +1,12 @@
-import dns
 import os
-import requests
 import socket
 import struct
 import sys
 import threading
 import time
 
+import dns
+import requests
 from recursortests import RecursorTest
 
 

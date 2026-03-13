@@ -13,7 +13,6 @@ import dns.rdatatype
 import dns.rrset
 import google.protobuf.json_format
 import opentelemetry.proto.trace.v1.trace_pb2
-
 import test_Protobuf
 
 

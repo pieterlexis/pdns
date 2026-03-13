@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-import dns
-import dns.dnssec
 import os
 
+import dns
+import dns.dnssec
 from authtests import AuthTest
 
 

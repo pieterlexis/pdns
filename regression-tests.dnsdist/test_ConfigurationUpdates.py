@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 import base64
-import dns
 import time
-from dnsdisttests import DNSDistTest, pickAvailablePort
+
+import dns
 import extendederrors
+from dnsdisttests import DNSDistTest, pickAvailablePort
 
 
 class TestConfigurationUpdates(DNSDistTest):

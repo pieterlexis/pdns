@@ -1,5 +1,5 @@
-import time
 import subprocess
+import time
 
 from recursortests import RecursorTest
 

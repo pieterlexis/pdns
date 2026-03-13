@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 import base64
-from datetime import datetime, timedelta
 import os
 import sys
 import time
 import unittest
-import dns
+from datetime import datetime, timedelta
+
 import clientsubnetoption
 import cookiesoption
+import dns
 from dnsdisttests import DNSDistTest
 
 

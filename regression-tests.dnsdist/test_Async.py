@@ -5,10 +5,10 @@ import socket
 import sys
 import threading
 import unittest
+
 import dns
 import dns.message
 import doqclient
-
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 

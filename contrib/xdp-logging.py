@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-from bcc import BPF
 import ctypes as ct
-import netaddr
 import socket
+
+import netaddr
+from bcc import BPF
 
 
 class DNSQuery(ct.Structure):

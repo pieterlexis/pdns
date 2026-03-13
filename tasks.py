@@ -1,7 +1,8 @@
-import os
-import time
 import json
+import os
 import platform
+import time
+
 import requests
 from invoke import task
 from invoke.exceptions import Failure, UnexpectedExit

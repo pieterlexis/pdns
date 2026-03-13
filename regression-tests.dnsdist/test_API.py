@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-import os.path
-
 import base64
-import dns
 import json
-import requests
+import os.path
 import socket
 import time
+
+import dns
+import requests
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 

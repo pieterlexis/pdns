@@ -1,5 +1,6 @@
-import pdnsapi.api
 import logging
+
+import pdnsapi.api
 
 logger = logging.getLogger()
 

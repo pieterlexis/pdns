@@ -1,18 +1,19 @@
-import dns
 import os
 import socket
 import struct
-import time
-import requests
 import subprocess
+import time
+
+import dns
+import requests
 
 try:
     range = xrange
 except NameError:
     pass
 
-from recursortests import RecursorTest
 from proxyprotocol import ProxyProtocol
+from recursortests import RecursorTest
 
 
 class ProxyProtocolAllowedTest(RecursorTest):

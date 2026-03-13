@@ -1,13 +1,15 @@
 from __future__ import print_function
-from datetime import datetime
+
 import os
-import requests
-import unittest
-import mysql.connector
-import psycopg2
 import sqlite3
 import subprocess
 import sys
+import unittest
+from datetime import datetime
+
+import mysql.connector
+import psycopg2
+import requests
 
 if sys.version_info[0] == 2:
     from urlparse import urljoin

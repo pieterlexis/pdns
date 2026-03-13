@@ -1,18 +1,17 @@
 #!/usr/bin/env python
 
 import base64
-import dns
 import os
-import time
 import subprocess
+import time
 import unittest
-import clientsubnetoption
+from io import BytesIO
 
+import clientsubnetoption
+import dns
+import pycurl
 from dnsdistdohtests import DNSDistDOHTest
 from dnsdisttests import DNSDistTest, pickAvailablePort
-
-import pycurl
-from io import BytesIO
 
 
 class DOHTests(object):

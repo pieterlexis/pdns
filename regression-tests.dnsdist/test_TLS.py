@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 import base64
-import dns
+import random
 import socket
 import ssl
-import time
-import random
 import string
+import time
 
+import dns
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import base64
+
 import dns
 from dnsdisttests import DNSDistTest, pickAvailablePort
 

@@ -1,16 +1,14 @@
-import dns
 import os
 import socket
 import struct
 import time
-import clientsubnetoption
 import unittest
-from recursortests import RecursorTest, have_ipv6
 
-from twisted.internet.protocol import Factory
-from twisted.internet.protocol import Protocol
-from twisted.internet.protocol import DatagramProtocol
+import clientsubnetoption
+import dns
+from recursortests import RecursorTest, have_ipv6
 from twisted.internet import reactor
+from twisted.internet.protocol import DatagramProtocol, Factory, Protocol
 
 emptyECSText = "No ECS received"
 mismatchedECSText = "Mismatched ECS"

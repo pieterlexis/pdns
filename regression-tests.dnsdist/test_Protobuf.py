@@ -1,18 +1,18 @@
 #!/usr/bin/env python
-import unittest
-import os
 import base64
-import threading
+import os
 import socket
 import struct
 import sys
+import threading
 import time
-from dnsdisttests import DNSDistTest, pickAvailablePort, Queue
-from proxyprotocol import ProxyProtocol
+import unittest
 
 import dns
 import dnsmessage_pb2
 import extendederrors
+from dnsdisttests import DNSDistTest, Queue, pickAvailablePort
+from proxyprotocol import ProxyProtocol
 
 
 class DNSDistProtobufTest(DNSDistTest):

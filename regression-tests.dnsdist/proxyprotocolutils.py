@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import copy
-import dns
 import socket
 import struct
 import sys
 
+import dns
 from proxyprotocol import ProxyProtocol
 
 

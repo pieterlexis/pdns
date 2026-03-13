@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-import unittest
 import os
 import subprocess
 import time
+import unittest
 
 
 class TestCheckConfig(unittest.TestCase):

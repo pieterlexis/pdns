@@ -1,8 +1,9 @@
 import json
 import operator
-import requests
 import unittest
-from test_helper import ApiTestCase, is_auth, is_recursor, is_auth_lmdb
+
+import requests
+from test_helper import ApiTestCase, is_auth, is_auth_lmdb, is_recursor
 
 
 class Servers(ApiTestCase):

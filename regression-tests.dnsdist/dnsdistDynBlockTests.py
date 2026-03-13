@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import time
-import requests
+
 import dns
+import requests
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 _maintenanceWaitTime = 2

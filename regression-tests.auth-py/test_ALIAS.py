@@ -3,13 +3,12 @@
 from __future__ import print_function
 
 import threading
+
 import clientsubnetoption
-
 import dns
-from twisted.internet.protocol import DatagramProtocol
-from twisted.internet import reactor
-
 from authtests import AuthTest
+from twisted.internet import reactor
+from twisted.internet.protocol import DatagramProtocol
 
 aliasUDPReactorRunning = False
 

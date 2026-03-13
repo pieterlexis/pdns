@@ -1,8 +1,9 @@
-import dns
 import os
-import unittest
 import subprocess
 import time
+import unittest
+
+import dns
 from recursortests import RecursorTest
 
 

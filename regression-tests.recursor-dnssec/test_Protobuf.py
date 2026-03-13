@@ -1,12 +1,13 @@
-import dns
-import dnsmessage_pb2
 import os
 import socket
 import struct
 import sys
 import threading
 import time
+
 import clientsubnetoption
+import dns
+import dnsmessage_pb2
 
 # Python2/3 compatibility hacks
 try:

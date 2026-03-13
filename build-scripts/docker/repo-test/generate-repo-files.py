@@ -16,12 +16,10 @@ import argparse
 import re
 import subprocess
 import sys
-
 from pathlib import Path
 
 # since we use this at OX (or Ansible uses it, whatever)
 from jinja2 import Environment, FileSystemLoader
-
 
 # Globals
 

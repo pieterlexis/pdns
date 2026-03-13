@@ -1,11 +1,10 @@
 import asyncio
 import struct
 from typing import Any, cast
+
+import async_timeout
 import dns
 import dns.message
-import async_timeout
-
-from aioquic.quic.configuration import QuicConfiguration
 from aioquic.asyncio.client import connect
 from aioquic.asyncio.protocol import QuicConnectionProtocol
 from aioquic.quic.configuration import QuicConfiguration

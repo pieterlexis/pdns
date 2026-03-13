@@ -1,6 +1,6 @@
-import pdns.remotebackend
 import time
 
+import pdns.remotebackend
 
 # define a simple $domain
 

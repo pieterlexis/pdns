@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-import dns
 import os
 import socket
 
+import dns
 from authtests import AuthTest
 
 

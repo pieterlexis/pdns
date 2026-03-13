@@ -1,13 +1,14 @@
 #!/usr/bin/env python2
+import binascii
 import socket
 import struct
 import time
+from builtins import bytes
+
 import dns
 import dns.message
 import libnacl
 import libnacl.utils
-import binascii
-from builtins import bytes
 
 
 class DNSCryptResolverCertificate(object):

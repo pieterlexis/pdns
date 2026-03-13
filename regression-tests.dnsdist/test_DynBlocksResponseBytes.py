@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import base64
-from dnsdisttests import DNSDistTest
+
 from dnsdistDynBlockTests import DynBlocksTest
+from dnsdisttests import DNSDistTest
 
 
 class TestDynBlockResponseBytes(DynBlocksTest):

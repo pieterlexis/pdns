@@ -10,7 +10,6 @@ import time
 
 import dns
 import requests
-
 from dnsdistdohtests import DNSDistDOHTest
 from dnsdisttests import DNSDistTest, pickAvailablePort
 from proxyprotocol import ProxyProtocol

@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-import dns
 import socket
 import struct
-import time
 import threading
+import time
+
+import dns
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 

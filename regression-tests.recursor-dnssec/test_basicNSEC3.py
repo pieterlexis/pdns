@@ -1,7 +1,9 @@
 from __future__ import print_function
-from basicDNSSEC import BasicDNSSEC
+
 import os
 import subprocess
+
+from basicDNSSEC import BasicDNSSEC
 
 
 class basicNSEC3Test(BasicDNSSEC):

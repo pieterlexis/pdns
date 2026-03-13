@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import base64
-import dns
+import ssl
 import threading
 import time
-import ssl
 
+import dns
 from dnsdisttests import DNSDistTest
 
 

@@ -1,6 +1,7 @@
 import os
-import sys
 import shutil
+import sys
+
 import metrics_table
 
 # default: 'type': uint64

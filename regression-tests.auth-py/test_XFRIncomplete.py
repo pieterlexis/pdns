@@ -1,4 +1,3 @@
-import dns
 import os
 import socket
 import struct
@@ -6,6 +5,7 @@ import sys
 import threading
 import time
 
+import dns
 from authtests import AuthTest
 
 

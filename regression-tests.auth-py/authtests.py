@@ -1,18 +1,19 @@
 #!/usr/bin/env python2
 
 from __future__ import print_function
+
 import errno
-import shutil
 import os
+import shutil
 import socket
 import struct
 import subprocess
 import sys
 import time
 import unittest
+
 import dns
 import dns.message
-
 from eqdnsmessage import AssertEqualDNSMessageMixin
 
 

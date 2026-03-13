@@ -1,10 +1,11 @@
-import yaml
 import datetime
 import logging
 
+import yaml
 from pdnsapi.api import PDNSApi
-from pdnskeyroller import domainstate
+
 import pdnskeyroller.keyrollerdomain
+from pdnskeyroller import domainstate
 from pdnskeyroller.prepublishkeyroll import PrePublishKeyRoll
 
 logger = logging.getLogger(__name__)

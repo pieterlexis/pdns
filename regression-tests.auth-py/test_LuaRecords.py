@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-import unittest
 import threading
-import dns.rrset
+import time
+import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+import clientsubnetoption
+import dns.message
 import dns.rcode
 import dns.rdataclass
-import dns.message
-import time
-import clientsubnetoption
-
+import dns.rrset
 from authtests import AuthTest
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
 webserver = None
 

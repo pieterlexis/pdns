@@ -1,12 +1,13 @@
-import re
 import logging
+import re
 import urllib.parse
+
 import requests
 
 import pdnsapi.cryptokey
 from pdnsapi.cryptokey import CryptoKey
-from pdnsapi.zone import Zone
 from pdnsapi.metadata import ZoneMetadata
+from pdnsapi.zone import Zone
 
 logger = logging.getLogger(__name__)
 

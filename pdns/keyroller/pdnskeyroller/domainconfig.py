@@ -1,8 +1,9 @@
-import pdnsapi.api
-from pdnskeyroller import PDNSKEYROLLER_CONFIG_metadata_kind
-from pytimeparse.timeparse import timeparse
-import pdnsapi.metadata
 import json_tricks.nonp as json_tricks
+import pdnsapi.api
+import pdnsapi.metadata
+from pytimeparse.timeparse import timeparse
+
+from pdnskeyroller import PDNSKEYROLLER_CONFIG_metadata_kind
 from pdnskeyroller.util import parse_algo
 
 DOMAINCONFIG_VERSION = 1

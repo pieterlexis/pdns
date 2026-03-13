@@ -1,14 +1,14 @@
 #!/usr/bin/env python
-import threading
 import os
 import socket
 import struct
 import sys
+import threading
 import time
-from dnsdisttests import DNSDistTest, Queue, pickAvailablePort
 
 import dns
 import dnstap_pb2
+from dnsdisttests import DNSDistTest, Queue, pickAvailablePort
 
 FSTRM_CONTROL_ACCEPT = 0x01
 FSTRM_CONTROL_START = 0x02

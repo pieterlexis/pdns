@@ -3,8 +3,7 @@
 import http.server
 import json
 import re
-
-from urllib.parse import parse_qsl, urlparse, unquote
+from urllib.parse import parse_qsl, unquote, urlparse
 
 
 class DNSBackendHandler(http.server.BaseHTTPRequestHandler):

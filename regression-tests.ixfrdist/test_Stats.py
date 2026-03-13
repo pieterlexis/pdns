@@ -1,7 +1,8 @@
-from ixfrdisttests import IXFRDistTest
-import time
-import requests
 import subprocess
+import time
+
+import requests
+from ixfrdisttests import IXFRDistTest
 
 xfrServerPort = 4244
 

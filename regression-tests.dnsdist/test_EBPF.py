@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import base64
-import dns
 import os
 import unittest
-import pycurl
 
+import dns
+import pycurl
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 

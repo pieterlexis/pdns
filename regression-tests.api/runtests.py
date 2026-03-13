@@ -3,14 +3,16 @@
 # Shell-script style.
 
 from __future__ import print_function
+
 import os
-import requests
-from requests.exceptions import HTTPError
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+
+import requests
+from requests.exceptions import HTTPError
 
 try:
     raw_input

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 from __future__ import print_function
-import xml.etree.ElementTree
-import os.path
+
 import glob
+import os.path
+import xml.etree.ElementTree
 
 e = xml.etree.ElementTree.parse("pytest.xml")
 testsuites = e.getroot()

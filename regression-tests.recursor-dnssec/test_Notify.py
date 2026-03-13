@@ -1,7 +1,7 @@
-import dns
 import os
-import requests
 
+import dns
+import requests
 from recursortests import RecursorTest
 
 

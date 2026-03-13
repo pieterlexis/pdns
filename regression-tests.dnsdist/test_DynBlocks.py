@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import time
+
 import dns
+from dnsdistDynBlockTests import DynBlocksTest, _maintenanceWaitTime, waitForMaintenanceToRun
 from dnsdisttests import DNSDistTest
-from dnsdistDynBlockTests import DynBlocksTest, waitForMaintenanceToRun, _maintenanceWaitTime
 
 
 class TestDynBlockQPS(DynBlocksTest):

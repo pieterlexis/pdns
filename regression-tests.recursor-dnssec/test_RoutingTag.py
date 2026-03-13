@@ -1,13 +1,14 @@
-import dns
 import os
 import socket
 import struct
-import time
-import clientsubnetoption
 import subprocess
+import time
+
+import clientsubnetoption
+import dns
 from recursortests import RecursorTest
-from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
+from twisted.internet.protocol import DatagramProtocol
 
 emptyECSText = "No ECS received"
 nameECS = "ecs-echo.example."

@@ -1,5 +1,6 @@
-import dns
 import time
+
+import dns
 from recursortests import RecursorTest
 
 

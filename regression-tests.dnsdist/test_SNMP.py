@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 import dns
-
-from pysnmp.hlapi import *
 from dnsdisttests import DNSDistTest
+from pysnmp.hlapi import *
 
 
 class TestSNMP(DNSDistTest):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-import unittest
 import os
 import subprocess
+import unittest
 
 
 class TestNetworkEndpointConfig(unittest.TestCase):

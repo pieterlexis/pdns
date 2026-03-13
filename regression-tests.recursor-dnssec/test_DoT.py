@@ -1,13 +1,12 @@
-import pytest
-import dns
 import os
-import subprocess
 import ssl
+import subprocess
 import threading
 import time
 from queue import Queue
 
-
+import dns
+import pytest
 from recursortests import RecursorTest
 
 

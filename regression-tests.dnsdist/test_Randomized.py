@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-import dns
 import socket
+
+import dns
 from dnsdisttests import DNSDistTest
 
 

@@ -1,7 +1,8 @@
 import os
 import shutil
-from recursortests import RecursorTest
+
 import pytest
+from recursortests import RecursorTest
 
 
 @pytest.fixture(scope="session")

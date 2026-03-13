@@ -1,6 +1,7 @@
+import os
+
 import dns
 from recursortests import RecursorTest
-import os
 
 
 class BasicDNSSEC(RecursorTest):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import unittest
-import dns
 
+import dns
 from authtests import AuthTest
 
 

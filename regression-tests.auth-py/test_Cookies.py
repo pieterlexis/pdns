@@ -2,7 +2,6 @@
 import dns
 import dns.edns
 import dns.message
-
 from authtests import AuthTest
 
 

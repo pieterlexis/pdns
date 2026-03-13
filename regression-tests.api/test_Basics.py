@@ -1,6 +1,7 @@
-import requests
 import socket
 import time
+
+import requests
 from test_helper import ApiTestCase, is_auth
 
 

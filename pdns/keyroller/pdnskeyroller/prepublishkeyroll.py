@@ -1,8 +1,10 @@
-import pdnsapi.api
-import json_tricks.nonp as json_tricks
-from pdnskeyroller.util import get_keys_of_type, DNSKEY_ALGO_TO_MNEMONIC, DNSKEY_MNEMONIC_TO_ALGO, validate_api
 from datetime import datetime, timedelta
+
+import json_tricks.nonp as json_tricks
+import pdnsapi.api
+
 from pdnskeyroller.keyroll import KeyRoll
+from pdnskeyroller.util import DNSKEY_ALGO_TO_MNEMONIC, DNSKEY_MNEMONIC_TO_ALGO, get_keys_of_type, validate_api
 
 _step_to_name = {
     0: "initial",

@@ -1,10 +1,9 @@
-import dns
 import os
 import socket
 import unittest
 
+import dns
 import paddingoption
-
 from recursortests import RecursorTest
 
 

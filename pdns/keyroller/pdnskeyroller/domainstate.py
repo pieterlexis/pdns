@@ -1,7 +1,9 @@
 import logging
-import pdnsapi.api
 from datetime import datetime
+
 import json_tricks.nonp as json_tricks
+import pdnsapi.api
+
 from pdnskeyroller import PDNSKEYROLLER_STATE_metadata_kind
 from pdnskeyroller.keyroll import KeyRoll
 from pdnskeyroller.prepublishkeyroll import PrePublishKeyRoll

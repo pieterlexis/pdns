@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import random
 import sys
-from pdnskeyroller import domainstate, domainconfig, keyrollerdomain
+from datetime import datetime, timedelta
+
+from pdnsapi.api import PDNSApi
+from pdnskeyroller import domainconfig, domainstate, keyrollerdomain
 from pdnskeyroller.config import KeyrollerConfig
 from pdnskeyroller.prepublishkeyroll import PrePublishKeyRoll
-from pdnsapi.api import PDNSApi
-from datetime import datetime, timedelta
-import random
 
 logger = logging.getLogger("pdns-keyroller")
 

@@ -1,6 +1,7 @@
 import os
 import pathlib
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 
 # reads requirements.txt file and extracts package_name and version (if set)

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import requests
-import sys
 import argparse
-import re
 import getpass
+import re
+import sys
+
+import requests
 
 argp = argparse.ArgumentParser()
 argp.add_argument("--oneline", action="store_true", help="Make one-lined changelog entries (for 4.0 and older)")

@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
-from pdns.remotebackend import PipeConnector
-from backend import BackendHandler
 import os
+
+from backend import BackendHandler
+from pdns.remotebackend import PipeConnector
 
 
 def main():

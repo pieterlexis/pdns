@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-from queue import Queue
 import threading
+from queue import Queue
+
 import dns
 from dnsdisttests import DNSDistTest, pickAvailablePort
-from proxyprotocolutils import ProxyProtocolUDPResponder, ProxyProtocolTCPResponder
+from proxyprotocolutils import ProxyProtocolTCPResponder, ProxyProtocolUDPResponder
 
 
 def servFailResponseCallback(request):

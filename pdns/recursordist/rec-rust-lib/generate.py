@@ -85,11 +85,10 @@
 # The two functions default_value_incoming_allow_from() and
 # default_value_equal_incoming_allow_from() are also generated.
 #
-from enum import Enum
-from enum import auto
 import os
 import re
 import sys
+from enum import Enum, auto
 from pathlib import Path
 
 

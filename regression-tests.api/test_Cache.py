@@ -1,5 +1,6 @@
-from test_helper import ApiTestCase, is_recursor, sdig
 import unittest
+
+from test_helper import ApiTestCase, is_recursor, sdig
 
 
 class Servers(ApiTestCase):

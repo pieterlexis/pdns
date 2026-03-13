@@ -21,6 +21,7 @@
 import glob
 import sys
 from pathlib import Path
+
 import guzzle_sphinx_theme
 
 # -- General configuration ------------------------------------------------

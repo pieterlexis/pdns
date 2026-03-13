@@ -1,10 +1,10 @@
-import clientsubnetoption
-import dns
 import os
 import socket
 import struct
 import subprocess
 
+import clientsubnetoption
+import dns
 from authtests import AuthTest
 from proxyprotocol import ProxyProtocol
 

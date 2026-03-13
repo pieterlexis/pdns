@@ -1,7 +1,8 @@
-import dns
 import os
-import pytest
 import shutil
+
+import dns
+import pytest
 from recursortests import RecursorTest
 
 

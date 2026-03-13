@@ -5,7 +5,6 @@ import sys
 import requests
 import yaml
 
-
 PACKAGE_NAMES = ["pdns", "pdns-recursor", "dnsdist"]
 
 

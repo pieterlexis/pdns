@@ -1,11 +1,11 @@
-import dns
 import socket
 import struct
 import sys
 import threading
 import time
-import yaml
 
+import dns
+import yaml
 from recursortests import RecursorTest
 
 

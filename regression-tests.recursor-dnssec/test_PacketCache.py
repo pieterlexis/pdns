@@ -1,10 +1,10 @@
+import os
+import subprocess
+
 import clientsubnetoption
 import cookiesoption
 import dns
-import os
 import requests
-import subprocess
-
 from recursortests import RecursorTest
 
 

@@ -1,6 +1,7 @@
 import difflib
-import dns
 import unittest
+
+import dns
 
 
 class AssertEqualDNSMessageMixin(unittest.TestCase):

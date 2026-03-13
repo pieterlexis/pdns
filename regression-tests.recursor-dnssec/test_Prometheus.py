@@ -1,6 +1,7 @@
-import requests
 import subprocess
+
 import pytest
+import requests
 from recursortests import RecursorTest
 
 

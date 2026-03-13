@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-import cdbx
-import unittest
-import dns
 import os
 import socket
 import time
+import unittest
+
+import cdbx
+import dns
 from dnsdisttests import DNSDistTest
 
 

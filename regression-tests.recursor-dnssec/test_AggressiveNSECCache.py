@@ -1,11 +1,12 @@
-import dns
-from recursortests import RecursorTest
 import os
-import requests
+import shutil
 import subprocess
+
+import dns
 import extendederrors
 import pytest
-import shutil
+import requests
+from recursortests import RecursorTest
 
 
 class AggressiveNSECCacheBase(RecursorTest):

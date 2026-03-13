@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-import extendederrors
 import dns
+import extendederrors
 from dnsdisttests import DNSDistTest
 
 

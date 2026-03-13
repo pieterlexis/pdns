@@ -5,10 +5,11 @@ import struct
 import sys
 import threading
 import time
+import traceback
+
 import dns
 import dnstap_pb2
 import pytest
-import traceback
 from recursortests import RecursorTest
 
 FSTRM_CONTROL_ACCEPT = 0x01

@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 import dns
-
-from dnsdisttests import DNSDistTest
-from dnsdisttests import pickAvailablePort
-from quictests import QUICTests, QUICACLTests, QUICGetLocalAddressOnAnyBindTests, QUICXFRTests
+from dnsdisttests import DNSDistTest, pickAvailablePort
+from quictests import QUICACLTests, QUICGetLocalAddressOnAnyBindTests, QUICTests, QUICXFRTests
 
 
 class DOH3Common(object):

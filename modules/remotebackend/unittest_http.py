@@ -3,9 +3,9 @@
 import http.server
 import json
 import re
+from urllib.parse import parse_qsl, unquote, urlparse
 
 from pdns_unittest import Handler
-from urllib.parse import parse_qsl, urlparse, unquote
 
 
 class DNSBackendServer(http.server.HTTPServer):

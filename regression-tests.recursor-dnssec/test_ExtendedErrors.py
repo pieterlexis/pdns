@@ -1,8 +1,8 @@
-import dns
 import os
+
+import dns
 import extendederrors
 import pytest
-
 from recursortests import RecursorTest
 
 

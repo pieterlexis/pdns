@@ -2,10 +2,11 @@
 import base64
 import socket
 import time
+
 import dns
 import dns.message
-from dnsdisttests import DNSDistTest, pickAvailablePort
 import dnscrypt
+from dnsdisttests import DNSDistTest, pickAvailablePort
 
 
 class DNSCryptTest(DNSDistTest):

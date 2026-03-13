@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 from datetime import datetime, timedelta
-import dns
+
 import cookiesoption
+import dns
 from dnsdisttests import DNSDistTest
 
 

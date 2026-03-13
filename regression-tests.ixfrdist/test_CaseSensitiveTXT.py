@@ -1,7 +1,7 @@
-import dns
-import dns.serial
 import time
 
+import dns
+import dns.serial
 from ixfrdisttests import IXFRDistTest
 from xfrserver.xfrserver import AXFRServer
 

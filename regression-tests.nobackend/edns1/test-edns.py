@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from __future__ import print_function
+
 import socket
 
 # TODO use dnspython to parse/check

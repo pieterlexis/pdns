@@ -1,26 +1,27 @@
 #!/usr/bin/env python2
 
 from __future__ import print_function
+
+import copy
 import errno
-import shutil
 import os
+import shutil
 import socket
+import ssl
 import struct
 import subprocess
 import sys
+import threading
 import time
 import unittest
+
 import dns
 import dns.message
-import requests
-import threading
-import ssl
-import copy
 import pytest
-from twisted.internet import reactor
-from proxyprotocol import ProxyProtocol
-
+import requests
 from eqdnsmessage import AssertEqualDNSMessageMixin
+from proxyprotocol import ProxyProtocol
+from twisted.internet import reactor
 
 
 def have_ipv6():

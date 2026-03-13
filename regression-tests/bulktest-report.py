@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import json, sys
+
+import json
+import sys
 
 runs = json.load(sys.stdin)
 

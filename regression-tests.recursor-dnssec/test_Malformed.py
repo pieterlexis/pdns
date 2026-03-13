@@ -1,14 +1,11 @@
-import dns
 import os
-import time
 import subprocess
+import time
 
-from twisted.internet.protocol import Factory
-from twisted.internet.protocol import Protocol
-from twisted.internet.protocol import DatagramProtocol
-from twisted.internet import reactor
-
+import dns
 from recursortests import RecursorTest
+from twisted.internet import reactor
+from twisted.internet.protocol import DatagramProtocol, Factory, Protocol
 
 malformedReactorRunning = False
 

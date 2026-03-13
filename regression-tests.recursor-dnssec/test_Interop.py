@@ -1,8 +1,9 @@
-import dns
 import os
+
+import dns
 from recursortests import RecursorTest
-from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
+from twisted.internet.protocol import DatagramProtocol
 
 
 class InteropTest(RecursorTest):

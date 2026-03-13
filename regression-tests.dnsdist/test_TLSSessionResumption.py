@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 import base64
-import dns
 import os
-import requests
 import shutil
 import ssl
 import subprocess
 import tempfile
 import time
 import unittest
+
+import dns
+import requests
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 try:

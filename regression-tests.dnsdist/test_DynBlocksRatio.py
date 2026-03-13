@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import time
+
 import dns
 from dnsdistDynBlockTests import DynBlocksTest, waitForMaintenanceToRun
 from dnsdisttests import pickAvailablePort

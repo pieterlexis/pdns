@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-import unittest
-import dns
-import lmdb
 import os
 import socket
 import struct
+import unittest
 
+import dns
+import lmdb
 from dnsdisttests import DNSDistTest
 
 

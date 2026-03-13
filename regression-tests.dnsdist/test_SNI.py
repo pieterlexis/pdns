@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-import dns
 import os
-import unittest
 import ssl
+import unittest
 
+import dns
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 

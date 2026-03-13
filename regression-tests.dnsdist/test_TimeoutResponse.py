@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import ssl
 import threading
+
 import dns
-from dnsdisttests import DNSDistTest, pickAvailablePort, ResponderDropAction
+from dnsdisttests import DNSDistTest, ResponderDropAction, pickAvailablePort
 
 _common_config = """
     addDOHLocal("127.0.0.1:%d", "server.chain", "server.key", {'/dns-query'}, {library='nghttp2'})

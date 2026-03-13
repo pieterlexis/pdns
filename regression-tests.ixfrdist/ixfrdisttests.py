@@ -8,9 +8,9 @@ import subprocess
 import sys
 import time
 import unittest
+
 import dns
 import dns.message
-
 from eqdnsmessage import AssertEqualDNSMessageMixin
 
 

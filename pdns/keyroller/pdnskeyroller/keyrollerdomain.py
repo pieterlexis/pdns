@@ -1,9 +1,11 @@
-from pdnsapi.api import PDNSApi
+import datetime
 import logging
+
+from pdnsapi.api import PDNSApi
+from pytimeparse.timeparse import timeparse
+
 import pdnskeyroller.domainconfig
 import pdnskeyroller.domainstate
-from pytimeparse.timeparse import timeparse
-import datetime
 
 logger = logging.getLogger(__name__)
 

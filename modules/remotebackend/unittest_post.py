@@ -3,6 +3,7 @@
 import http.server
 import json
 from urllib.parse import parse_qs, urlparse
+
 from pdns_unittest import Handler
 
 

@@ -2,9 +2,10 @@
 """Load settings definitions and generates the corresponding documentation."""
 
 import os
-from pathlib import Path
 import sys
 import tempfile
+from pathlib import Path
+
 import yaml
 
 

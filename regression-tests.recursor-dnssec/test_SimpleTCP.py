@@ -1,5 +1,6 @@
-import dns
 import os
+
+import dns
 from recursortests import RecursorTest
 
 

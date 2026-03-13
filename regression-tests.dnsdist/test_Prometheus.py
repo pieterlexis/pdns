@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import os
-import requests
 import subprocess
 import unittest
+
+import requests
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 

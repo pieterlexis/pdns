@@ -1,12 +1,11 @@
+import os
+
 import clientsubnetoption
 import cookiesoption
 import dns
-import os
-
-from twisted.internet.protocol import DatagramProtocol
-from twisted.internet import reactor
-
 from recursortests import RecursorTest
+from twisted.internet import reactor
+from twisted.internet.protocol import DatagramProtocol
 
 
 class GettagRecursorTest(RecursorTest):

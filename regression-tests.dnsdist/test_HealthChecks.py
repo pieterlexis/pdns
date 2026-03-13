@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 import base64
-import requests
+import queue
 import ssl
 import threading
 import time
+
 import dns
-import queue
-from dnsdisttests import DNSDistTest, pickAvailablePort, ResponderDropAction
+import requests
+from dnsdisttests import DNSDistTest, ResponderDropAction, pickAvailablePort
 
 
 class HealthCheckTest(DNSDistTest):

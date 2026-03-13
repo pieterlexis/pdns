@@ -33,12 +33,12 @@ Requirements:
   dnspython (http://www.dnspython.org/)
 """
 
-from __future__ import print_function
-from __future__ import division
+from __future__ import division, print_function
 
 import math
 import socket
 import struct
+
 import dns
 import dns.edns
 import dns.flags

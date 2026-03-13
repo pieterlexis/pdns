@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import argparse
 import logging
-import pdnskeyroller.daemon
 import sys
 import traceback
+
+import pdnskeyroller.daemon
 
 logger = logging.getLogger("pdns-keyroller")
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import threading
 import time
+
 import dns
 from dnsdisttests import DNSDistTest, pickAvailablePort
 

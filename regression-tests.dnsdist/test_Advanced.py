@@ -4,6 +4,7 @@ import os
 import socket
 import time
 import unittest
+
 import dns
 from dnsdisttests import DNSDistTest
 

@@ -1,8 +1,8 @@
-import dns
 import os
 import socket
 import struct
 
+import dns
 from recursortests import RecursorTest
 
 

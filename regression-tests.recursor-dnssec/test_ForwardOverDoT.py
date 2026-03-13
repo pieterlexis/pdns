@@ -1,7 +1,8 @@
-import pytest
-import dns
 import os
 import subprocess
+
+import dns
+import pytest
 from recursortests import RecursorTest
 
 

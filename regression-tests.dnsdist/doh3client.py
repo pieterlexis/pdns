@@ -1,13 +1,12 @@
+import asyncio
 import base64
 import copy
-import asyncio
-import dns
-import async_timeout
-
 from collections import deque
 from typing import Deque, Dict, Optional, Tuple, Union, cast
 from urllib.parse import urlparse
 
+import async_timeout
+import dns
 from aioquic.asyncio.client import connect
 from aioquic.asyncio.protocol import QuicConnectionProtocol
 from aioquic.h0.connection import H0Connection
@@ -20,7 +19,6 @@ from aioquic.h3.events import (
 )
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import QuicEvent, StreamReset
-
 from doqclient import StreamResetError
 
 HttpConnection = Union[H0Connection, H3Connection]

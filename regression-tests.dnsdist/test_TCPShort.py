@@ -2,6 +2,7 @@
 import struct
 import threading
 import time
+
 import dns
 from dnsdisttests import DNSDistTest, pickAvailablePort
 

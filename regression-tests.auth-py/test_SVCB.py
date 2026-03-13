@@ -1,7 +1,8 @@
-from authtests import AuthTest
-import dns
 import os
 import subprocess
+
+import dns
+from authtests import AuthTest
 
 
 class SVCBRecordsBase(AuthTest):

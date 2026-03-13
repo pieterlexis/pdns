@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 import base64
-import dns
 
-from dnsdisttests import DNSDistTest
-from dnsdisttests import pickAvailablePort
-from quictests import QUICTests, QUICWithCacheTests, QUICACLTests, QUICGetLocalAddressOnAnyBindTests, QUICXFRTests
+import dns
 import doqclient
+from dnsdisttests import DNSDistTest, pickAvailablePort
+from quictests import QUICACLTests, QUICGetLocalAddressOnAnyBindTests, QUICTests, QUICWithCacheTests, QUICXFRTests
 
 
 class TestDOQBogus(DNSDistTest):

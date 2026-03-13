@@ -1,6 +1,7 @@
 #!/usr/bin/env -S python3 -u
 import os
 import sys
+
 import jinja2
 
 program = sys.argv[0].split("-")[0]

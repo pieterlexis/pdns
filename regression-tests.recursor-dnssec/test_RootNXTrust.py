@@ -1,8 +1,8 @@
-import dns
-import requests
 import time
-import extendederrors
 
+import dns
+import extendederrors
+import requests
 from recursortests import RecursorTest
 
 

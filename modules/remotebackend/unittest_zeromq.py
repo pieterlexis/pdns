@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
-import zmq
 import json
 import os
+
+import zmq
 from pdns_unittest import Handler
 
 

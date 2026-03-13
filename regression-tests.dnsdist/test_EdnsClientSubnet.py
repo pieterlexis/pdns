@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-import dns
 import clientsubnetoption
 import cookiesoption
+import dns
 from dnsdisttests import DNSDistTest
 
 

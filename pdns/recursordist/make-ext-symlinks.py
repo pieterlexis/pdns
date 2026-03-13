@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import os
-import shutil
 import os.path
+import shutil
 
 for extdir in ["yahttp", "json11", "probds"]:
     try:

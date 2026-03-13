@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import base64
-import cdbx
-import dns
 import os
 import socket
 import subprocess
 import time
+
+import cdbx
+import dns
 from dnsdisttests import DNSDistTest
 
 

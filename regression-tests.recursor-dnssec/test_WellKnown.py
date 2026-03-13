@@ -1,5 +1,5 @@
-import pytest
 import dns
+import pytest
 from recursortests import RecursorTest
 
 

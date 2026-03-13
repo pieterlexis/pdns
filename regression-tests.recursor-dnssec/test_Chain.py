@@ -1,5 +1,5 @@
-import dns
 import clientsubnetoption
+import dns
 from recursortests import RecursorTest
 
 

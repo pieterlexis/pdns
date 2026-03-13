@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import requests
-import sys
-import subprocess
 import argparse
+import subprocess
+import sys
+
+import requests
 
 
 def get_commits(pr):

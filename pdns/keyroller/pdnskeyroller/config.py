@@ -1,8 +1,9 @@
-import yaml
 import datetime
 import logging
 
+import yaml
 from pdnsapi.api import PDNSApi
+
 import pdnskeyroller.keyrollerdomain
 
 logger = logging.getLogger(__name__)

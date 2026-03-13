@@ -1,10 +1,10 @@
 #!/usr/bin/python3
 """Update the Rust library version in the Cargo.toml file to keep it in sync with the product version."""
 
+import re
 import shutil
 import sys
 import tempfile
-import re
 
 
 def main():

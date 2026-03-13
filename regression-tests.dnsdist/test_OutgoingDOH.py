@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 import base64
 import copy
-import dns
-import requests
+import os
 import ssl
 import threading
 import time
-import os
 
+import dns
+import requests
 from dnsdisttests import DNSDistTest, pickAvailablePort
 
 
