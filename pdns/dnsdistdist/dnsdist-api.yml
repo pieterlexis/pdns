@@ -1,0 +1,126 @@
+---
+openapi: 3.1.0
+info:
+  version: "0.0.1"
+  title: DNSDist API
+  license:
+    name: MIT
+
+servers:
+  - url: /api/v1
+
+security:
+  - APIKeyHeader: []
+
+paths:
+  "/rules":
+    get:
+      summary: List all existing rules for rule_type
+      operationId: listRules
+      tags:
+        - rules
+      responses:
+        "200":
+          description: All rulesets for rule_type
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rule"
+        default:
+          $ref: "#/components/responses/Error"
+
+  "/rules/{rule_type}":
+    get:
+      summary: List all existing rules for rule_type
+      operationId: listRules
+      tags:
+        - rules
+      responses:
+        "200":
+          description: All rulesets for rule_type
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rule"
+        default:
+          $ref: "#/components/responses/Error"
+
+components:
+  securitySchemes:
+    # X-API-Key: abcdef12345
+    APIKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  parameters:
+    rule_type:
+      name: rule_type
+      in: path
+      required: true
+      description: The type of rule
+      schema:
+        $ref: "#/components/schemas/RuleType"
+
+  responses:
+    Error:
+      description: The input to the operation was not valid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      title: Error
+      description: "Returned when the server encounters an error, either in client input or internally"
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+          description: "A human readable error message"
+        errors:
+          type: array
+          items:
+            type: string
+          description: "Optional array of multiple errors encountered during processing"
+      required:
+        - error
+
+    RuleType:
+      title: Rule Type
+      type: string
+      enum:
+        - QueryRule
+        - ResponseRule
+        - CacheMissRule
+
+    Rule:
+      title: Rule
+      type: object
+      additionalProperties: false
+      properties:
+        uuid:
+          type: string
+          description: The UUID for this rule
+        rule_type:
+          $ref: "#/components/schemas/RuleType"
+        selector:
+          $ref: "#/components/schemas/Selector"
+        action: 
+          $ref: "#/components/schemas/Action"
+
+    Selector:
+      title: Selector
+      type: object
+      oneOf: []
+
+    Action:
+      title: Action
+      type: object
+      oneOf: []
