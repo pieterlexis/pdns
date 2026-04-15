@@ -2485,9 +2485,9 @@ static void maintThread()
       tracer->setScopeSpanName("dnsdist/maintenance");
     }
     auto maint_closer = pdns::trace::dnsdist::getCloserForInternalSpan(tracer, "maintenanceThread");
-    auto lua = g_lua.lock();
 
-    pdns::trace::dnsdist::runWithLuaTracing(*lua, tracer, [&lua, &tracer, &secondsToWaitLog]() {
+    pdns::trace::dnsdist::runWithGlobalLuaTracing(tracer, [&tracer, &secondsToWaitLog]() {
+      auto lua = g_lua.lock();
       try {
         auto maintenanceCallback = lua->readVariable<std::optional<std::function<void()>>>("maintenance");
         if (maintenanceCallback) {

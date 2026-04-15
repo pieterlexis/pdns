@@ -27,8 +27,8 @@ then
 fi
 pip install -r requirements.txt | cat
 
-protoc -I=../pdns/ --python_out=. ../pdns/dnsmessage.proto
-protoc -I=../pdns/ --python_out=. ../pdns/dnstap.proto
+protoc33 -I=../pdns/ --python_out=. ../pdns/dnsmessage.proto
+protoc33 -I=../pdns/ --python_out=. ../pdns/dnstap.proto
 
 mkdir -p configs
 
