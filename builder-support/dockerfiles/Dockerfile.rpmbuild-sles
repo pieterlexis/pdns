@@ -1,7 +1,7 @@
 FROM dist-base AS package-builder
 
-# zypper addrepo -fc http://download.opensuse.org/repositories/openSUSE:/Backports:/SLE-15-SP7/standard/openSUSE:Backports:SLE-15-SP7.repo && \
 RUN zypper addrepo -fc https://download.opensuse.org/repositories/devel:tools/15.7/devel:tools.repo && \
+  zypper addrepo -fc http://download.opensuse.org/repositories/openSUSE:/Backports:/SLE-15-SP7/standard/openSUSE:Backports:SLE-15-SP7.repo && \
   zypper --non-interactive --gpg-auto-import-keys refresh && \
   zypper install -y gcc autoconf automake rpm-build python311 curl jq ninja hostname python311-pip meson rpmdevtools
 
@@ -24,8 +24,8 @@ RUN cd /pdns/builder-support/helpers/ && ./install_meson.sh
 @IF [ -n "$M_dnsdist$M_all" ]
 RUN cd /pdns/builder-support/helpers/ && ./install_rust.sh
 RUN cd /pdns/builder-support/helpers/ && ./install_cargo_cyclonedx.sh
+  # zypper install -y git cmake clang && \
 RUN cd /pdns/builder-support/helpers/ && \
-    zypper install -y git cmake clang && \
     cd /pdns/builder-support/helpers/ && \
     ./install_quiche.sh
 RUN cd /pdns/builder-support/helpers/ && ./install_meson.sh
