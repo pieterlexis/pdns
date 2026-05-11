@@ -4,8 +4,7 @@ on:
     branches:
       - master
     paths:
-      - 'builder/'
-      - 'builder/**'
+      - 'builder'
 
 permissions:
   contents: read
