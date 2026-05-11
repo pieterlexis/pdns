@@ -23,7 +23,7 @@ RUN cd /pdns/builder-support/helpers/ && ./install_meson.sh
 
 @IF [ -n "$M_dnsdist$M_all" ]
 RUN cd /pdns/builder-support/helpers/ && ./install_rust.sh
-RUN cd /pdns/builder-support/helpers/ && ./install_cargo_cyclonedx.sh
+RUN cd /pdns/builder-support/helpers/ && ./install_cargo_cyclonedx.sh && \
     zypper install -y git cmake && \ # clang && \
 RUN cd /pdns/builder-support/helpers/ && \
     cd /pdns/builder-support/helpers/ && \
