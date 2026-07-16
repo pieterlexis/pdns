@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "dnsparser.hh"
+#include "deleg-records.hh"
 #include "dnswriter.hh"
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
@@ -30,6 +31,7 @@
 #include "dns_random.hh"
 #include "namespaces.hh"
 #include "noinitvector.hh"
+#include "qtype.hh"
 
 std::atomic<bool> DNSRecordContent::d_locked{false};
 
@@ -846,6 +848,98 @@ void PacketReader::xfrSvcParamKeyVals(set<SvcParam> &kvs) {
   }
 }
 
+void PacketReader::xfrDelegInfoKeyVals(set<DelegInfo> &delegInfos) {
+  int32_t lastKey{-1}; // Keep track of the last key, as ordering should be strict
+
+  while (d_pos < (d_startrecordpos + d_recordlen)) {
+    if (d_pos + 2 > (d_startrecordpos + d_recordlen)) {
+      throw std::out_of_range("incomplete key");
+    }
+    uint16_t keyInt;
+    xfr16BitInt(keyInt);
+
+    if (keyInt <= lastKey) {
+      throw std::out_of_range("Found DelegInfoKey " + std::to_string(keyInt) + " after DelegInfoKey " + std::to_string(lastKey));
+    }
+    lastKey = keyInt;
+
+    auto key = static_cast<DelegInfo::DelegInfoKey>(keyInt);
+
+    uint16_t len;
+    xfr16BitInt(len);
+
+    if (d_pos + len > (d_startrecordpos + d_recordlen)) {
+      throw std::out_of_range("record is shorter than DelegInfo lengthfield implies");
+    }
+
+    switch (key)
+    {
+    case DelegInfo::mandatory: {
+      if (len % 2 != 0) {
+        throw std::out_of_range("mandatory DelegInfo has invalid length");
+      }
+      if (len == 0) {
+        throw std::out_of_range("empty 'mandatory' values");
+      }
+      std::set<DelegInfo::DelegInfoKey> paramKeys;
+      size_t stop = d_pos + len;
+      while (d_pos < stop) {
+        uint16_t keyval;
+        xfr16BitInt(keyval);
+        paramKeys.insert(static_cast<DelegInfo::DelegInfoKey>(keyval));
+      }
+      delegInfos.insert(DelegInfo(key, std::move(paramKeys)));
+      break;
+    }
+    case DelegInfo::DelegInfoKey::server_ipv4: /* fall-through */
+    case DelegInfo::DelegInfoKey::server_ipv6: {
+      size_t addrLen = (key == DelegInfo::DelegInfoKey::server_ipv4 ? 4 : 16);
+      uint8_t version = (key == DelegInfo::DelegInfoKey::server_ipv4 ? 4 : 6);
+      if (len == 0) {
+        throw std::out_of_range("empty " + DelegInfo::keyToString(key) + " values");
+      }
+      if (len % addrLen != 0) {
+        throw std::out_of_range("invalid length for " + DelegInfo::keyToString(key));
+      }
+      vector<ComboAddress> addresses;
+      auto stop = d_pos + len;
+      while (d_pos < stop)
+      {
+        ComboAddress addr;
+        xfrCAWithoutPort(version, addr);
+        addresses.push_back(addr);
+      }
+      auto param = DelegInfo(key, std::move(addresses));
+      delegInfos.insert(std::move(param));
+      break;
+    }
+    case DelegInfo::DelegInfoKey::server_name: /* fall-through */
+    case DelegInfo::DelegInfoKey::include_delegparam: {
+      if (len == 0) {
+        throw std::out_of_range("empty " + DelegInfo::keyToString(key) + " values");
+      }
+      vector<DNSName> names;
+      auto stop = d_pos + len;
+      while (d_pos < stop) {
+        DNSName name;
+        xfrName(name);
+        names.push_back(name);
+      }
+      auto param = DelegInfo(key, std::move(names));
+      delegInfos.insert(std::move(param));
+      break;
+    }
+    default: {
+      std::string blob;
+      blob.reserve(len);
+      xfrBlob(blob, len);
+      delegInfos.insert(DelegInfo(key, blob));
+      break;
+    }
+    }
+  }
+}
+
 
 void PacketReader::xfrHexBlob(string& blob, bool /* keepReading */)
 {
@@ -964,7 +1058,7 @@ static bool checkIfPacketContainsRecords(const PacketBuffer& packet, const std::
 
 static int rewritePacketWithoutRecordTypes(const PacketBuffer& initialPacket, PacketBuffer& newContent, const std::unordered_set<QType>& qtypes)
 {
-  static const std::unordered_set<QType>& safeTypes{QType::A, QType::AAAA, QType::DHCID, QType::TXT, QType::OPT, QType::HINFO, QType::DNSKEY, QType::CDNSKEY, QType::DS, QType::CDS, QType::DLV, QType::SSHFP, QType::KEY, QType::CERT, QType::TLSA, QType::SMIMEA, QType::OPENPGPKEY, QType::SVCB, QType::HTTPS, QType::NSEC3, QType::CSYNC, QType::NSEC3PARAM, QType::LOC, QType::NID, QType::L32, QType::L64, QType::EUI48, QType::EUI64, QType::URI, QType::CAA};
+  static const std::unordered_set<QType>& safeTypes{QType::A, QType::AAAA, QType::DHCID, QType::TXT, QType::OPT, QType::HINFO, QType::DNSKEY, QType::CDNSKEY, QType::DS, QType::CDS, QType::DLV, QType::SSHFP, QType::KEY, QType::CERT, QType::TLSA, QType::SMIMEA, QType::OPENPGPKEY, QType::SVCB, QType::HTTPS, QType::NSEC3, QType::CSYNC, QType::NSEC3PARAM, QType::LOC, QType::NID, QType::L32, QType::L64, QType::EUI48, QType::EUI64, QType::URI, QType::CAA, QType::DELEG, QType::DELEGPARAM};
 
   if (initialPacket.size() < sizeof(dnsheader)) {
     return EINVAL;

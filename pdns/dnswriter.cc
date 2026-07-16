@@ -19,6 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include "deleg-records.hh"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -530,6 +531,50 @@ template <typename Container> void GenericDNSPacketWriter<Container>::xfrSvcPara
         xfr16BitInt(group);
       }
       break;
+    default:
+      xfr16BitInt(param.getValue().size());
+      xfrBlob(param.getValue());
+      break;
+    }
+  }
+}
+
+template <typename Container>
+void GenericDNSPacketWriter<Container>::xfrDelegInfoKeyVals(const std::set<DelegInfo>& delegInfos)
+{
+  for (auto const& param : delegInfos) {
+    // Key first!
+    xfr16BitInt(param.getKey());
+
+    switch (param.getKey()) {
+    case DelegInfo::DelegInfoKey::mandatory:
+      xfr16BitInt(2 * param.getMandatory().size());
+      for (auto const& m : param.getMandatory()) { // NOLINT(readability-identifier-length)
+        xfr16BitInt(m);
+      }
+      break;
+    case DelegInfo::DelegInfoKey::server_ipv4: /* fall-through */
+    case DelegInfo::DelegInfoKey::server_ipv6: {
+      uint8_t version = param.getKey() == DelegInfo::DelegInfoKey::server_ipv4 ? 4 : 6;
+      uint16_t size = param.getKey() == DelegInfo::DelegInfoKey::server_ipv4 ? 4 : 16;
+      xfr16BitInt(param.getServerIPs().size() * size); // size
+      for (const auto& addr : param.getServerIPs()) {
+        xfrCAWithoutPort(version, addr);
+      }
+      break;
+    }
+    case DelegInfo::DelegInfoKey::server_name: /* fall-through */
+    case DelegInfo::DelegInfoKey::include_delegparam: {
+      uint16_t totalSize{0};
+      for (const auto& name : param.getDnsNames()) {
+        totalSize += name.wirelength();
+      }
+      xfr16BitInt(totalSize);
+      for (const auto& name : param.getDnsNames()) {
+        xfrName(name);
+      }
+      break;
+    }
     default:
       xfr16BitInt(param.getValue().size());
       xfrBlob(param.getValue());

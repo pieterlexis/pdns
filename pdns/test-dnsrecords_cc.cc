@@ -296,6 +296,24 @@ BOOST_AUTO_TEST_CASE(test_record_types) {
      (CASE_S(QType::CAA, "0 issue \"aaaaaaa.aaa\"", "\x00\x05\x69\x73\x73\x75\x65\x61\x61\x61\x61\x61\x61\x61\x2e\x61\x61\x61"))
      (CASE_S(QType::RESINFO, "\"qnamemin exterr=15-17\"", "\x15qnamemin exterr=15-17"))
      (CASE_S(QType::DLV, "20642 8 2 04443abe7e94c3985196beae5d548c727b044dda5151e60d7cd76a9fd931d00e", "\x50\xa2\x08\x02\x04\x44\x3a\xbe\x7e\x94\xc3\x98\x51\x96\xbe\xae\x5d\x54\x8c\x72\x7b\x04\x4d\xda\x51\x51\xe6\x0d\x7c\xd7\x6a\x9f\xd9\x31\xd0\x0e"))
+
+     (CASE_S(QType::DELEG, "mandatory=server-ipv4", "\x00\x00\x00\x02\x00\x01"))
+     (CASE_L(QType::DELEG, R"XXX(key0=\000\001)XXX", "mandatory=server-ipv4", "\x00\x00\x00\x02\x00\x01"))
+     (CASE_S(QType::DELEG, "mandatory=server-ipv4,server-ipv6", "\x00\x00\x00\x04\x00\x01\x00\x02"))
+     (CASE_L(QType::DELEG, R"XXX(key0=\000\001\000\002)XXX", "mandatory=server-ipv4,server-ipv6", "\x00\x00\x00\x04\x00\x01\x00\x02"))
+
+     (CASE_S(QType::DELEG, "server-ipv4=192.0.2.1", "\x00\x01\x00\x04\xc0\x00\x02\x01"))
+     (CASE_L(QType::DELEG, R"XXX(key1=\192\000\002\001\192\000\002\002)XXX", "server-ipv4=192.0.2.1,192.0.2.2", "\x00\x01\x00\x08\xc0\x00\x02\x01\xc0\x00\x02\x02"))
+
+     (CASE_S(QType::DELEG, "server-ipv6=2001:db8::1,2001:db8::53:1", "\x00\x02\x00\x20\x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x53\x00\x01"))
+
+     (CASE_S(QType::DELEG, "server-name=ns1.powerdns.org.", "\x00\x03\x00\x12\x03ns1\x08powerdns\x03org\x00"))
+     (CASE_S(QType::DELEG, "server-name=NS1.POWERDNS.org.", "\x00\x03\x00\x12\x03NS1\x08POWERDNS\x03org\x00"))
+     (CASE_L(QType::DELEG, R"XXX(key3=\003ns1\008powerdns\003org\000)XXX", "server-name=ns1.powerdns.org.", "\x00\x03\x00\x12\x03ns1\x08powerdns\x03org\x00"))
+     (CASE_S(QType::DELEG, "server-name=ns1.powerdns.org.,ns2.powerdns.org.", "\x00\x03\x00\x24\x03ns1\x08powerdns\x03org\x00\x03ns2\x08powerdns\x03org\x00"))
+     (CASE_L(QType::DELEG, R"XXX(key3=\003ns1\008powerdns\003org\000\003ns2\008powerdns\003org\000)XXX", "server-name=ns1.powerdns.org.,ns2.powerdns.org.", "\x00\x03\x00\x24\x03ns1\x08powerdns\x03org\x00\x03ns2\x08powerdns\x03org\x00"))
+     (CASE_L(QType::DELEG, "server-name=ns1.powerdns.org", "server-name=ns1.powerdns.org.", "\x00\x03\x00\x12\x03ns1\x08powerdns\x03org\x00"))
+
      (CASE_S((QType::typeenum)65226,"\\# 0",""))
      (CASE_S((QType::typeenum)65226,"\\# 3 414243","\x41\x42\x43"))
      (CASE_L((QType::typeenum)65226,"\\# 3   41 42    43","\\# 3 414243","\x41\x42\x43"))

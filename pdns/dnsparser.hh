@@ -40,6 +40,7 @@
 #include "iputils.hh"
 #include "qtype.hh"
 #include "svc-records.hh"
+#include "deleg-records.hh"
 
 /** DNS records have three representations:
     1) in the packet
@@ -156,6 +157,7 @@ public:
   void xfrBlob(string& blob, int length);
   void xfrHexBlob(string& blob, bool keepReading=false);
   void xfrSvcParamKeyVals(set<SvcParam> &kvs);
+  void xfrDelegInfoKeyVals(set<DelegInfo> &delegInfos);
 
   void getDnsrecordheader(struct dnsrecordheader &ah);
   void copyRecord(vector<unsigned char>& dest, uint16_t len);
