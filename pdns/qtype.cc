@@ -93,6 +93,10 @@ const std::map<const std::string, uint16_t> QType::names = {
   {"WALLET", 262},
   {"DLV", 32769},
   {"ADDR", 65400},
+
+  {"DELEG", 61440},
+  {"DELEGPARAM", 65441},
+
 #if !defined(RECURSOR)
   {"ALIAS", 65401},
   {"LUA", 65402},

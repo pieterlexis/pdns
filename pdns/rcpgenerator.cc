@@ -19,6 +19,12 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include "deleg-records.hh"
+#include "dnsname.hh"
+#include <algorithm>
+#include <exception>
+#include <stdexcept>
+#include <vector>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -615,6 +621,161 @@ void RecordTextReader::xfrSvcParamKeyVals(set<SvcParam>& val) // NOLINT(readabil
   }
 }
 
+void RecordTextReader::xfrDelegInfoKeyVals(set<DelegInfo>& val) // NOLINT(readability-function-cognitive-complexity)
+{
+  while (d_pos != d_end) {
+    skipSpaces();
+    if (d_pos == d_end) {
+      return;
+    }
+
+    // Find the DelegInfoKey
+    auto pos = d_pos;
+    while (d_pos != d_end) {
+      if (d_string.at(d_pos) == '=' || d_string.at(d_pos) == ' ') {
+        break;
+      }
+      d_pos++;
+    }
+
+    // We've reached a space or equals-sign or the end of the string (d_pos is at this char)
+    string keyStr = d_string.substr(pos, d_pos - pos);
+    DelegInfo::DelegInfoKey key;
+    bool generic;
+    try {
+      key = DelegInfo::keyFromString(keyStr, generic);
+    }
+    catch (const std::invalid_argument& e) {
+      throw RecordTextException(e.what());
+    }
+
+    if (d_pos != d_end && d_string.at(d_pos) == '=') {
+      d_pos++; // Now on the first character after '='
+      if (d_pos == d_end || d_string.at(d_pos) == ' ') {
+        throw RecordTextException("expected value after " + keyStr + "=");
+      }
+    }
+
+    switch (key) {
+    case DelegInfo::DelegInfoKey::server_ipv4: /* fall-through */
+    case DelegInfo::DelegInfoKey::server_ipv6: {
+      vector<ComboAddress> addresses;
+      if (generic) {
+        string value;
+        xfrRFC1035CharString(value);
+        size_t len = key == DelegInfo::DelegInfoKey::server_ipv4 ? 4 : 16;
+        int addrFam = key == DelegInfo::DelegInfoKey::server_ipv4 ? 4 : 6;
+        if (value.size() % len != 0) {
+          throw RecordTextException(keyStr + " in generic format has wrong number of bytes");
+        }
+        for (size_t i = 0; i < value.size(); i += len) {
+          auto address = makeComboAddressFromRaw(addrFam, &value.at(i), len);
+          addresses.push_back(address);
+        }
+      }
+      else {
+        vector<string> value;
+        xfrSVCBValueList(value);
+        for (auto const& address : value) { // NOLINT(readability-identifier-length)
+          addresses.emplace_back(address);
+        }
+      }
+      if (addresses.empty()) {
+        throw RecordTextException("value is required for DelegInfo " + keyStr);
+      }
+      try {
+        auto delegInfo = DelegInfo(key, std::move(addresses));
+        val.insert(std::move(delegInfo));
+      }
+      catch (const std::invalid_argument& e) {
+        throw RecordTextException(e.what());
+      }
+      break;
+    }
+    case DelegInfo::DelegInfoKey::server_name: /* fall-through */
+    case DelegInfo::DelegInfoKey::include_delegparam: {
+      std::vector<DNSName> names;
+      if (generic) {
+        string v; // NOLINT(readability-identifier-length)
+        xfrRFC1035CharString(v);
+        if (v.empty()) {
+          throw RecordTextException("value is required for DelegInfo " + keyStr);
+        }
+        unsigned int consumed{0};
+        unsigned int offset{0};
+        while (offset < v.size()) {
+          try {
+            DNSName name((const char*)v.c_str(), v.size(), offset, false, nullptr, nullptr, &consumed);
+            offset += consumed;
+            names.emplace_back(name);
+          }
+          catch (const std::exception& e) {
+            throw RecordTextException("Bad name in generic " + DelegInfo::keyToString(key) + " value: " + e.what());
+          }
+        }
+      }
+      else {
+        vector<string> value;
+        xfrSVCBValueList(value);
+        for (auto const& v : value) { // NOLINT(readability-identifier-length)
+          names.emplace_back(v);
+        }
+        if (names.empty()) {
+          throw RecordTextException("value is required for DelegInfo " + keyStr);
+        }
+      }
+      try {
+        auto delegInfo = DelegInfo(key, std::move(names));
+        val.insert(std::move(delegInfo));
+      }
+      catch (const std::invalid_argument& e) {
+        throw RecordTextException(e.what());
+      }
+      break;
+    }
+    case DelegInfo::DelegInfoKey::mandatory: {
+      if (generic) {
+        string v; // NOLINT(readability-identifier-length)
+        xfrRFC1035CharString(v);
+        if (v.empty()) {
+          throw RecordTextException("value is required for DelegInfo " + keyStr);
+        }
+        if (v.length() % 2 != 0) {
+          throw RecordTextException("Wrong number of bytes in DelegInfo " + keyStr);
+        }
+        std::set<DelegInfo::DelegInfoKey> keys;
+        for (size_t i = 0; i < v.length(); i += 2) {
+          uint16_t mand = (static_cast<uint8_t>(v.at(i)) << 8);
+          mand += static_cast<uint8_t>(v.at(i + 1));
+          keys.insert(DelegInfo::DelegInfoKey(mand));
+        }
+        val.insert(DelegInfo(key, std::move(keys)));
+        break;
+      }
+      vector<string> parts;
+      xfrSVCBValueList(parts);
+      if (parts.empty()) {
+        throw RecordTextException("value is required for DelegInfo " + keyStr);
+      }
+      set<string> values(parts.begin(), parts.end());
+      val.insert(DelegInfo(key, std::move(values)));
+      break;
+    }
+    default: {
+      string value;
+      xfrRFC1035CharString(value);
+      if (!generic && value.empty()) {
+        // for generic format, we do not know.
+        // Known keys which forbid having a value need to implement a switch case, above.
+        throw RecordTextException("value is required for DelegInfo " + keyStr);
+      }
+      val.insert(DelegInfo(key, value));
+      break;
+    }
+    }
+  }
+}
+
 static inline uint8_t hextodec(uint8_t val)
 {
   if(val >= '0' && val<='9')
@@ -1078,6 +1239,54 @@ void RecordTextWriter::xfrSvcParamKeyVals(const set<SvcParam>& val) {
       break;
     }
     case SvcParam::dohpath:
+    default:
+      auto str = d_string;
+      d_string.clear();
+      xfrText(param.getValue(), false, false);
+      d_string = str + '"' + txtEscape(d_string) + '"';
+      break;
+    }
+  }
+}
+
+void RecordTextWriter::xfrDelegInfoKeyVals(const set<DelegInfo>& val)
+{
+  for (auto const& param : val) {
+    if (!d_string.empty()) {
+      d_string.append(1, ' ');
+    }
+
+    d_string.append(DelegInfo::keyToString(param.getKey()));
+    d_string.append(1, '=');
+
+    switch (param.getKey()) {
+    case DelegInfo::DelegInfoKey::mandatory: {
+      bool doComma = false;
+      for (auto const& key : param.getMandatory()) {
+        if (doComma) {
+          d_string.append(1, ',');
+        }
+        d_string.append(DelegInfo::keyToString(key));
+        doComma = true;
+      }
+      break;
+    }
+    case DelegInfo::DelegInfoKey::server_ipv4: /* fall-through */
+    case DelegInfo::DelegInfoKey::server_ipv6:
+      d_string.append(ComboAddress::caContainerToString(param.getServerIPs(), false));
+      break;
+    case DelegInfo::DelegInfoKey::server_name: /* fall-through */
+    case DelegInfo::DelegInfoKey::include_delegparam: {
+      bool doComma = false;
+      for (const auto& name : param.getDnsNames()) {
+        if (doComma) {
+          d_string.append(1, ',');
+        }
+        d_string.append(name.toString());
+        doComma = true;
+      }
+      break;
+    }
     default:
       auto str = d_string;
       d_string.clear();
