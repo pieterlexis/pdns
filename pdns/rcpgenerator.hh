@@ -29,6 +29,7 @@
 #include "iputils.hh"
 #include "misc.hh"
 #include "svc-records.hh"
+#include "deleg-records.hh"
 
 class RecordTextException : public runtime_error
 {
@@ -65,6 +66,7 @@ public:
   void xfrBlob(string& val, int len=-1);
 
   void xfrSvcParamKeyVals(set<SvcParam>& val);
+  void xfrDelegInfoKeyVals(set<DelegInfo>& val);
   void xfrRFC1035CharString(string &val);
   void xfrSVCBValueList(vector<string> &val);
 
@@ -116,6 +118,7 @@ public:
   void xfrHexBlob(const string& val, bool keepReading=false);
   void xfrSvcParamKeyVals(const set<SvcParam>& val);
   void xfrSVCBValueList(const vector<string> &val);
+  void xfrDelegInfoKeyVals(const set<DelegInfo>& val);
 
   bool eof() const { return true; };
 
