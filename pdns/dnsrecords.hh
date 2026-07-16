@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #pragma once
+#include <cstdint>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -1355,6 +1356,7 @@ struct EDNSOpts
   enum zFlags : uint16_t {
     DNSSECOK         = 1<<15, // DO, RFC 4035
     COMPACTANSWERSOK = 1<<14, // CO, RFC 9824
+    DELEGATIONEXTENSIONS = 1<<13 // DE, draft-ietf-dnsop-delext-08
   };
   vector<pair<uint16_t, string> > d_options;
   uint16_t d_packetsize{0};
