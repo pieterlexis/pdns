@@ -158,6 +158,7 @@ public:
   bool d_tcp{false}; // whether DNS packet is using TCP (false when UDP)
   bool d_xfr{false}; // whether DNS packet is a zone transfer, either AXFR or IXFR
   bool d_dnssecOk{false};
+  bool d_delegOk{false};
   bool d_havetsig{false};
 
   bool getTSIGDetails(TSIGRecordContent* tr, DNSName* keyname, uint16_t* tsigPos=nullptr) const;
