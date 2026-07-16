@@ -111,6 +111,7 @@ common_sources += files(
   src_dir / 'base64.cc',
   src_dir / 'coverage.cc',
   src_dir / 'credentials.cc',
+  src_dir / 'deleg-records.cc',
   src_dir / 'dns.cc',
   src_dir / 'dnsname.cc',
   src_dir / 'dnsparser.cc',

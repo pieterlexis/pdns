@@ -215,6 +215,7 @@ pdns_server_SOURCES = \
 	coverage.cc coverage.hh \
 	credentials.cc credentials.hh \
 	dbdnsseckeeper.cc \
+	deleg-records.cc deleg-records.hh \
 	digests.hh \
 	distributor.hh \
 	dns.cc dns.hh \
@@ -359,6 +360,7 @@ pdnsutil_SOURCES = \
 	circular_buffer.hh \
 	credentials.cc credentials.hh \
 	dbdnsseckeeper.cc \
+	deleg-records.cc deleg-records.hh \
 	dns.cc \
 	dnsbackend.cc \
 	dnslabeltext.cc \
@@ -454,6 +456,7 @@ zone2sql_SOURCES = \
 	bindlexer.l \
 	bindparser.yy \
 	bindparserclasses.hh \
+	deleg-records.cc deleg-records.hh \
 	dns.cc \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -485,6 +488,7 @@ zone2json_SOURCES = \
 	bindlexer.l \
 	bindparser.yy \
 	bindparserclasses.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc \
@@ -522,6 +526,7 @@ zone2ldap_SOURCES = \
 	bindlexer.l \
 	bindparser.yy \
 	bindparserclasses.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc \
@@ -550,6 +555,7 @@ endif
 sdig_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dns.cc \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -609,6 +615,7 @@ calidns_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
 	calidns.cc \
+	deleg-records.cc deleg-records.hh \
 	dns_random.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -664,6 +671,7 @@ stubquery_SOURCES = \
 	arguments.cc arguments.hh \
 	base32.cc \
 	base64.cc \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc \
 	dnsparser.cc \
@@ -691,6 +699,7 @@ stubquery_LDFLAGS = $(AM_LDFLAGS) $(LIBCRYPTO_LDFLAGS)
 saxfr_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dns_random.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -736,6 +745,7 @@ ixfrdist_SOURCES = \
 	base64.cc base64.hh \
 	connection-management.hh \
 	credentials.cc credentials.hh \
+	deleg-records.cc deleg-records.hh \
 	dns.cc \
 	dns_random.hh \
 	dnsbackend.cc \
@@ -813,6 +823,7 @@ ixplore_SOURCES = \
 	axfr-retriever.cc \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dns.cc \
 	dns_random.hh \
 	dnslabeltext.cc \
@@ -858,6 +869,7 @@ endif
 dnstcpbench_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -890,6 +902,7 @@ dnstcpbench_LDADD = \
 nsec3dig_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -929,6 +942,7 @@ tsig_tests_SOURCES = \
 	axfr-retriever.cc \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	digests.hh \
 	dns.cc \
 	dns_random.hh \
@@ -974,6 +988,7 @@ speedtest_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
 	credentials.cc credentials.hh \
+	deleg-records.cc deleg-records.hh \
 	dns_random.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -1024,6 +1039,7 @@ dnsbulktest_SOURCES = \
 	arguments.cc arguments.hh \
 	base32.cc \
 	base64.cc \
+	deleg-records.cc deleg-records.hh \
 	dns_random.hh \
 	dnsbulktest.cc \
 	dnslabeltext.cc \
@@ -1056,6 +1072,7 @@ comfun_SOURCES = \
 	base32.cc \
 	base64.cc \
 	comfun.cc \
+	deleg-records.cc deleg-records.hh \
 	dns.cc \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -1088,6 +1105,7 @@ dnsscan_SOURCES = \
 	anadns.hh \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -1117,6 +1135,7 @@ dnsreplay_SOURCES = \
 	anadns.hh \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -1151,6 +1170,7 @@ dnsreplay_LDADD = \
 nproxy_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -1183,6 +1203,7 @@ pdns_notify_SOURCES = \
 	arguments.cc \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dns.cc \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -1220,6 +1241,7 @@ dnsscope_SOURCES = \
 	arguments.cc \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dns.cc \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -1254,6 +1276,7 @@ dnsscope_LDADD = \
 dnsgram_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnsgram.cc \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -1283,6 +1306,7 @@ dnsgram_LDADD = \
 dnsdemog_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnsdemog.cc \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -1312,6 +1336,7 @@ dnsdemog_LDADD = \
 dnspcap2calidns_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -1346,6 +1371,7 @@ dnspcap2calidns_LDADD = \
 dnspcap2protobuf_SOURCES = \
 	base32.cc \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -1395,6 +1421,7 @@ testrunner_SOURCES = \
 	channel.cc channel.hh \
 	credentials.cc credentials.hh \
 	dbdnsseckeeper.cc \
+	deleg-records.cc deleg-records.hh \
 	dns.cc \
 	dnsbackend.cc \
 	dnslabeltext.cc \
@@ -1614,6 +1641,7 @@ fuzz_targets_deps = standalone_fuzz_target_runner.o
 fuzz_target_moadnsparser_SOURCES = \
 	base32.cc base32.hh \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -1639,6 +1667,7 @@ fuzz_target_moadnsparser_LDADD = $(fuzz_targets_libs)
 fuzz_target_dnspacketroundtrip_SOURCES = \
 	base32.cc base32.hh \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -1665,6 +1694,7 @@ fuzz_target_dnspacketroundtrip_LDADD = $(fuzz_targets_libs)
 fuzz_target_recordcontent_SOURCES = \
 	base32.cc base32.hh \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
@@ -1688,6 +1718,7 @@ fuzz_target_recordcontent_LDFLAGS = $(fuzz_targets_ldflags)
 fuzz_target_recordcontent_LDADD = $(fuzz_targets_libs)
 
 fuzz_target_packetcache_SOURCES = \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	ednsoptions.cc ednsoptions.hh \
@@ -1725,6 +1756,7 @@ fuzz_target_yahttp_LDADD = $(fuzz_targets_libs) \
 fuzz_target_zoneparsertng_SOURCES = \
 	base32.cc base32.hh \
 	base64.cc base64.hh \
+	deleg-records.cc deleg-records.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.cc dnsparser.hh \
