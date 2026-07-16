@@ -530,6 +530,8 @@ common_sources += files(
   src_dir / 'credentials.cc',
   src_dir / 'credentials.hh',
   src_dir / 'dbdnsseckeeper.cc',
+  src_dir / 'deleg-records.cc',
+  src_dir / 'deleg-records.hh',
   src_dir / 'digests.hh',
   src_dir / 'distributor.hh',
   src_dir / 'dns.cc',
