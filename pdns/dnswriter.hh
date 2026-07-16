@@ -28,6 +28,7 @@
 #include "namespaces.hh"
 #include "iputils.hh"
 #include "svc-records.hh"
+#include "deleg-records.hh"
 #include <arpa/inet.h>
 
 
@@ -133,6 +134,7 @@ public:
   void xfrBlob(const string& blob, int len=-1);
   void xfrBlob(const vector<uint8_t>& blob);
   void xfrSvcParamKeyVals(const set<SvcParam>& kvs);
+  void xfrDelegInfoKeyVals(const set<DelegInfo>& delegInfos);
   void xfrBlobNoSpaces(const string& blob, int len=-1);
   void xfrHexBlob(const string& blob, bool keepReading=false);
 
