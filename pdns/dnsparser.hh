@@ -38,6 +38,7 @@
 #include "noinitvector.hh"
 #include "pdnsexception.hh"
 #include "iputils.hh"
+#include "qtype.hh"
 #include "svc-records.hh"
 
 /** DNS records have three representations:
