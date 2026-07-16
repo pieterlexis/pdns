@@ -147,6 +147,8 @@ public:
     WALLET = 262,
     DLV = 32769,
     ADDR = 65400,
+    DELEG = 61440,
+    DELEGPARAM = 61696,
 #if !defined(RECURSOR)
     ALIAS = 65401,
     LUA = 65402

@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #pragma once
+#include "deleg-records.hh"
 #include <cstdint>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -715,6 +716,33 @@ class HTTPSRecordContent : public SVCBBaseRecordContent
 public:
   includeboilerplate(HTTPS)
   std::shared_ptr<SVCBBaseRecordContent> clone() const override;
+};
+
+class DELEGBaseRecordContent : public DNSRecordContent
+{
+public:
+
+  [[nodiscard]] size_t sizeEstimate() const override
+  {
+    return sizeof(*this) + (d_infos.size() * sizeof(DelegInfo));
+  }
+protected:
+  std::set<DelegInfo> d_infos;
+  [[nodiscard]] virtual std::shared_ptr<DELEGBaseRecordContent> clone() const = 0;
+};
+
+class DELEGRecordContent : public DELEGBaseRecordContent
+{
+public:
+  includeboilerplate(DELEG)
+  [[nodiscard]] std::shared_ptr<DELEGBaseRecordContent> clone() const override;
+};
+
+class DELEGPARAMRecordContent : public DELEGBaseRecordContent
+{
+public:
+  includeboilerplate(DELEGPARAM)
+  [[nodiscard]] std::shared_ptr<DELEGBaseRecordContent> clone() const override;
 };
 
 class DRIPBaseRecordContent : public DNSKEYRecordContent
