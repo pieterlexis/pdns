@@ -1352,7 +1352,10 @@ void RNAME##RecordContent::xfrPacket(Convertor& conv, bool /* noDot */) const \
 
 struct EDNSOpts
 {
-  enum zFlags { DNSSECOK=32768 };
+  enum zFlags : uint16_t {
+    DNSSECOK         = 1<<15, // DO, RFC 4035
+    COMPACTANSWERSOK = 1<<14, // CO, RFC 9824
+  };
   vector<pair<uint16_t, string> > d_options;
   uint16_t d_packetsize{0};
   uint16_t d_extFlags{0};
