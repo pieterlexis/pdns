@@ -394,6 +394,14 @@ boilerplate_conv(HTTPS,
                  }
                  )
 
+boilerplate_conv(DELEG,
+                 conv.xfrDelegInfoKeyVals(d_infos);
+                 )
+
+boilerplate_conv(DELEGPARAM,
+                 conv.xfrDelegInfoKeyVals(d_infos);
+                 )
+
 boilerplate_conv(HHIT,
                  conv.xfrBlob(d_data);
                  )
@@ -885,6 +893,16 @@ std::shared_ptr<SVCBBaseRecordContent> HTTPSRecordContent::clone() const
 
 /* SVCB end */
 
+std::shared_ptr<DELEGBaseRecordContent> DELEGRecordContent::clone() const
+{
+  return {std::make_shared<DELEGRecordContent>(*this)};
+}
+
+std::shared_ptr<DELEGBaseRecordContent> DELEGPARAMRecordContent::clone() const
+{
+  return {std::make_shared<DELEGPARAMRecordContent>(*this)};
+}
+
 std::shared_ptr<DRIPBaseRecordContent> HHITRecordContent::clone() const
 {
   return {std::make_shared<HHITRecordContent>(*this)};
@@ -1050,6 +1068,8 @@ static void reportOtherTypes(const ReportIsOnlyCallableByReportAllTypes& guard)
    LPRecordContent::report(guard);
    WALLETRecordContent::report(guard);
    ZONEMDRecordContent::report(guard);
+   DELEGRecordContent::report(guard);
+   DELEGPARAMRecordContent::report(guard);
 }
 
 struct ReportIsOnlyCallableByReportAllTypes
