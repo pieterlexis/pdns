@@ -157,11 +157,23 @@ public:
   const static uint16_t rfc6895MetaUpperBound = 254; // Note 255: ANY is not included
   const static uint16_t rfc6895Reserved = 65535;
 
+  const static uint16_t delegationTypesLowerBound = 0xF000;
+  const static uint16_t delegationTypesUpperBound = 0xF1FF;
+
   const static std::map<const std::string, uint16_t> names;
   const static std::map<uint16_t, const std::string> numbers;
 
   // QTypes that MUST NOT be used with any other QType on the same name.
   const static std::set<uint16_t> exclusiveEntryTypes;
+
+  [[nodiscard]] bool isDelegationType(const bool withNS = true) const
+  {
+    bool isDeleg = (code >= delegationTypesLowerBound && code <= delegationTypesUpperBound);
+    if (withNS) {
+      return code == NS || isDeleg;
+    }
+    return isDeleg;
+  }
 
 private:
   uint16_t code;
