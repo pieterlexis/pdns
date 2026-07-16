@@ -119,6 +119,7 @@ common_sources += files(
   src_dir / 'channel.cc',
   src_dir / 'coverage.cc',
   src_dir / 'credentials.cc',
+  src_dir / 'deleg-records.cc',
   src_dir / 'dns.cc',
   src_dir / 'dnscrypt.cc',
   src_dir / 'dnsdist-actions.cc',
