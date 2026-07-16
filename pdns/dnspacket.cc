@@ -19,6 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include <cstdint>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -277,7 +278,7 @@ void DNSPacket::wrapup(bool throwsOnTruncation)
     */
   size_t optsize = 0;
 
-  if (d_haveednssection || d_dnssecOk) {
+  if (d_haveednssection || d_dnssecOk || d_delegOk) {
     /* root label (1), type (2), class (2), ttl (4) + rdlen (2) */
     optsize = 11;
   }
@@ -357,9 +358,17 @@ void DNSPacket::wrapup(bool throwsOnTruncation)
         opts.emplace_back(EDNSOptionCode::COOKIE, d_eco.makeOptString());
       }
 
-      if(!opts.empty() || d_haveednssection || d_dnssecOk)
+      if(!opts.empty() || d_haveednssection || d_dnssecOk || d_delegOk)
       {
-        pw.addOpt(s_udpTruncationThreshold, d_ednsrcode, d_dnssecOk ? EDNSOpts::DNSSECOK : 0, opts);
+        uint16_t ednsFlags = 0;
+        if (d_dnssecOk) {
+          ednsFlags += EDNSOpts::DNSSECOK;
+        }
+        if (d_delegOk) {
+          ednsFlags += EDNSOpts::DELEGATIONEXTENSIONS;
+        }
+
+        pw.addOpt(s_udpTruncationThreshold, d_ednsrcode, ednsFlags, opts);
         pw.commit();
       }
     }
@@ -420,6 +429,7 @@ std::unique_ptr<DNSPacket> DNSPacket::replyPacket() const
   r->d_maxreplylen = d_maxreplylen;
   r->d_wantsnsid = d_wantsnsid;
   r->d_dnssecOk = d_dnssecOk;
+  r->d_delegOk = d_delegOk;
   r->d_eso = d_eso;
   r->d_eco = d_eco;
   r->d_haveednssubnet = d_haveednssubnet;
@@ -600,6 +610,7 @@ try
 
   d_wantsnsid=false;
   d_dnssecOk=false;
+  d_delegOk=false;
   d_havetsig = mdp.getTSIGPos();
   d_haveednssubnet = false;
   d_haveednssection = false;
@@ -615,6 +626,10 @@ try
     d_maxreplylen=std::min(std::max(static_cast<uint16_t>(512), edo.d_packetsize), s_udpTruncationThreshold);
     if((edo.d_extFlags & EDNSOpts::DNSSECOK) != 0) {
       d_dnssecOk=true;
+    }
+
+    if((edo.d_extFlags & EDNSOpts::DELEGATIONEXTENSIONS) != 0) {
+      d_delegOk=true;
     }
 
     for(const auto & option : edo.d_options) {
