@@ -176,3 +176,18 @@ zone 2.0.192.in-addr.arpa/IN: loaded serial 2000081501 (DNSSEC signed)
 OK
 RETVAL: 0
 
+--- ldns-verify-zone -V2 deleg.com
+RETVAL: 0
+
+--- validns deleg.com
+RETVAL: 0
+
+--- jdnssec-verifyzone deleg.com
+zone verified.
+RETVAL: 0
+
+--- named-checkzone deleg.com
+zone deleg.com/IN: DS not at delegation point (deleg-only.secure.deleg.com)
+zone deleg.com/IN: not loaded due to errors.
+RETVAL: 0
+

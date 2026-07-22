@@ -1,0 +1,32 @@
+#!/bin/sh
+
+for s in secure insecure; do
+	for dt in deleg-only ns-only both; do
+		echo "### Testing $dt $s"
+		echo "##### -DO -DE referral"
+		cleandig foo.$dt.$s.deleg.com A showedns
+		echo "##### -DO -DE direct DELEG query"
+		cleandig $dt.$s.deleg.com DELEG showedns
+		echo "##### -DO -DE direct A query"
+		cleandig $dt.$s.deleg.com A showedns
+		echo "##### -DO +DE referral"
+		cleandig foo.$dt.$s.deleg.com A delegation-extensions showedns
+		echo "##### -DO +DE direct DELEG query"
+		cleandig $dt.$s.deleg.com DELEG delegation-extensions showedns
+		echo "##### -DO +DE direct A query"
+		cleandig $dt.$s.deleg.com A delegation-extensions showedns
+		echo "##### +DO -DE referral"
+		cleandig foo.$dt.$s.deleg.com A dnssec showedns
+		echo "##### +DO -DE direct DELEG query"
+		cleandig $dt.$s.deleg.com DELEG dnssec showedns
+		echo "##### +DO -DE direct A query"
+		cleandig $dt.$s.deleg.com A dnssec showedns
+		echo "##### +DO +DE referral"
+		cleandig foo.$dt.$s.deleg.com A dnssec delegation-extensions showedns
+		echo "##### +DO +DE direct DELEG query"
+		cleandig $dt.$s.deleg.com DELEG dnssec delegation-extensions showedns
+		echo "##### +DO +DE direct A query"
+		cleandig $dt.$s.deleg.com A dnssec delegation-extensions showedns
+		echo ""
+	done
+done
