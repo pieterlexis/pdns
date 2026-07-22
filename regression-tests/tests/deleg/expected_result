@@ -1,0 +1,504 @@
+### Testing deleg-only secure
+##### -DO -DE referral
+1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
+Rcode: 3 (Non-Existent domain), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='foo.deleg-only.secure.deleg.com.', qtype=A
+##### -DO -DE direct DELEG query
+0	deleg-only.secure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.secure.deleg.com.', qtype=DELEG
+##### -DO -DE direct A query
+1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.secure.deleg.com.', qtype=A
+##### -DO +DE referral
+1	deleg-only.secure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.deleg-only.secure.deleg.com.', qtype=A
+##### -DO +DE direct DELEG query
+0	deleg-only.secure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.secure.deleg.com.', qtype=DELEG
+##### -DO +DE direct A query
+1	deleg-only.secure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='deleg-only.secure.deleg.com.', qtype=A
+##### +DO -DE referral
+1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
+2	.	32768	IN	OPT	
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 3 (Non-Existent domain), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='foo.deleg-only.secure.deleg.com.', qtype=A
+##### +DO -DE direct DELEG query
+0	deleg-only.secure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	32768	IN	OPT	
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.secure.deleg.com.', qtype=DELEG
+##### +DO -DE direct A query
+1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
+2	.	32768	IN	OPT	
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.secure.deleg.com.', qtype=A
+##### +DO +DE referral
+1	deleg-only.secure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.deleg-only.secure.deleg.com.', qtype=A
+##### +DO +DE direct DELEG query
+0	deleg-only.secure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.secure.deleg.com.', qtype=DELEG
+##### +DO +DE direct A query
+1	deleg-only.secure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='deleg-only.secure.deleg.com.', qtype=A
+
+### Testing ns-only secure
+##### -DO -DE referral
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-only.secure.deleg.com.', qtype=A
+##### -DO -DE direct DELEG query
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.secure.deleg.com.', qtype=DELEG
+##### -DO -DE direct A query
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.secure.deleg.com.', qtype=A
+##### -DO +DE referral
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	.	8192	IN	OPT	
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-only.secure.deleg.com.', qtype=A
+##### -DO +DE direct DELEG query
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	.	8192	IN	OPT	
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.secure.deleg.com.', qtype=DELEG
+##### -DO +DE direct A query
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	.	8192	IN	OPT	
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.secure.deleg.com.', qtype=A
+##### +DO -DE referral
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-only.secure.deleg.com.', qtype=A
+##### +DO -DE direct DELEG query
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.secure.deleg.com.', qtype=DELEG
+##### +DO -DE direct A query
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.secure.deleg.com.', qtype=A
+##### +DO +DE referral
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	.	40960	IN	OPT	
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-only.secure.deleg.com.', qtype=A
+##### +DO +DE direct DELEG query
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	.	40960	IN	OPT	
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.secure.deleg.com.', qtype=DELEG
+##### +DO +DE direct A query
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns1.ns-only.secure.deleg.com.
+1	ns-only.secure.deleg.com.	3600	IN	NS	ns2.ns-only.secure.deleg.com.
+2	.	40960	IN	OPT	
+2	ns1.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.secure.deleg.com.', qtype=A
+
+### Testing both secure
+##### -DO -DE referral
+1	both.secure.deleg.com.	3600	IN	NS	ns1.both.secure.deleg.com.
+1	both.secure.deleg.com.	3600	IN	NS	ns2.both.secure.deleg.com.
+2	ns1.both.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.secure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.both.secure.deleg.com.', qtype=A
+##### -DO -DE direct DELEG query
+0	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='both.secure.deleg.com.', qtype=DELEG
+##### -DO -DE direct A query
+1	both.secure.deleg.com.	3600	IN	NS	ns1.both.secure.deleg.com.
+1	both.secure.deleg.com.	3600	IN	NS	ns2.both.secure.deleg.com.
+2	ns1.both.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.secure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='both.secure.deleg.com.', qtype=A
+##### -DO +DE referral
+1	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.both.secure.deleg.com.', qtype=A
+##### -DO +DE direct DELEG query
+0	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='both.secure.deleg.com.', qtype=DELEG
+##### -DO +DE direct A query
+1	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='both.secure.deleg.com.', qtype=A
+##### +DO -DE referral
+1	both.secure.deleg.com.	3600	IN	NS	ns1.both.secure.deleg.com.
+1	both.secure.deleg.com.	3600	IN	NS	ns2.both.secure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.both.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.both.secure.deleg.com.', qtype=A
+##### +DO -DE direct DELEG query
+0	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	32768	IN	OPT	
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='both.secure.deleg.com.', qtype=DELEG
+##### +DO -DE direct A query
+1	both.secure.deleg.com.	3600	IN	NS	ns1.both.secure.deleg.com.
+1	both.secure.deleg.com.	3600	IN	NS	ns2.both.secure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.both.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.secure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='both.secure.deleg.com.', qtype=A
+##### +DO +DE referral
+1	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.both.secure.deleg.com.', qtype=A
+##### +DO +DE direct DELEG query
+0	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='both.secure.deleg.com.', qtype=DELEG
+##### +DO +DE direct A query
+1	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='both.secure.deleg.com.', qtype=A
+
+### Testing deleg-only insecure
+##### -DO -DE referral
+1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
+Rcode: 3 (Non-Existent domain), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='foo.deleg-only.insecure.deleg.com.', qtype=A
+##### -DO -DE direct DELEG query
+0	deleg-only.insecure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=DELEG
+##### -DO -DE direct A query
+1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=A
+##### -DO +DE referral
+1	deleg-only.insecure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.deleg-only.insecure.deleg.com.', qtype=A
+##### -DO +DE direct DELEG query
+0	deleg-only.insecure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=DELEG
+##### -DO +DE direct A query
+1	deleg-only.insecure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=A
+##### +DO -DE referral
+1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
+2	.	32768	IN	OPT	
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 3 (Non-Existent domain), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='foo.deleg-only.insecure.deleg.com.', qtype=A
+##### +DO -DE direct DELEG query
+0	deleg-only.insecure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	32768	IN	OPT	
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=DELEG
+##### +DO -DE direct A query
+1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
+2	.	32768	IN	OPT	
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=A
+##### +DO +DE referral
+1	deleg-only.insecure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.deleg-only.insecure.deleg.com.', qtype=A
+##### +DO +DE direct DELEG query
+0	deleg-only.insecure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=DELEG
+##### +DO +DE direct A query
+1	deleg-only.insecure.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.1,192.0.2.2 server-ipv6=2001:db8:53::1,2001:db8:53::2 server-name=ns1.deleg-server-name.deleg.com.,ns2.deleg-server-name.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=A
+
+### Testing ns-only insecure
+##### -DO -DE referral
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-only.insecure.deleg.com.', qtype=A
+##### -DO -DE direct DELEG query
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.insecure.deleg.com.', qtype=DELEG
+##### -DO -DE direct A query
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.insecure.deleg.com.', qtype=A
+##### -DO +DE referral
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	.	8192	IN	OPT	
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-only.insecure.deleg.com.', qtype=A
+##### -DO +DE direct DELEG query
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	.	8192	IN	OPT	
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.insecure.deleg.com.', qtype=DELEG
+##### -DO +DE direct A query
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	.	8192	IN	OPT	
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.insecure.deleg.com.', qtype=A
+##### +DO -DE referral
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-only.insecure.deleg.com.', qtype=A
+##### +DO -DE direct DELEG query
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.insecure.deleg.com.', qtype=DELEG
+##### +DO -DE direct A query
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.insecure.deleg.com.', qtype=A
+##### +DO +DE referral
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	.	40960	IN	OPT	
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-only.insecure.deleg.com.', qtype=A
+##### +DO +DE direct DELEG query
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	.	40960	IN	OPT	
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.insecure.deleg.com.', qtype=DELEG
+##### +DO +DE direct A query
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns1.ns-only.insecure.deleg.com.
+1	ns-only.insecure.deleg.com.	3600	IN	NS	ns2.ns-only.insecure.deleg.com.
+2	.	40960	IN	OPT	
+2	ns1.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.ns-only.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-only.insecure.deleg.com.', qtype=A
+
+### Testing both insecure
+##### -DO -DE referral
+1	both.insecure.deleg.com.	3600	IN	NS	ns1.both.insecure.deleg.com.
+1	both.insecure.deleg.com.	3600	IN	NS	ns2.both.insecure.deleg.com.
+2	ns1.both.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.insecure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.both.insecure.deleg.com.', qtype=A
+##### -DO -DE direct DELEG query
+0	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='both.insecure.deleg.com.', qtype=DELEG
+##### -DO -DE direct A query
+1	both.insecure.deleg.com.	3600	IN	NS	ns1.both.insecure.deleg.com.
+1	both.insecure.deleg.com.	3600	IN	NS	ns2.both.insecure.deleg.com.
+2	ns1.both.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.insecure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='both.insecure.deleg.com.', qtype=A
+##### -DO +DE referral
+1	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.both.insecure.deleg.com.', qtype=A
+##### -DO +DE direct DELEG query
+0	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='both.insecure.deleg.com.', qtype=DELEG
+##### -DO +DE direct A query
+1	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='both.insecure.deleg.com.', qtype=A
+##### +DO -DE referral
+1	both.insecure.deleg.com.	3600	IN	NS	ns1.both.insecure.deleg.com.
+1	both.insecure.deleg.com.	3600	IN	NS	ns2.both.insecure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.both.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.both.insecure.deleg.com.', qtype=A
+##### +DO -DE direct DELEG query
+0	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	32768	IN	OPT	
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='both.insecure.deleg.com.', qtype=DELEG
+##### +DO -DE direct A query
+1	both.insecure.deleg.com.	3600	IN	NS	ns1.both.insecure.deleg.com.
+1	both.insecure.deleg.com.	3600	IN	NS	ns2.both.insecure.deleg.com.
+2	.	32768	IN	OPT	
+2	ns1.both.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.insecure.deleg.com.	3600	IN	A	192.0.2.11
+EDNS: version: 0, flags: do; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='both.insecure.deleg.com.', qtype=A
+##### +DO +DE referral
+1	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.both.insecure.deleg.com.', qtype=A
+##### +DO +DE direct DELEG query
+0	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='both.insecure.deleg.com.', qtype=DELEG
+##### +DO +DE direct A query
+1	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
+2	.	40960	IN	OPT	
+EDNS: version: 0, flags: do de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='both.insecure.deleg.com.', qtype=A
+
