@@ -42,7 +42,7 @@ static void usage()
 {
   cerr << "sdig" << endl;
   cerr << "Syntax: sdig IP-ADDRESS-OR-DOH-URL PORT QNAME QTYPE "
-          "[dnssec] [ednssubnet SUBNET/MASK] [hidesoadetails] [hidettl] [recurse] [showflags] "
+          "[dnssec] [delegation-extensions] [ednssubnet SUBNET/MASK] [hidesoadetails] [hidettl] [recurse] [showflags] "
           "[tcp] [dot] [insecure] [fastOpen] [subjectName name] [caStore file] [tlsProvider openssl|gnutls] "
           "[proxy UDP(0)/TCP(1) SOURCE-IP-ADDRESS-AND-PORT DESTINATION-IP-ADDRESS-AND-PORT] "
           "[cookie -/HEX] "
@@ -64,13 +64,13 @@ using OpenTelemetryData = std::optional<std::tuple<pdns::trace::TraceID, pdns::t
 static std::unordered_set<uint16_t> s_expectedIDs;
 
 static void fillPacket(vector<uint8_t>& packet, const string& q, const string& t,
-                       bool dnssec, const std::optional<Netmask>& ednsnm,
+                       bool dnssec, bool delegationExtensions, const std::optional<Netmask>& ednsnm,
                        bool recurse, QClass qclass, uint8_t opcode, uint16_t qid, const std::optional<string>& cookie,
                        OpenTelemetryData& otids)
 {
   DNSPacketWriter pw(packet, DNSName(q), DNSRecordContent::TypeToNumber(t), qclass, opcode);
 
-  if (dnssec || ednsnm || getenv("SDIGBUFSIZE") != nullptr || cookie || otids) { // NOLINT(concurrency-mt-unsafe) we're single threaded
+  if (dnssec || delegationExtensions || ednsnm || getenv("SDIGBUFSIZE") != nullptr || cookie || otids) { // NOLINT(concurrency-mt-unsafe) we're single threaded
     char* sbuf = getenv("SDIGBUFSIZE"); // NOLINT(concurrency-mt-unsafe) we're single threaded
     int bufsize;
     if (sbuf)
@@ -109,7 +109,10 @@ static void fillPacket(vector<uint8_t>& packet, const string& q, const string& t
       record.setFlags(flags);
       opts.emplace_back(EDNSOptionCode::TRACEPARENT, std::string_view(reinterpret_cast<const char*>(data.data()), data.size())); // NOLINT
     }
-    pw.addOpt(bufsize, 0, dnssec ? EDNSOpts::DNSSECOK : 0, opts);
+    uint16_t ednsflags = dnssec ? EDNSOpts::DNSSECOK : 0;
+    ednsflags += delegationExtensions ? EDNSOpts::DELEGATIONEXTENSIONS : 0;
+
+    pw.addOpt(bufsize, 0, ednsflags, opts);
     pw.commit();
   }
 
@@ -247,6 +250,7 @@ try {
   /* default timeout of 10s */
   struct timeval timeout{10,0};
   bool dnssec = false;
+  bool delegationextensions = false;
   bool recurse = false;
   bool tcp = false;
   bool showflags = false;
@@ -291,6 +295,8 @@ try {
     for (int i = 5; i < argc; i++) {
       if (strcmp(argv[i], "dnssec") == 0)
         dnssec = true;
+      else if (strcmp(argv[i], "delegation-extensions") == 0)
+        delegationextensions = true;
       else if (strcmp(argv[i], "recurse") == 0)
         recurse = true;
       else if (strcmp(argv[i], "showflags") == 0)
@@ -458,7 +464,7 @@ try {
 #ifdef HAVE_LIBCURL
     vector<uint8_t> packet;
     s_expectedIDs.insert(0);
-    fillPacket(packet, name, type, dnssec, ednsnm, recurse, qclass, opcode, 0, cookie, otdata);
+    fillPacket(packet, name, type, dnssec, delegationextensions, ednsnm, recurse, qclass, opcode, 0, cookie, otdata);
     MiniCurl mc;
     MiniCurl::MiniCurlHeaders mch;
     mch.emplace("Content-Type", "application/dns-message");
@@ -512,7 +518,7 @@ try {
     for (const auto& it : questions) {
       vector<uint8_t> packet;
       s_expectedIDs.insert(counter);
-      fillPacket(packet, it.first, it.second, dnssec, ednsnm, recurse, qclass, opcode, counter, cookie, otdata);
+      fillPacket(packet, it.first, it.second, dnssec, delegationextensions, ednsnm, recurse, qclass, opcode, counter, cookie, otdata);
       counter++;
 
       // Prefer to do a single write, so that fastopen can send all the data on SYN
@@ -542,7 +548,7 @@ try {
   {
     vector<uint8_t> packet;
     s_expectedIDs.insert(0);
-    fillPacket(packet, name, type, dnssec, ednsnm, recurse, qclass, opcode, 0, cookie, otdata);
+    fillPacket(packet, name, type, dnssec, delegationextensions, ednsnm, recurse, qclass, opcode, 0, cookie, otdata);
     string question(packet.begin(), packet.end());
     Socket sock(dest.sin4.sin_family, SOCK_DGRAM);
     question = proxyheader + question;
