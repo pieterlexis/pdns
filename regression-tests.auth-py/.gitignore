@@ -3,3 +3,4 @@
 /.venv
 /configs
 /vars
+dnsmessage_pb2.py
