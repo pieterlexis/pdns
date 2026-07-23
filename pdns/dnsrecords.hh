@@ -1381,7 +1381,7 @@ void RNAME##RecordContent::xfrPacket(Convertor& conv, bool /* noDot */) const \
 
 struct EDNSOpts
 {
-  enum zFlags : uint16_t {
+  enum ednsFlag : uint16_t {
     DNSSECOK         = 1<<15, // DO, RFC 4035
     COMPACTANSWERSOK = 1<<14, // CO, RFC 9824
     DELEGATIONEXTENSIONS = 1<<13 // DE, draft-ietf-dnsop-delext-08
