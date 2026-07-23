@@ -42,7 +42,7 @@ static void usage()
 {
   cerr << "sdig" << endl;
   cerr << "Syntax: sdig IP-ADDRESS-OR-DOH-URL PORT QNAME QTYPE "
-          "[dnssec] [delegation-extensions] [ednssubnet SUBNET/MASK] [hidesoadetails] [hidettl] [recurse] [showflags] "
+          "[dnssec] [delegation-extensions] [ednssubnet SUBNET/MASK] [hidesoadetails] [hidettl] [recurse] [showflags] [showedns] "
           "[tcp] [dot] [insecure] [fastOpen] [subjectName name] [caStore file] [tlsProvider openssl|gnutls] "
           "[proxy UDP(0)/TCP(1) SOURCE-IP-ADDRESS-AND-PORT DESTINATION-IP-ADDRESS-AND-PORT] "
           "[cookie -/HEX] "
@@ -123,7 +123,7 @@ static void fillPacket(vector<uint8_t>& packet, const string& q, const string& t
   pw.getHeader()->id = htons(qid);
 }
 
-static void printReply(const string& reply, bool showflags, bool hidesoadetails, bool dumpluaraw, bool ignoreId = false)
+static void printReply(const string& reply, bool showflags, bool hidesoadetails, bool dumpluaraw, bool ignoreId, bool showedns)
 {
   MOADNSParser mdp(false, reply);
 
@@ -156,6 +156,17 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
        << ", QR: " << mdp.d_header.qr;
   cout << ", TC: " << mdp.d_header.tc << ", AA: " << mdp.d_header.aa
        << ", opcode: " << mdp.d_header.opcode << endl;
+
+  if (hasEDNS && showedns) {
+    // Similar to dig:
+    // ; EDNS: version: 0, flags: do; udp: 512
+    cout<<"EDNS: version: "<<std::to_string(edo.d_version)<<", flags:";
+    cout<<((edo.d_extFlags & EDNSOpts::zFlags::DNSSECOK) > 0 ? " do" : "");
+    cout<<((edo.d_extFlags & EDNSOpts::zFlags::COMPACTANSWERSOK) > 0 ? " co" : "");
+    cout<<((edo.d_extFlags & EDNSOpts::zFlags::DELEGATIONEXTENSIONS) > 0 ? " de" : "");
+    cout<<"; udp: "<<std::to_string(edo.d_packetsize);
+    cout<<endl;
+  }
 
   for (MOADNSParser::answers_t::const_iterator i = mdp.d_answers.begin();
        i != mdp.d_answers.end(); ++i) {
@@ -254,6 +265,7 @@ try {
   bool recurse = false;
   bool tcp = false;
   bool showflags = false;
+  bool showedns = false;
   bool hidesoadetails = false;
   bool doh = false;
   bool dot = false;
@@ -301,6 +313,8 @@ try {
         recurse = true;
       else if (strcmp(argv[i], "showflags") == 0)
         showflags = true;
+      else if (strcmp(argv[i], "showedns") == 0)
+        showedns = true;
       else if (strcmp(argv[i], "hidesoadetails") == 0)
         hidesoadetails = true;
       else if (strcmp(argv[i], "hidettl") == 0)
@@ -472,7 +486,7 @@ try {
     string question(packet.begin(), packet.end());
     // FIXME: how do we use proxyheader here?
     reply = mc.postURL(argv[1], question, mch, timeout.tv_sec, fastOpen);
-    printReply(reply, showflags, hidesoadetails, dumpluaraw);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns);
 #else
     throw PDNSException("please link sdig against libcurl for DoH support");
 #endif
@@ -494,7 +508,7 @@ try {
       reply = reply.substr(2);
     }
 
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, true);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, true, showedns);
   } else if (tcp) {
     std::shared_ptr<TLSCtx> tlsCtx{nullptr};
     if (dot) {
@@ -542,7 +556,7 @@ try {
       if (handler.read(&reply[0], len, timeout) != len) {
         throw PDNSException("tcp read failed");
       }
-      printReply(reply, showflags, hidesoadetails, dumpluaraw);
+      printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns);
     }
   } else // udp
   {
@@ -559,7 +573,7 @@ try {
     if (!result)
       throw std::runtime_error("Timeout waiting for data");
     sock.recvFrom(reply, dest);
-    printReply(reply, showflags, hidesoadetails, dumpluaraw);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns);
   }
 
 } catch (std::exception& e) {
