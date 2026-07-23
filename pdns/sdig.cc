@@ -161,9 +161,9 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
     // Similar to dig:
     // ; EDNS: version: 0, flags: do; udp: 512
     cout<<"EDNS: version: "<<std::to_string(edo.d_version)<<", flags:";
-    cout<<((edo.d_extFlags & EDNSOpts::zFlags::DNSSECOK) > 0 ? " do" : "");
-    cout<<((edo.d_extFlags & EDNSOpts::zFlags::COMPACTANSWERSOK) > 0 ? " co" : "");
-    cout<<((edo.d_extFlags & EDNSOpts::zFlags::DELEGATIONEXTENSIONS) > 0 ? " de" : "");
+    cout<<((edo.d_extFlags & EDNSOpts::ednsFlag::DNSSECOK) > 0 ? " do" : "");
+    cout<<((edo.d_extFlags & EDNSOpts::ednsFlag::COMPACTANSWERSOK) > 0 ? " co" : "");
+    cout<<((edo.d_extFlags & EDNSOpts::ednsFlag::DELEGATIONEXTENSIONS) > 0 ? " de" : "");
     cout<<"; udp: "<<std::to_string(edo.d_packetsize);
     cout<<endl;
   }
