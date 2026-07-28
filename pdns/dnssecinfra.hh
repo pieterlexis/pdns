@@ -207,6 +207,7 @@ class DNSCryptoKeyEngine
 enum DNSKEYFlag : uint16_t {
   ZONE    = 1<<8, // RFC 4034
   REVOKED = 1<<7, // RFC 5011
+  ADT     = 1<<1, // draft-ietf-dnsop-delext-10
   SEP     = 1,    // RFC 4034
 };
 
