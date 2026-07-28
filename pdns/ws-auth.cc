@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "dnsbackend.hh"
+#include "dnsrecords.hh"
 #include "iputils.hh"
 #include "webserver.hh"
 #include <array>
@@ -921,14 +922,14 @@ static void addDefaultDNSSECKeys(DNSSECKeeper& dnssecKeeper, const ZoneName& zon
 
   if (k_algo != -1) {
     int64_t keyID{-1};
-    if (!dnssecKeeper.addKey(zonename, true, k_algo, keyID, k_size)) {
+    if (!dnssecKeeper.addKey(zonename, true, false, k_algo, keyID, k_size)) {
       throwUnableToSecure(zonename);
     }
   }
 
   if (z_algo != -1) {
     int64_t keyID{-1};
-    if (!dnssecKeeper.addKey(zonename, false, z_algo, keyID, z_size)) {
+    if (!dnssecKeeper.addKey(zonename, false, false, z_algo, keyID, z_size)) {
       throwUnableToSecure(zonename);
     }
   }
@@ -1619,6 +1620,7 @@ static void apiZoneCryptokeysDELETE(HttpRequest* req, HttpResponse* resp)
  *  "privatekey" : "key The format used is compatible with BIND and NSD/LDNS" <string>
  *  "keytype" : "ksk|zsk" <string>
  *  "active"  : "true|false" <value>
+ *  "adt-flag": "true|false" <value>
  *  "algorithm" : "key generation algorithm name as default"<string> https://doc.powerdns.com/md/authoritative/dnssec/#supported-algorithms
  *  "bits" : number of bits <int>
  *  }
@@ -1662,16 +1664,28 @@ static void apiZoneCryptokeysPOST(HttpRequest* req, HttpResponse* resp)
   }
   bool active = boolFromJson(document, "active", false);
   bool published = boolFromJson(document, "published", true);
+  uint16_t flags = intFromJson(document, "flags", 0);
   bool keyOrZone = false;
 
-  if (stringFromJson(document, "keytype") == "ksk" || stringFromJson(document, "keytype") == "csk") {
+  auto keyType = stringFromJson(document, "keytype");
+  if (keyType.empty() && flags == 0) {
+    throw HttpBadRequestException("keytype and flags not set");
+  }
+
+  if (keyType != "ksk" && keyType != "zsk" && keyType != "csk") {
+    throw HttpBadRequestException("Invalid keytype " + keyType);
+  }
+
+  if ((keyType == "ksk" || keyType == "csk") && flags != 0 && (flags & DNSKEYFlag::SEP) == 0) {
+    throw HttpBadRequestException("Keytype field indicates SEP should be set in flags, but SEP is not set in flags");
+  }
+
+  if (keyType == "zsk" && flags != 0 && (flags & DNSKEYFlag::SEP) != 0) {
+    throw HttpBadRequestException("Keytype field indicates SEP should be unset in flags, but SEP is set in flags");
+  }
+
+  if (keyType == "ksk" || keyType == "csk" || (flags & DNSKEYFlag::SEP) != 0) {
     keyOrZone = true;
-  }
-  else if (stringFromJson(document, "keytype") == "zsk") {
-    keyOrZone = false;
-  }
-  else {
-    throw ApiException("Invalid keytype " + stringFromJson(document, "keytype"));
   }
 
   int64_t insertedId = -1;
@@ -1709,7 +1723,7 @@ static void apiZoneCryptokeysPOST(HttpRequest* req, HttpResponse* resp)
       algorithm = DNSSECKeeper::shorthand2algorithm(keyOrZone ? ::arg()["default-ksk-algorithm"] : ::arg()["default-zsk-algorithm"]);
     }
     try {
-      if (!zoneData.dnssecKeeper.addKey(zoneData.zoneName, keyOrZone, algorithm, insertedId, bits, active, published)) {
+      if (!zoneData.dnssecKeeper.addKey(zoneData.zoneName, keyOrZone, (flags & DNSKEYFlag::ADT) != 0, algorithm, insertedId, bits, active, published)) {
         throw ApiException("Adding key failed, perhaps DNSSEC not enabled in configuration?");
       }
     }
@@ -1738,7 +1752,11 @@ static void apiZoneCryptokeysPOST(HttpRequest* req, HttpResponse* resp)
           throw ApiException("Private key algorithm (" + DNSSECKeeper::algorithm2name(dke->getBits()) + ") is inconsistent with the 'algorithm' field");
         }
       }
-      uint16_t flags = DNSKEYFlag::ZONE;
+
+      if (flags == 0) {
+        flags = DNSKEYFlag::ZONE;
+      }
+
       if (keyOrZone) {
         flags |= DNSKEYFlag::SEP;
       }
