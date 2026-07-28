@@ -19,6 +19,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include "dnsbackend.hh"
+#include "dnsrecords.hh"
+#include "qtype.hh"
+#include <string>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -95,7 +99,7 @@ bool DNSSECKeeper::isSignalingZone(const ZoneName& name, bool useCache)
   return isMetadataOne(name, "SIGNALING-ZONE", useCache);
 }
 
-bool DNSSECKeeper::addKey(const ZoneName& name, bool setSEPBit, int algorithm, int64_t& keyId, int bits, bool active, bool published)
+bool DNSSECKeeper::addKey(const ZoneName& name, bool setSEPBit, bool setADTBit, int algorithm, int64_t& keyId, int bits, bool active, bool published)
 {
   if(bits == 0) {
     if(algorithm <= 10) {
@@ -129,6 +133,7 @@ bool DNSSECKeeper::addKey(const ZoneName& name, bool setSEPBit, int algorithm, i
   }
   DNSSECPrivateKey dspk;
   auto flags = DNSKEYFlag::ZONE | (setSEPBit ? DNSKEYFlag::SEP : 0);
+  flags += setADTBit ? DNSKEYFlag::ADT : 0;
   dspk.setKey(dpk, flags, algorithm);
   return addKey(name, dspk, keyId, active, published) && clearKeyCache(name);
 }

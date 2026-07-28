@@ -485,7 +485,7 @@ static const groupCommandDispatcher zoneKeyCommands{
     "ZONE KEY_ID",
     "\tActivate the key with key id KEY_ID in ZONE"}},
    {"add-key", {true, addZoneKey,
-    "ZONE [zsk|ksk] [BITS] [active|inactive] [published|unpublished]\n"
+    "ZONE [zsk|ksk] [BITS] [active|inactive] [published|unpublished] [adt-flag]\n"
     "    [rsasha1|rsasha1-nsec3-sha1|rsasha256|rsasha512|ecdsa256|ecdsa384"
 #if defined(HAVE_LIBSODIUM) || defined(HAVE_LIBCRYPTO_ED25519)
          "|ed25519"
@@ -3652,7 +3652,7 @@ static bool secureZone(DNSSECKeeper& dsk, const ZoneName& zone)
 
     int k_real_algo = DNSSECKeeper::shorthand2algorithm(k_algo);
 
-    if (!dsk.addKey(zone, true, k_real_algo, id, k_size, true, true)) {
+    if (!dsk.addKey(zone, true, false, k_real_algo, id, k_size, true, true)) {
       cerr<<"No backend was able to secure '"<<zone<<"', most likely because no DNSSEC"<<endl;
       cerr<<"capable backends are loaded, or because the backends have DNSSEC disabled."<<endl;
       cerr<<"For the Generic SQL backends, set the 'gsqlite3-dnssec', 'gmysql-dnssec' or"<<endl;
@@ -3666,7 +3666,7 @@ static bool secureZone(DNSSECKeeper& dsk, const ZoneName& zone)
 
     int z_real_algo = DNSSECKeeper::shorthand2algorithm(z_algo);
 
-    if (!dsk.addKey(zone, false, z_real_algo, id, z_size, true, true)) {
+    if (!dsk.addKey(zone, false, false, z_real_algo, id, z_size, true, true)) {
       cerr<<"No backend was able to secure '"<<zone<<"', most likely because no DNSSEC"<<endl;
       cerr<<"capable backends are loaded, or because the backends have DNSSEC disabled."<<endl;
       cerr<<"For the Generic SQL backends, set the 'gsqlite3-dnssec', 'gmysql-dnssec' or"<<endl;
@@ -4300,6 +4300,7 @@ static int addZoneKey(vector<string>& cmds, const std::string_view synopsis)
   int algorithm=-1;
   bool active=false;
   bool published=true;
+  bool adtFlag=false;
   for(unsigned int n=1; n < cmds.size(); ++n) { //NOLINT(readability-identifier-length)
     if (pdns_iequals(cmds.at(n), "zsk")) {
       keyOrZone = false;
@@ -4321,6 +4322,9 @@ static int addZoneKey(vector<string>& cmds, const std::string_view synopsis)
     }
     else if (pdns_iequals(cmds.at(n), "unpublished")) {
       published = false;
+    }
+    else if (pdns_iequals(cmds.at(n), "adt-flag")) {
+      adtFlag = true;
     }
     else if (pdns::checked_stoi<int>(cmds.at(n)) != 0) {
       pdns::checked_stoi_into(bits, cmds.at(n));
@@ -4365,7 +4369,7 @@ static int addZoneKey(vector<string>& cmds, const std::string_view synopsis)
     }
   }
   int64_t id{-1}; //NOLINT(readability-identifier-length)
-  if (!dk.addKey(zone, keyOrZone, algorithm, id, bits, active, published)) {
+  if (!dk.addKey(zone, keyOrZone, adtFlag, algorithm, id, bits, active, published)) {
     cerr<<"Adding key failed, perhaps DNSSEC not enabled in configuration?"<<endl;
     return 1;
   }
