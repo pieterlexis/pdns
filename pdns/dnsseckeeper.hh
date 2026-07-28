@@ -28,6 +28,8 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/key_extractors.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
+#include "dnsname.hh"
+#include "dnsparser.hh"
 #include "dnssecinfra.hh"
 #include "dnsrecords.hh"
 #include "dnspacket.hh"
@@ -88,7 +90,7 @@ public:
   keyset_t getEntryPoints(const ZoneName& zname);
   keyset_t getKeys(const ZoneName& zone, bool useCache = true);
   DNSSECPrivateKey getKeyById(const ZoneName& zname, unsigned int keyId);
-  bool addKey(const ZoneName& zname, bool setSEPBit, int algorithm, int64_t& keyId, int bits=0, bool active=true, bool published=true);
+  bool addKey(const ZoneName& zname, bool setSEPBit, bool setADTBit, int algorithm, int64_t& keyId, int bits=0, bool active=true, bool published=true);
   bool addKey(const ZoneName& zname, const DNSSECPrivateKey& dpk, int64_t& keyId, bool active=true, bool published=true);
   bool removeKey(const ZoneName& zname, unsigned int keyId);
   bool activateKey(const ZoneName& zname, unsigned int keyId);
