@@ -795,6 +795,7 @@ bool DNSSECKeeper::rectifyZone(const ZoneName& zone, string& error, string& info
   ostringstream infostream;
   DNSResourceRecord rr;
   set<DNSName> qnames, nsset, dsnames, insnonterm, delnonterm;
+  std::map<DNSName, std::set<uint16_t>> delegnames;
   vector<DNSResourceRecord> rrs;
   std::unordered_map<DNSName,RecordStatus> rss;
 
@@ -824,6 +825,9 @@ bool DNSSECKeeper::rectifyZone(const ZoneName& zone, string& error, string& info
         qnames.insert(rr.qname);
         if(rr.qtype.getCode() == QType::NS && rr.qname != zone.operator const DNSName&()) {
           nsset.insert(rr.qname);
+        }
+        if(rr.qtype.isDelegationType(false)) {
+          delegnames[rr.qname].insert(rr.qtype);
         }
         if(rr.qtype.getCode() == QType::DS)
           dsnames.insert(rr.qname);
@@ -864,7 +868,7 @@ bool DNSSECKeeper::rectifyZone(const ZoneName& zone, string& error, string& info
       DNSName shorter = loopRR.qname;
       if (shorter != zone.operator const DNSName&() && shorter.chopOff() && shorter != zone.operator const DNSName&()) {
         do {
-          if(nsset.count(shorter)) {
+          if(nsset.count(shorter) || delegnames.count(shorter)) {
             skip=true;
             break;
           }
@@ -902,7 +906,7 @@ bool DNSSECKeeper::rectifyZone(const ZoneName& zone, string& error, string& info
       auto shorter(qname);
 
       do {
-        if (nsset.count(shorter) != 0) {
+        if (nsset.count(shorter) != 0 || delegnames.count(shorter) != 0) {
           auth = false;
           break;
         }
@@ -929,7 +933,13 @@ bool DNSSECKeeper::rectifyZone(const ZoneName& zone, string& error, string& info
         sd.db->updateDNSSECOrderNameAndAuth(sd.domain_id, qname, ordername, true, QType::DS, haveNSEC3 && !narrow);
         ++updates;
       }
-      if (!auth || nsset.count(qname) != 0) {
+      if (delegnames.count(qname) != 0) {
+        for (const auto qtype : delegnames[qname]){
+          sd.db->updateDNSSECOrderNameAndAuth(sd.domain_id, qname, ordername, true, qtype, haveNSEC3 && !narrow);
+          ++updates;
+        }
+      }
+      if (!auth || (nsset.count(qname) != 0 || delegnames.count(qname) != 0)) {
         ordername.clear();
         if (isOptOut && dsnames.count(qname) == 0) {
           sd.db->updateDNSSECOrderNameAndAuth(sd.domain_id, qname, ordername, false, QType::NS, haveNSEC3 && !narrow);
