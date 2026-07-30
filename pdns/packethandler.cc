@@ -19,6 +19,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include "dnsname.hh"
+#include "pdnsexception.hh"
+#include "qtype.hh"
+#include <cstdlib>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -333,6 +337,28 @@ int PacketHandler::doChaosRequest(const DNSPacket& p, std::unique_ptr<DNSPacket>
 
   r->setRcode(RCode::NotImp);
   return 0;
+}
+
+vector<DNSZoneRecord> PacketHandler::getBestReferralDelExt(DNSPacket& p, const DNSName &target)
+{
+  vector<DNSZoneRecord> ret;
+  DNSZoneRecord rr;
+  DNSName subdomain(target);
+  do {
+    if(subdomain == d_sd.qname()) { // stop at SOA
+      break;
+    }
+    B.lookup(QType(QType::ANY), subdomain, d_sd.domain_id, &p);
+    while(B.get(rr)) {
+      if (QType(rr.dr.d_type).isDelegationType(false)) {
+        ret.push_back(rr);
+      }
+    }
+    if(!ret.empty()) {
+      return ret;
+    }
+  } while( subdomain.chopOff() );   // 'www.powerdns.org' -> 'powerdns.org' -> 'org' -> ''
+  return ret;
 }
 
 vector<DNSZoneRecord> PacketHandler::getBestReferralNS(DNSPacket& p, const DNSName &target)
@@ -1337,20 +1363,74 @@ bool PacketHandler::addDSforNS(DNSPacket& p, std::unique_ptr<DNSPacket>& r, cons
 
 bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName &target, bool retargeted)
 {
-  vector<DNSZoneRecord> rrset = getBestReferralNS(p, target);
-  if(rrset.empty())
+  vector<DNSZoneRecord> delExtRRSet = getBestReferralDelExt(p, target);
+  vector<DNSZoneRecord> nsRRSet = getBestReferralNS(p, target);
+
+  if (delExtRRSet.empty() && nsRRSet.empty()) {
+    // No delegation here
     return false;
-
-  DNSName name = rrset.begin()->dr.d_name;
-  for(auto& rr: rrset) {
-    rr.dr.d_place=DNSResourceRecord::AUTHORITY;
-    r->addRecord(std::move(rr));
   }
-  if(!retargeted)
-    r->setA(false);
 
-  if(d_dnssec && !addDSforNS(p, r, name)) {
-    addNSECX(p, r, name, DNSName(), 1);
+  if (!delExtRRSet.empty() && !nsRRSet.empty()) {
+    if (delExtRRSet.begin()->dr.d_name != nsRRSet.begin()->dr.d_name) {
+      // TODO: what to do.... return the highest delegation?
+      throw PDNSException("DelExt RRSet has name '" + delExtRRSet.begin()->dr.d_name.toLogString()+"', but NS RRSet has '"+ nsRRSet.begin()->dr.d_name.toLogString()+"'");
+    }
+  }
+
+  DNSName delegationPoint;
+  bool NSECAdded = false;
+
+  if (!delExtRRSet.empty()) {
+    delegationPoint = delExtRRSet.begin()->dr.d_name;
+    if (d_delegationextension){
+      for(auto& rr: delExtRRSet) { // NOLINT(readability-identifier-length)
+        rr.dr.d_place=DNSResourceRecord::AUTHORITY;
+        r->addRecord(std::move(rr));
+      }
+    } else if (nsRRSet.empty()) {
+      // The client is DELEG-unaware, but we have no NS Records next to the DELEG
+      // We need to synthesize some things (draft-ietf-deleg-11 section 5.2.2.1)
+      r->setA(true);
+      if (target == delegationPoint) {
+        makeNOError(p, r, target, DNSName(), 0);
+        return true;
+      }
+      // As we have the delegation point, *.delegationpoint is the closest wildcard match
+      makeNXDomain(p, r, target, g_wildcarddnsname + delegationPoint);
+      return true;
+    }
+  }
+
+  if (!nsRRSet.empty() && (!d_delegationextension || delegationPoint.empty())) {
+    // Either DE was unset in the query, or no DelExt records exist
+    delegationPoint = nsRRSet.begin()->dr.d_name;
+    for(auto& rr: nsRRSet) { // NOLINT(readability-identifier-length)
+      rr.dr.d_place=DNSResourceRecord::AUTHORITY;
+      r->addRecord(std::move(rr));
+    }
+  }
+
+  if(d_delegationextension && d_dnssec) {
+    // We MUST prove the (non-)existance of delext records (draft-ietf-dnsop-delext-10 section 4.1)
+    // NOTE: We do this, regardless of the ADT flag in the DNSKEY
+    addNSECX(p, r, delegationPoint, DNSName(), 1);
+    NSECAdded = true;
+  }
+
+  if (delegationPoint.empty()) {
+    // impossible
+    abort();
+  }
+
+  if(!retargeted) {
+    r->setA(false);
+  }
+
+  // Add the DS, if any. If there's no DS, include proof only when no NSEC was added
+  // for DelExt (as that is the same proof)
+  if(d_dnssec && !addDSforNS(p, r, delegationPoint) && !NSECAdded) {
+    addNSECX(p, r, delegationPoint, DNSName(), 1);
   }
 
   return true;
@@ -1812,6 +1892,7 @@ bool PacketHandler::opcodeQueryInner2(DNSPacket& pkt, queryState &state, bool re
   state.authSet.insert(d_sd.zonename);
   d_dnssec=(pkt.d_dnssecOk && isSecuredZone());
   state.doSigs |= d_dnssec;
+  d_delegationextension = pkt.d_delegOk;
 
   if(d_sd.qname()==pkt.qdomain) {
     if(!isPresigned()) {
@@ -1862,9 +1943,9 @@ bool PacketHandler::opcodeQueryInner2(DNSPacket& pkt, queryState &state, bool re
     return true;
   }
 
-  DLOG(SLOG(g_log<<"Checking for referrals first, unless this is a DS query"<<endl,
-            d_slog->info(Logr::Debug, "Checking for referrals first, unless this is a DS query")));
-  if(pkt.qtype.getCode() != QType::DS && tryReferral(pkt, state.r, state.target, retargeted)) {
+  DLOG(SLOG(g_log<<"Checking for referrals first, unless this is a DS or DelExt query"<<endl,
+            d_slog->info(Logr::Debug, "Checking for referrals first, unless this is a DS or DelExt query")));
+  if(pkt.qtype.getCode() != QType::DS && !pkt.qtype.isDelegationType(false) && tryReferral(pkt, state.r, state.target, retargeted)) {
     return true;
   }
 
