@@ -102,6 +102,7 @@ private:
   void makeNXDomain(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& target, const DNSName& wildcard);
   void makeNOError(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& target, const DNSName& wildcard, int mode);
   vector<DNSZoneRecord> getBestReferralNS(DNSPacket& p, const DNSName &target);
+  vector<DNSZoneRecord> getBestReferralDelExt(DNSPacket& p, const DNSName &target);
   void getBestDNAMESynth(DNSPacket& p, DNSName &target, vector<DNSZoneRecord> &ret);
   bool tryAuthSignal(DNSPacket& p, std::unique_ptr<DNSPacket>& r, DNSName &target);
   bool tryDNAME(DNSPacket& p, std::unique_ptr<DNSPacket>& r, DNSName &target);
@@ -145,6 +146,7 @@ private:
   bool d_doExpandALIAS;
   bool d_doResolveAcrossZones;
   bool d_dnssec{false};
+  bool d_delegationextension{false};
   SOAData d_sd;
   std::unique_ptr<AuthLua4> d_pdl;
   std::unique_ptr<AuthLua4> s_LUA;
