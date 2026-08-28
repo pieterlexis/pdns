@@ -24,6 +24,7 @@
 // NOLINTEND
 #include "burtle.hh"
 #include "xxhash.hpp"
+#include "rapidhash.h"
 #include <string>
 #include <vector>
 
@@ -81,6 +82,24 @@ TEST_CASE("hash string", "[hash]")
     BENCHMARK(benchmarkNameSuffix.c_str())
     {
       return xxh::xxhash3<128>(inStr);
+    };
+
+    benchmarkNameSuffix = "rapidhash " + std::to_string(inStr.length()) + " chars";
+    BENCHMARK(benchmarkNameSuffix.c_str())
+    {
+      return rapidhash(inStr.c_str(), inStr.length());
+    };
+
+    benchmarkNameSuffix = "rapidhash micro " + std::to_string(inStr.length()) + " chars";
+    BENCHMARK(benchmarkNameSuffix.c_str())
+    {
+      return rapidhashMicro(inStr.c_str(), inStr.length());
+    };
+
+    benchmarkNameSuffix = "rapidhash nano " + std::to_string(inStr.length()) + " chars";
+    BENCHMARK(benchmarkNameSuffix.c_str())
+    {
+      return rapidhashNano(inStr.c_str(), inStr.length());
     };
   }
 }
