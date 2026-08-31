@@ -24,6 +24,7 @@ godbc-username=$GODBC_MSSQL_USERNAME
 godbc-password=$GODBC_MSSQL_PASSWORD
 godbc-dnssec=yes
 logging-structured
+deleg-autoinfo=yes
 __EOF__
 
 		gsql_master godbc_mssql nodyndns
