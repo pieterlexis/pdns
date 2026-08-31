@@ -909,7 +909,7 @@ void PacketReader::xfrDelegInfoKeyVals(set<DelegInfo> &delegInfos) {
         xfrCAWithoutPort(version, addr);
         addresses.push_back(addr);
       }
-      auto param = DelegInfo(key, std::move(addresses));
+      auto param = DelegInfo(key, std::move(addresses), false);
       delegInfos.insert(std::move(param));
       break;
     }
@@ -925,7 +925,7 @@ void PacketReader::xfrDelegInfoKeyVals(set<DelegInfo> &delegInfos) {
         xfrName(name);
         names.push_back(name);
       }
-      auto param = DelegInfo(key, std::move(names));
+      auto param = DelegInfo(key, std::move(names), false);
       delegInfos.insert(std::move(param));
       break;
     }

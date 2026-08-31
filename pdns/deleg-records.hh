@@ -63,10 +63,10 @@ public:
   DelegInfo(const DelegInfoKey& key, const std::string& value);
 
   //! To create a server-ipv{4,6} DelegInfo
-  DelegInfo(const DelegInfoKey& key, std::vector<ComboAddress>&& value);
+  DelegInfo(const DelegInfoKey& key, std::vector<ComboAddress>&& value, bool isAuto);
 
   //! To create a multi-value, DNSName DelegInfo (like sever-name and include-delegparam)
-  DelegInfo(const DelegInfoKey& key, std::vector<DNSName>&& value);
+  DelegInfo(const DelegInfoKey& key, std::vector<DNSName>&& value, bool isAuto);
 
   bool operator<(const DelegInfo& other) const;
 
@@ -94,6 +94,7 @@ public:
   [[nodiscard]] const std::vector<DNSName>& getDnsNames() const;
   [[nodiscard]] const std::vector<ComboAddress>& getServerIPs() const;
   [[nodiscard]] bool canBeAuto() const;
+  [[nodiscard]] const bool& isAuto() const;
 
 private:
   DelegInfoKey d_key;
@@ -102,6 +103,8 @@ private:
   std::set<DelegInfoKey> d_mandatory; // For mandatory
   std::vector<DNSName> d_dnsnames; // For server-name and include-delegparam
   std::vector<ComboAddress> d_serverips; // For server-ipv{6,4}
+
+  bool d_doAuto{false}; // For server-{names,ipv{6,4}}, when true we need to do additional processing to get the addresseses from NS/A/AAAA records.
 
   static const std::map<std::string, DelegInfoKey> DelegInfos;
   static const std::set<DelegInfoKey> AutoKeys;

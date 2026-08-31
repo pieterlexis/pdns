@@ -660,6 +660,7 @@ void RecordTextReader::xfrDelegInfoKeyVals(set<DelegInfo>& val) // NOLINT(readab
     case DelegInfo::DelegInfoKey::server_ipv4: /* fall-through */
     case DelegInfo::DelegInfoKey::server_ipv6: {
       vector<ComboAddress> addresses;
+      bool isAuto{false};
       if (generic) {
         string value;
         xfrRFC1035CharString(value);
@@ -676,15 +677,18 @@ void RecordTextReader::xfrDelegInfoKeyVals(set<DelegInfo>& val) // NOLINT(readab
       else {
         vector<string> value;
         xfrSVCBValueList(value);
-        for (auto const& address : value) { // NOLINT(readability-identifier-length)
-          addresses.emplace_back(address);
+        isAuto = value.size() == 1 && value.at(0) == "auto";
+        if (!isAuto) {
+          for (auto const& address : value) { // NOLINT(readability-identifier-length)
+            addresses.emplace_back(address);
+          }
         }
       }
-      if (addresses.empty()) {
+      if (!isAuto && addresses.empty()) {
         throw RecordTextException("value is required for DelegInfo " + keyStr);
       }
       try {
-        auto delegInfo = DelegInfo(key, std::move(addresses));
+        auto delegInfo = DelegInfo(key, std::move(addresses), isAuto);
         val.insert(std::move(delegInfo));
       }
       catch (const std::invalid_argument& e) {
@@ -695,6 +699,7 @@ void RecordTextReader::xfrDelegInfoKeyVals(set<DelegInfo>& val) // NOLINT(readab
     case DelegInfo::DelegInfoKey::server_name: /* fall-through */
     case DelegInfo::DelegInfoKey::include_delegparam: {
       std::vector<DNSName> names;
+      bool isAuto{false};
       if (generic) {
         string v; // NOLINT(readability-identifier-length)
         xfrRFC1035CharString(v);
@@ -717,15 +722,20 @@ void RecordTextReader::xfrDelegInfoKeyVals(set<DelegInfo>& val) // NOLINT(readab
       else {
         vector<string> value;
         xfrSVCBValueList(value);
-        for (auto const& v : value) { // NOLINT(readability-identifier-length)
-          names.emplace_back(v);
-        }
-        if (names.empty()) {
-          throw RecordTextException("value is required for DelegInfo " + keyStr);
+        isAuto = key == DelegInfo::DelegInfoKey::server_name && value.size() == 1 && value.at(0) == "auto";
+        if (!isAuto) {
+          for (auto const& v : value) { // NOLINT(readability-identifier-length)
+            names.emplace_back(v);
+          }
         }
       }
+
+      if (!isAuto && names.empty()) {
+        throw RecordTextException("value is required for DelegInfo " + keyStr);
+      }
+
       try {
-        auto delegInfo = DelegInfo(key, std::move(names));
+        auto delegInfo = DelegInfo(key, std::move(names), isAuto);
         val.insert(std::move(delegInfo));
       }
       catch (const std::invalid_argument& e) {
@@ -1273,10 +1283,20 @@ void RecordTextWriter::xfrDelegInfoKeyVals(const set<DelegInfo>& val)
     }
     case DelegInfo::DelegInfoKey::server_ipv4: /* fall-through */
     case DelegInfo::DelegInfoKey::server_ipv6:
+      if (param.isAuto()) {
+        d_string.append("auto");
+        break;
+      }
       d_string.append(ComboAddress::caContainerToString(param.getServerIPs(), false));
       break;
     case DelegInfo::DelegInfoKey::server_name: /* fall-through */
     case DelegInfo::DelegInfoKey::include_delegparam: {
+      // We don't check the key here, there's no way to set auto from the wire and 
+      // when setting from the database, we have all the checks.
+      if (param.isAuto()) {
+        d_string.append("auto");
+        break;
+      }
       bool doComma = false;
       for (const auto& name : param.getDnsNames()) {
         if (doComma) {
