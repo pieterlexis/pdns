@@ -32,6 +32,12 @@ const std::map<std::string, DelegInfo::DelegInfoKey> DelegInfo::DelegInfos = {
   {"include-delegparam", DelegInfo::DelegInfoKey::include_delegparam},
 };
 
+const std::set<DelegInfo::DelegInfoKey> DelegInfo::AutoKeys = {
+  DelegInfo::DelegInfoKey::server_ipv4,
+  DelegInfo::DelegInfoKey::server_ipv6,
+  DelegInfo::DelegInfoKey::server_name,
+};
+
 DelegInfo::DelegInfoKey DelegInfo::keyFromString(const std::string& key)
 {
   bool ignored{false};
@@ -171,6 +177,11 @@ const std::vector<ComboAddress>& DelegInfo::getServerIPs() const
     throw std::invalid_argument("getServerIPs called for non-IP address key '" + keyToString(d_key) + "'");
   }
   return d_serverips;
+}
+
+bool DelegInfo::canBeAuto() const
+{
+  return AutoKeys.count(d_key) > 0;
 }
 
 const std::vector<DNSName>& DelegInfo::getDnsNames() const
