@@ -79,6 +79,7 @@ size_t TCPNameserver::d_maxConnectionsPerClient;
 unsigned int TCPNameserver::d_idleTimeout;
 unsigned int TCPNameserver::d_maxConnectionDuration;
 LockGuarded<std::map<ComboAddress,size_t,ComboAddress::addressOnlyLessThan>> TCPNameserver::s_clientsCount;
+bool TCPNameserver::s_DelegationAuto{false};
 
 void TCPNameserver::go()
 {
@@ -1163,7 +1164,7 @@ void TCPNameserver::axfrHints(XFRContext& ctx, vector<DNSZoneRecord>& zrrs)
     }
     if (QType(loopRR.dr.d_type).isDelegationType(false)) {
       // TODO: add option for this
-      ::pdns::auth::process_auto::processDelegAuto(loopRR, ctx.soa);
+      ::pdns::auth::process_auto::processDelegAuto(loopRR, ctx.soa, s_DelegationAuto);
     }
   }
 }

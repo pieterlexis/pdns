@@ -123,6 +123,7 @@ launch=geoip
 geoip-zones-file=$testsdir/geo.yaml
 geoip-database-files=$geoipdatabase
 logging-structured
+deleg-autoinfo=yes
 EOF
 
 		if [ "$geoipdosec" = "yes" ]

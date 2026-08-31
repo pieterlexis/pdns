@@ -30,6 +30,7 @@ lua2-filename=$testsdir/$luascript
 lua2-api=2
 allow-axfr-ips=0.0.0.0/0,::/0
 logging-structured
+deleg-autoinfo=yes
 EOF
 
 		$RUNWRAPPER $PDNS --loglevel=7 --daemon=no --local-address=$address --local-port=$port --socket-dir=./ \
