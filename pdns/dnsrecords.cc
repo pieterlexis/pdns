@@ -23,11 +23,14 @@
 #include "config.h"
 #endif
 
+#include <algorithm>
+#include <optional>
 #include <boost/format.hpp>
 
 #include "utility.hh"
 #include "dnsrecords.hh"
 #include "iputils.hh"
+#include "deleg-records.hh"
 
 void DNSResourceRecord::setContent(const string &cont) {
   content = cont;
@@ -901,6 +904,40 @@ std::shared_ptr<DELEGBaseRecordContent> DELEGRecordContent::clone() const
 std::shared_ptr<DELEGBaseRecordContent> DELEGPARAMRecordContent::clone() const
 {
   return {std::make_shared<DELEGPARAMRecordContent>(*this)};
+}
+
+bool DELEGBaseRecordContent::hasAuto() const
+{
+  return std::any_of(d_infos.cbegin(),
+                     d_infos.cend(),
+                     [](auto& info) {
+                       return info.canBeAuto() && info.isAuto();
+                     });
+}
+
+std::optional<DelegInfo> DELEGBaseRecordContent::getInfo(const DelegInfo::DelegInfoKey &key) const
+{
+  std::optional<DelegInfo> ret{std::nullopt};
+  auto info = std::find_if(d_infos.cbegin(), d_infos.cend(), [key](auto& delegInfo) {
+    return delegInfo.getKey() == key;
+  });
+  if (info != d_infos.cend()) {
+    ret = *info;
+  }
+  return ret;
+}
+
+void DELEGBaseRecordContent::removeInfo(const DelegInfo::DelegInfoKey &key)
+{
+  auto iter = std::find_if(d_infos.begin(), d_infos.end(), [key](const auto &info) { return info.getKey() == key; });
+  d_infos.erase(iter);
+  // d_infos.erase(std::remove_if(d_infos.cbegin(), d_infos.cend(), [key](const auto &info) { return info.getKey() == key; }), d_infos.end());
+}
+
+void DELEGBaseRecordContent::setInfo(DelegInfo &&info)
+{
+  removeInfo(info.getKey());
+  d_infos.insert(std::move(info));
 }
 
 std::shared_ptr<DRIPBaseRecordContent> HHITRecordContent::clone() const
