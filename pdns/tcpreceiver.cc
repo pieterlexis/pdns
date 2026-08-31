@@ -20,6 +20,7 @@
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "pdns/auth-zonecache.hh"
+#include "qtype.hh"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -63,6 +64,7 @@
 #include "noinitvector.hh"
 #include "gss_context.hh"
 #include "pdnsexception.hh"
+#include "auto-record-processing.hh"
 extern AuthPacketCache PC;
 extern StatBag S;
 
@@ -1001,6 +1003,13 @@ int TCPNameserver::doAXFR(const ZoneName &targetZone, std::unique_ptr<DNSPacket>
       }
 
       loopRR.dr.setContent(std::move(newRRC));
+    }
+  }
+
+  for (auto& loopRR : zrrs) {
+    if (QType(loopRR.dr.d_type).isDelegationType(false)) {
+      // TODO: add option for this
+      ::pdns::auth::process_auto::processDelegAuto(loopRR, sd);
     }
   }
 

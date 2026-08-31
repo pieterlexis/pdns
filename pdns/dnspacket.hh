@@ -111,6 +111,7 @@ public:
   bool isEmpty(); //!< returns true if there are no rrs in the packet
 
   vector<DNSZoneRecord*> getServiceRecords(); //!< Get a vector with all Service-style (SVCB) records
+  vector<DNSZoneRecord*> getDelegationExtensionRecords(); //!< Get a vector with all Delegation Extension (DELEG-like) records
   void setCompress(bool compress);
 
   std::unique_ptr<DNSPacket> replyPacket() const; //!< convenience function that creates a virgin answer packet to this question
