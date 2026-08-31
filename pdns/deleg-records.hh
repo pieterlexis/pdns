@@ -84,10 +84,16 @@ public:
     return d_key;
   }
 
+  [[nodiscard]] static std::set<DelegInfoKey> getAutoKeys()
+  {
+    return AutoKeys;
+  }
+
   [[nodiscard]] const std::string& getValue() const;
   [[nodiscard]] const std::set<DelegInfoKey>& getMandatory() const;
   [[nodiscard]] const std::vector<DNSName>& getDnsNames() const;
   [[nodiscard]] const std::vector<ComboAddress>& getServerIPs() const;
+  [[nodiscard]] bool canBeAuto() const;
 
 private:
   DelegInfoKey d_key;
@@ -98,4 +104,5 @@ private:
   std::vector<ComboAddress> d_serverips; // For server-ipv{6,4}
 
   static const std::map<std::string, DelegInfoKey> DelegInfos;
+  static const std::set<DelegInfoKey> AutoKeys;
 };
