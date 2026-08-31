@@ -2,15 +2,21 @@
 #define BOOST_TEST_DYN_LINK
 #endif
 
+
 #define BOOST_TEST_NO_MAIN
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
+#include <boost/test/tools/old/interface.hpp>
+#include <stdexcept>
 #include <boost/test/unit_test.hpp>
-#include "rcpgenerator.hh"
+
+#include "deleg-records.hh"
+#include "iputils.hh"
 #include "misc.hh"
-#include <utility>
+#include "rcpgenerator.hh"
 
 using std::string;
 
@@ -724,6 +730,118 @@ BOOST_AUTO_TEST_CASE(test_xfrSvcParamKeyVals_ech) {
         v.clear();
         RecordTextReader rtr4("ech=\"\"");
         BOOST_CHECK_THROW(rtr4.xfrSvcParamKeyVals(v), RecordTextException);
+}
+
+BOOST_AUTO_TEST_CASE(test_xfrDelegInfoKeyVals_server_name)
+{
+  set<DelegInfo> info;
+
+  string source("server-name=ns1.example.,ns2.example.");
+  {
+    RecordTextReader rtr(source);
+    rtr.xfrDelegInfoKeyVals(info);
+    BOOST_CHECK_EQUAL(info.size(), 1U);
+    auto key = info.begin()->getKey();
+    BOOST_CHECK(key == DelegInfo::DelegInfoKey::server_name);
+    BOOST_CHECK(info.begin()->canBeAuto());
+    BOOST_CHECK(!info.begin()->isAuto());
+
+    auto val = info.begin()->getDnsNames();
+    BOOST_CHECK_EQUAL(val.size(), 2U);
+    std::vector<DNSName> expected{DNSName("ns1.example."), DNSName("ns2.example.")};
+    BOOST_CHECK_EQUAL_COLLECTIONS(val.begin(), val.end(), expected.begin(), expected.end());
+  }
+
+  // Check the writer
+  string target;
+  {
+    RecordTextWriter rtw(target);
+    rtw.xfrDelegInfoKeyVals(info);
+    BOOST_CHECK_EQUAL(source, target);
+  }
+
+  // Auto
+  info.clear();
+  source="server-name=auto";
+  {
+    RecordTextReader rtr(source);
+    rtr.xfrDelegInfoKeyVals(info);
+    BOOST_CHECK_EQUAL(info.size(), 1U);
+    auto key = info.begin()->getKey();
+    BOOST_CHECK(key == DelegInfo::DelegInfoKey::server_name);
+    BOOST_CHECK(info.begin()->canBeAuto());
+    BOOST_CHECK(info.begin()->isAuto());
+
+    auto val = info.begin()->getDnsNames();
+    BOOST_CHECK_EQUAL(val.size(), 0U);
+  }
+  target.clear();
+  {
+    RecordTextWriter rtw(target);
+    rtw.xfrDelegInfoKeyVals(info);
+    BOOST_CHECK_EQUAL(source, target);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(test_xfrDelegInfoKeyVals_server_ipv4)
+{
+  set<DelegInfo> info;
+
+  string source("server-ipv4=192.0.2.1,192.0.2.130");
+  {
+    RecordTextReader rtr(source);
+    rtr.xfrDelegInfoKeyVals(info);
+    BOOST_CHECK_EQUAL(info.size(), 1U);
+    auto key = info.begin()->getKey();
+    BOOST_CHECK(key == DelegInfo::DelegInfoKey::server_ipv4);
+    BOOST_CHECK(info.begin()->canBeAuto());
+    BOOST_CHECK(!info.begin()->isAuto());
+    BOOST_CHECK_THROW(auto unused = info.begin()->getDnsNames(), std::invalid_argument);
+    BOOST_CHECK_THROW(auto unused = info.begin()->getMandatory(), std::invalid_argument);
+    BOOST_CHECK_THROW(auto unused = info.begin()->getValue(), std::invalid_argument);
+    auto val = info.begin()->getServerIPs();
+    BOOST_CHECK_EQUAL(val.size(), 2U);
+    std::vector<ComboAddress> expected{ComboAddress("192.0.2.1"), ComboAddress("192.0.2.130")};
+    // BOOST_CHECK_EQUAL_COLLECTIONS(val.begin(), val.end(), expected.begin(), expected.end());
+    BOOST_CHECK(val == expected);
+  }
+
+  // Check the writer
+  string target;
+  {
+    RecordTextWriter rtw(target);
+    rtw.xfrDelegInfoKeyVals(info);
+    BOOST_CHECK_EQUAL(source, target);
+  }
+
+  // Auto
+  info.clear();
+  source="server-ipv4=auto";
+  {
+    RecordTextReader rtr(source);
+    rtr.xfrDelegInfoKeyVals(info);
+    BOOST_CHECK_EQUAL(info.size(), 1U);
+    auto key = info.begin()->getKey();
+    BOOST_CHECK(key == DelegInfo::DelegInfoKey::server_ipv4);
+    BOOST_CHECK(info.begin()->canBeAuto());
+    BOOST_CHECK(info.begin()->isAuto());
+
+    auto val = info.begin()->getServerIPs();
+    BOOST_CHECK_EQUAL(val.size(), 0U);
+  }
+  target.clear();
+  {
+    RecordTextWriter rtw(target);
+    rtw.xfrDelegInfoKeyVals(info);
+    BOOST_CHECK_EQUAL(source, target);
+  }
+
+  info.clear();
+  source="server-ipv4=2001:db8::53:1";
+  {
+    RecordTextReader rtr(source);
+    BOOST_CHECK_THROW(rtr.xfrDelegInfoKeyVals(info), RecordTextException);
+  }
 }
 
 BOOST_AUTO_TEST_CASE(test_xfrNodeOrLocatorID) {
