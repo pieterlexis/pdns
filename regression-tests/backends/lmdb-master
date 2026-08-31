@@ -21,6 +21,7 @@ views=yes
 any-to-tcp=no
 dnsupdate=yes
 logging-structured
+deleg-autoinfo=yes
 __EOF__
 
         rm -f pdns.lmdb*
