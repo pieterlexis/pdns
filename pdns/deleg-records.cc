@@ -101,11 +101,15 @@ DelegInfo::DelegInfo(const DelegInfoKey& key, const std::string& value) :
   d_value = value;
 }
 
-DelegInfo::DelegInfo(const DelegInfoKey& key, std::vector<ComboAddress>&& value) :
+DelegInfo::DelegInfo(const DelegInfoKey& key, std::vector<ComboAddress>&& value, bool isAuto=false) :
   d_key(key), d_serverips(std::move(value))
 {
   if (d_key != DelegInfoKey::server_ipv4 && d_key != DelegInfoKey::server_ipv6) {
     throw std::invalid_argument("can not create DelegInfo for " + keyToString(key) + "with ComboAddress values");
+  }
+  if (isAuto) {
+    d_doAuto = true;
+    return;
   }
   for (auto const& addr : d_serverips) {
     if (d_key == DelegInfoKey::server_ipv6 && !addr.isIPv6()) {
@@ -117,11 +121,18 @@ DelegInfo::DelegInfo(const DelegInfoKey& key, std::vector<ComboAddress>&& value)
   }
 }
 
-DelegInfo::DelegInfo(const DelegInfoKey& key, std::vector<DNSName>&& value) :
+DelegInfo::DelegInfo(const DelegInfoKey& key, std::vector<DNSName>&& value, bool isAuto=false) :
   d_key(key), d_dnsnames(std::move(value))
 {
   if (d_key != DelegInfoKey::server_name && d_key != DelegInfoKey::include_delegparam) {
     throw std::invalid_argument("can not create DelegInfo for " + keyToString(key) + "with ComboAddress values");
+  }
+  if (isAuto) {
+    if (key != DelegInfoKey::server_name) {
+      throw std::invalid_argument("can not create DelegInfo for " + keyToString(key) + " with auto value");
+    }
+    d_doAuto = true;
+    d_dnsnames.clear();
   }
 }
 
@@ -182,6 +193,14 @@ const std::vector<ComboAddress>& DelegInfo::getServerIPs() const
 bool DelegInfo::canBeAuto() const
 {
   return AutoKeys.count(d_key) > 0;
+}
+
+const bool& DelegInfo::isAuto() const
+{
+  if (!canBeAuto()) {
+    throw std::invalid_argument("isAuto called for non-auto key '" + keyToString(d_key) + "'");
+  }
+  return d_doAuto;
 }
 
 const std::vector<DNSName>& DelegInfo::getDnsNames() const
