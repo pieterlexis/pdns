@@ -21,6 +21,7 @@ zone-cache-refresh-interval=120
 logging-structured
 edns-subnet-processing
 views=yes
+deleg-autoinfo=yes
 __EOF__
 
 		for variant in foo bar

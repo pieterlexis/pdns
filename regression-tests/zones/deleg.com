@@ -47,14 +47,13 @@ ns2.auto.deleg.com.      3600 IN A  192.0.2.11
 
 auto-address.deleg.com.          3600 IN NS ns1.auto-address.deleg.com.
 auto-address.deleg.com.          3600 IN NS ns2.auto-address.deleg.com.
-auto-address.deleg.com.          3600 IN DELEG server-name=auto server-ipv4=auto server-ipv6=auto
+auto-address.deleg.com.          3600 IN DELEG server-ipv4=auto server-ipv6=auto
 ns1.auto-address.deleg.com.      3600 IN A  192.0.2.10
 ns2.auto-address.deleg.com.      3600 IN A  192.0.2.11
 
 auto-address-with-aaaa.deleg.com.          3600 IN NS ns1.auto-address-with-aaaa.deleg.com.
 auto-address-with-aaaa.deleg.com.          3600 IN NS ns2.auto-address-with-aaaa.deleg.com.
-auto-address-with-aaaa.deleg.com.          3600 IN DELEG server-name=auto server-ipv4=auto server-ipv6=auto
-auto-address-with-aaaa.deleg.com.          3600 IN DELEG server-name=ns1.auto-address-with-aaaa.deleg.com. server-ipv4=auto server-ipv6=auto
+auto-address-with-aaaa.deleg.com.          3600 IN DELEG server-ipv4=auto server-ipv6=auto
 ns1.auto-address-with-aaaa.deleg.com.      3600 IN A  192.0.2.10
 ns2.auto-address-with-aaaa.deleg.com.      3600 IN A  192.0.2.11
 ns1.auto-address-with-aaaa.deleg.com.      3600 IN AAAA 2001:db8::53:1
