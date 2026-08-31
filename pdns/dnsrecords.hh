@@ -22,6 +22,7 @@
 #pragma once
 #include "deleg-records.hh"
 #include <cstdint>
+#include <optional>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -726,6 +727,12 @@ public:
   {
     return sizeof(*this) + (d_infos.size() * sizeof(DelegInfo));
   }
+
+  [[nodiscard]] bool hasAuto() const;
+  [[nodiscard]] std::optional<DelegInfo> getInfo(const DelegInfo::DelegInfoKey &key) const;
+  void removeInfo(const DelegInfo::DelegInfoKey &key);
+  void setInfo(DelegInfo &&info);
+
 protected:
   std::set<DelegInfo> d_infos;
   [[nodiscard]] virtual std::shared_ptr<DELEGBaseRecordContent> clone() const = 0;
