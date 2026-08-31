@@ -63,6 +63,7 @@
 #include "noinitvector.hh"
 #include "gss_context.hh"
 #include "pdnsexception.hh"
+#include "auto-record-processing.hh"
 
 /**
 \file tcpreceiver.cc
@@ -1159,6 +1160,10 @@ void TCPNameserver::axfrHints(XFRContext& ctx, vector<DNSZoneRecord>& zrrs)
       }
 
       loopRR.dr.setContent(std::move(newRRC));
+    }
+    if (QType(loopRR.dr.d_type).isDelegationType(false)) {
+      // TODO: add option for this
+      ::pdns::auth::process_auto::processDelegAuto(loopRR, ctx.soa);
     }
   }
 }

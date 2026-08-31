@@ -510,6 +510,8 @@ common_sources += files(
   src_dir / 'auth-secondarycommunicator.cc',
   src_dir / 'auth-zonecache.cc',
   src_dir / 'auth-zonecache.hh',
+  src_dir / 'auto-record-processing.cc',
+  src_dir / 'auto-record-processing.hh',
   src_dir / 'axfr-retriever.cc',
   src_dir / 'axfr-retriever.hh',
   src_dir / 'base32.cc',
