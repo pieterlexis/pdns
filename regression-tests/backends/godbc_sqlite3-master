@@ -12,6 +12,7 @@ launch=godbc
 godbc-datasource=$GODBC_SQLITE3_DSN
 
 logging-structured
+deleg-autoinfo=yes
 __EOF__
 		${PDNSSERVER:-../pdns/pdns_server} --launch=gsqlite3 --config | grep query= | perl -pe 's/^# gsqlite3/godbc/; s/:\w+/?/g' >> pdns-godbc_sqlite3.conf
 

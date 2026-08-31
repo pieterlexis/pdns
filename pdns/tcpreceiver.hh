@@ -48,6 +48,8 @@ public:
   ~TCPNameserver();
   void go();
   unsigned int numTCPConnections();
+
+  static bool s_DelegationAuto;
 private:
 
   class XFRContext;
