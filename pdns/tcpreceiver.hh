@@ -46,6 +46,8 @@ public:
   ~TCPNameserver();
   void go();
   unsigned int numTCPConnections();
+
+  static bool s_DelegationAuto;
 private:
 
   static void sendPacket(std::unique_ptr<DNSPacket>& p, int outsock, bool last=true);

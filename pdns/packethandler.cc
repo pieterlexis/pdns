@@ -66,6 +66,7 @@ AtomicCounter PacketHandler::s_count;
 NetmaskGroup PacketHandler::s_allowNotifyFrom;
 set<string> PacketHandler::s_forwardNotify;
 bool PacketHandler::s_SVCAutohints{false};
+bool PacketHandler::s_DelegationAuto{false};
 bool PacketHandler::s_NAPTRprocessing{false};
 
 extern string g_programname;
@@ -651,8 +652,7 @@ void PacketHandler::doAdditionalProcessing(DNSPacket& p, std::unique_ptr<DNSPack
   }
 
   for (auto &rec : r->getDelegationExtensionRecords()) {
-    // TODO: add option for this
-    ::pdns::auth::process_auto::processDelegAuto(*rec, d_sd);
+    ::pdns::auth::process_auto::processDelegAuto(*rec, d_sd, s_DelegationAuto);
   }
 
   for(const auto& name : lookup) {

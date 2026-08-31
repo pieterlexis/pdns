@@ -60,7 +60,7 @@ static vector<ComboAddress> getIPAddressFor(const DNSName& target, const uint16_
   return ret;
 }
 
-void processDelegAuto(DNSZoneRecord& rec, SOAData& sd) // NOLINT(readability-identifier-length)
+void processDelegAuto(DNSZoneRecord& rec, SOAData& sd, bool autoEnabled) // NOLINT(readability-identifier-length)
 {
   auto rrc = getRR<DELEGBaseRecordContent>(rec.dr);
   if (!rrc->hasAuto()) {
@@ -70,8 +70,20 @@ void processDelegAuto(DNSZoneRecord& rec, SOAData& sd) // NOLINT(readability-ide
   if (!newRRC) {
     throw std::runtime_error("Creating a new record content failed for " + rec.dr.d_name.toLogString() + "|" + QType(rec.dr.d_type).toString());
   }
-  auto names = getNSNamesFor(rec.dr.d_name, sd);
 
+  if (!autoEnabled) {
+    // We have auto DelegInfos, but those are disabled. Remove the info from the record
+    for (const auto& delegInfoType : DelegInfo::getAutoKeys()) {
+      auto info = rrc->getInfo(delegInfoType);
+      if (info != std::nullopt && info->isAuto()) {
+        newRRC->removeInfo(delegInfoType);
+      }
+    }
+    rec.dr.setContent(std::move(newRRC));
+    return;
+  }
+
+  auto names = getNSNamesFor(rec.dr.d_name, sd);
   {
     auto info = rrc->getInfo(DelegInfo::DelegInfoKey::server_name);
     if (info != std::nullopt && !info->isAuto()) {

@@ -7,6 +7,7 @@ launch=bind
 bind-config=./named.conf
 bind-ignore-broken-records=yes
 logging-structured
+deleg-autoinfo=yes
 __EOF__
 
         $RUNWRAPPER $PDNS --loglevel=7 --daemon=no --local-address=$address --local-port=$port --config-dir=. \
@@ -26,6 +27,7 @@ launch=bind
 bind-config=./named.conf
 bind-ignore-broken-records=yes
 logging-structured
+deleg-autoinfo=yes
 __EOF__
         if [ $context = bind-hybrid-nsec3 ]
         then

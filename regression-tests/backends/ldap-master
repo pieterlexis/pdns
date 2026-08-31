@@ -26,6 +26,7 @@ ldap-secret=$LDAPPASSWD
 ldap-method=$layout
 ldap-host=$LDAPHOST
 logging-structured
+deleg-autoinfo=yes
 __EOF__
 
 		$RUNWRAPPER $PDNS --loglevel=7 --daemon=no --local-address=$address --local-port=$port --config-dir=. \

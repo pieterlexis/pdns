@@ -640,7 +640,7 @@ Reply to question for qname='auto.deleg.com.', qtype=A
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.auto-address.deleg.com.', qtype=A
 ##### -DE direct DELEG query
-0	auto-address.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-name=ns1.auto-address.deleg.com.,ns2.auto-address.deleg.com.
+0	auto-address.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='auto-address.deleg.com.', qtype=DELEG
 ##### -DE direct A query
@@ -651,19 +651,19 @@ Reply to question for qname='auto-address.deleg.com.', qtype=DELEG
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='auto-address.deleg.com.', qtype=A
 ##### +DE referral
-1	auto-address.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-name=ns1.auto-address.deleg.com.,ns2.auto-address.deleg.com.
+1	auto-address.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11
 2	.	8192	IN	OPT	
 EDNS: version: 0, flags: de; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.auto-address.deleg.com.', qtype=A
 ##### +DE direct DELEG query
-0	auto-address.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-name=ns1.auto-address.deleg.com.,ns2.auto-address.deleg.com.
+0	auto-address.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11
 2	.	8192	IN	OPT	
 EDNS: version: 0, flags: de; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='auto-address.deleg.com.', qtype=DELEG
 ##### +DE direct A query
-1	auto-address.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-name=ns1.auto-address.deleg.com.,ns2.auto-address.deleg.com.
+1	auto-address.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11
 2	.	8192	IN	OPT	
 EDNS: version: 0, flags: de; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
@@ -680,8 +680,7 @@ Reply to question for qname='auto-address.deleg.com.', qtype=A
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.auto-address-with-aaaa.deleg.com.', qtype=A
 ##### -DE direct DELEG query
-0	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10 server-ipv6=2001:db8::53:1 server-name=ns1.auto-address-with-aaaa.deleg.com.
-0	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-ipv6=2001:db8::53:1,2001:db8::53:100:53 server-name=ns1.auto-address-with-aaaa.deleg.com.,ns2.auto-address-with-aaaa.deleg.com.
+0	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-ipv6=2001:db8::53:1,2001:db8::53:100:53
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='auto-address-with-aaaa.deleg.com.', qtype=DELEG
 ##### -DE direct A query
@@ -694,22 +693,19 @@ Reply to question for qname='auto-address-with-aaaa.deleg.com.', qtype=DELEG
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='auto-address-with-aaaa.deleg.com.', qtype=A
 ##### +DE referral
-1	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10 server-ipv6=2001:db8::53:1 server-name=ns1.auto-address-with-aaaa.deleg.com.
-1	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-ipv6=2001:db8::53:1,2001:db8::53:100:53 server-name=ns1.auto-address-with-aaaa.deleg.com.,ns2.auto-address-with-aaaa.deleg.com.
+1	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-ipv6=2001:db8::53:1,2001:db8::53:100:53
 2	.	8192	IN	OPT	
 EDNS: version: 0, flags: de; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.auto-address-with-aaaa.deleg.com.', qtype=A
 ##### +DE direct DELEG query
-0	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10 server-ipv6=2001:db8::53:1 server-name=ns1.auto-address-with-aaaa.deleg.com.
-0	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-ipv6=2001:db8::53:1,2001:db8::53:100:53 server-name=ns1.auto-address-with-aaaa.deleg.com.,ns2.auto-address-with-aaaa.deleg.com.
+0	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-ipv6=2001:db8::53:1,2001:db8::53:100:53
 2	.	8192	IN	OPT	
 EDNS: version: 0, flags: de; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='auto-address-with-aaaa.deleg.com.', qtype=DELEG
 ##### +DE direct A query
-1	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10 server-ipv6=2001:db8::53:1 server-name=ns1.auto-address-with-aaaa.deleg.com.
-1	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-ipv6=2001:db8::53:1,2001:db8::53:100:53 server-name=ns1.auto-address-with-aaaa.deleg.com.,ns2.auto-address-with-aaaa.deleg.com.
+1	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-ipv6=2001:db8::53:1,2001:db8::53:100:53
 2	.	8192	IN	OPT	
 EDNS: version: 0, flags: de; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
