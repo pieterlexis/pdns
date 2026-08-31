@@ -200,6 +200,18 @@ vector<DNSZoneRecord*> DNSPacket::getServiceRecords()
   return arrs;
 }
 
+vector<DNSZoneRecord*> DNSPacket::getDelegationExtensionRecords()
+{
+  vector<DNSZoneRecord*> arrs;
+
+  for(auto & i : d_rrs) {
+    if (QType(i.dr.d_type).isDelegationType(false)) {
+      arrs.push_back(&i);
+    }
+  }
+  return arrs;
+}
+
 void DNSPacket::setCompress(bool compress)
 {
   d_compress=compress;

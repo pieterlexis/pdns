@@ -732,10 +732,10 @@ public:
   [[nodiscard]] std::optional<DelegInfo> getInfo(const DelegInfo::DelegInfoKey &key) const;
   void removeInfo(const DelegInfo::DelegInfoKey &key);
   void setInfo(DelegInfo &&info);
+  [[nodiscard]] virtual std::shared_ptr<DELEGBaseRecordContent> clone() const = 0;
 
 protected:
   std::set<DelegInfo> d_infos;
-  [[nodiscard]] virtual std::shared_ptr<DELEGBaseRecordContent> clone() const = 0;
 };
 
 class DELEGRecordContent : public DELEGBaseRecordContent

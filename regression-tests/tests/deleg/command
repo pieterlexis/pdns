@@ -30,3 +30,22 @@ for s in secure insecure; do
 		echo ""
 	done
 done
+
+echo "### Testing auto DelegInfos"
+
+for s in auto auto-address auto-address-with-aaaa; do
+	echo "### Testing $s"
+	echo "##### -DE referral"
+	cleandig foo.$s.deleg.com A showedns
+	echo "##### -DE direct DELEG query"
+	cleandig $s.deleg.com DELEG showedns
+	echo "##### -DE direct A query"
+	cleandig $s.deleg.com A showedns
+	echo "##### +DE referral"
+	cleandig foo.$s.deleg.com A delegation-extensions showedns
+	echo "##### +DE direct DELEG query"
+	cleandig $s.deleg.com DELEG delegation-extensions showedns
+	echo "##### +DE direct A query"
+	cleandig $s.deleg.com A delegation-extensions showedns
+	echo ""
+done

@@ -23,6 +23,7 @@
 #include "pdnsexception.hh"
 #include "qtype.hh"
 #include <cstdlib>
+#include <vector>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -54,6 +55,7 @@
 #include "gss_context.hh"
 #include "gettime.hh"
 #include "protozero.hh"
+#include "auto-record-processing.hh"
 
 #if 0
 #undef DLOG
@@ -646,6 +648,11 @@ void PacketHandler::doAdditionalProcessing(DNSPacket& p, std::unique_ptr<DNSPack
       }
       rec->dr.setContent(std::move(newRRC));
     }
+  }
+
+  for (auto &rec : r->getDelegationExtensionRecords()) {
+    // TODO: add option for this
+    ::pdns::auth::process_auto::processDelegAuto(*rec, d_sd);
   }
 
   for(const auto& name : lookup) {
