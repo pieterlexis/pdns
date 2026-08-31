@@ -25,5 +25,5 @@
 namespace pdns::auth::process_auto
 {
 //! Replaces server-{names,ipv4,ipv6} "auto" values with values from the database, or removes the DelegInfo when no such data is found.
-void processDelegAuto(DNSZoneRecord& rec, SOAData& sd); // NOLINT(readability-identifier-length)
+void processDelegAuto(DNSZoneRecord& rec, SOAData& sd, bool autoEnabled); // NOLINT(readability-identifier-length)
 }

@@ -15,6 +15,7 @@ consistent-backends
 zone-cache-refresh-interval=5
 direct-dnskey
 logging-structured
+deleg-autoinfo=yes
 __EOF__
 
 		gsql_master gsqlite3 nodyndns
