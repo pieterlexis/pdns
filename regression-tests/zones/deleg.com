@@ -38,3 +38,24 @@ both.secure.deleg.com.         3600 IN DELEG server-name=ns1.both.deleg.com,ns2.
 both.secure.deleg.com.         3600 IN DS 44030 8 2 D4C3D5552B8679FAEEBC317E5F048B614B2E5F607DC57F1553182D49AB2179F7 ;; Fake DS, we only care that it exists
 ns1.both.secure.deleg.com.     3600 IN A  192.0.2.10
 ns2.both.secure.deleg.com.     3600 IN A  192.0.2.11
+
+auto.deleg.com.          3600 IN NS ns1.auto.deleg.com.
+auto.deleg.com.          3600 IN NS ns2.auto.deleg.com.
+auto.deleg.com.          3600 IN DELEG server-name=auto
+ns1.auto.deleg.com.      3600 IN A  192.0.2.10
+ns2.auto.deleg.com.      3600 IN A  192.0.2.11
+
+auto-address.deleg.com.          3600 IN NS ns1.auto-address.deleg.com.
+auto-address.deleg.com.          3600 IN NS ns2.auto-address.deleg.com.
+auto-address.deleg.com.          3600 IN DELEG server-name=auto server-ipv4=auto server-ipv6=auto
+ns1.auto-address.deleg.com.      3600 IN A  192.0.2.10
+ns2.auto-address.deleg.com.      3600 IN A  192.0.2.11
+
+auto-address-with-aaaa.deleg.com.          3600 IN NS ns1.auto-address-with-aaaa.deleg.com.
+auto-address-with-aaaa.deleg.com.          3600 IN NS ns2.auto-address-with-aaaa.deleg.com.
+auto-address-with-aaaa.deleg.com.          3600 IN DELEG server-name=auto server-ipv4=auto server-ipv6=auto
+auto-address-with-aaaa.deleg.com.          3600 IN DELEG server-name=ns1.auto-address-with-aaaa.deleg.com. server-ipv4=auto server-ipv6=auto
+ns1.auto-address-with-aaaa.deleg.com.      3600 IN A  192.0.2.10
+ns2.auto-address-with-aaaa.deleg.com.      3600 IN A  192.0.2.11
+ns1.auto-address-with-aaaa.deleg.com.      3600 IN AAAA 2001:db8::53:1
+ns2.auto-address-with-aaaa.deleg.com.      3600 IN AAAA 2001:db8::53:100:53
