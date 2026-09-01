@@ -6,7 +6,9 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
 #include <boost/test/unit_test.hpp>
+#include <stdexcept>
 #include "dnsrecords.hh"
 #include "iputils.hh"
 
@@ -42,6 +44,41 @@ BOOST_AUTO_TEST_CASE(test_equality) {
   NSRecordContent ns1(DNSName("ns1.powerdns.com")), ns2(DNSName("NS1.powerdns.COM")), ns3(DNSName("powerdns.net"));
   BOOST_CHECK(ns1.operator==(ns2));
   BOOST_CHECK(!(ns1.operator==(ns3)));
+}
+
+BOOST_AUTO_TEST_CASE(test_DELEG) {
+  std::vector<std::string> validRecords{
+    "server-ipv4=192.0.2.1",
+    "mandatory=server-ipv4 server-ipv4=192.0.2.1",
+    "server-ipv6=2001:db8::1",
+    "mandatory=server-ipv6 server-ipv6=2001:db8::1",
+    "server-ipv4=192.0.2.1 server-ipv6=2001:db8::1",
+    "mandatory=server-ipv4 server-ipv4=192.0.2.1 server-ipv6=2001:db8::1",
+    "mandatory=server-ipv4,server-ipv6 server-ipv4=192.0.2.1 server-ipv6=2001:db8::1",
+    "include-delegparam=foo.example.",
+    "mandatory=include-delegparam include-delegparam=foo.example.",
+  };
+
+  for (const auto& record : validRecords) {
+    DELEGRecordContent delegRecord(record);
+    BOOST_CHECK_MESSAGE(delegRecord.mandatoryIsComplete(false), "mandatory is not valid for record '"<<record<<"'");
+    BOOST_CHECK_MESSAGE(delegRecord.isValid(false), "record '"<<record<<"' is not valid!");
+  }
+
+  std::vector<std::string> invalidRecords{
+    "mandatory=server-name", // missing info from mandatory
+    "server-ipv4=192.0.2.1 server-name=foo.example.", // forbidden together
+    "mandatory=server-ipv4,server-ipv6 server-ipv4=192.0.2.1", // missing info from mandatory
+    "server-ipv4=192.0.2.1 server-ipv6=2001:db8::1 server-name=foo.example.", // forbidden together
+    "include-delegparam=foo.example. server-ipv6=2001:db8::1", // forbidden together
+    "server-ipv4=192.0.2.1 server-ipv6=2001:db8::1 include-delegparam=foo.example.", // forbidden together
+  };
+
+  for (const auto& record : invalidRecords) {
+    DELEGRecordContent delegRecord(record);
+    BOOST_CHECK_MESSAGE(!delegRecord.isValid(false), "invalid record '"<<record<<"' is marked valid!");
+    BOOST_CHECK_THROW(delegRecord.isValid(true), std::invalid_argument);
+  }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

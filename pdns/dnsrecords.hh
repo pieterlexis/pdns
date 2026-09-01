@@ -729,7 +729,10 @@ public:
   }
 
   [[nodiscard]] bool hasAuto() const;
+  bool mandatoryIsComplete(const bool throwOnInvalid) const;
+  bool isValid(const bool throwOnInvalid) const;
   [[nodiscard]] std::optional<DelegInfo> getInfo(const DelegInfo::DelegInfoKey &key) const;
+  [[nodiscard]] std::set<DelegInfo> getAllInfo() const;
   void removeInfo(const DelegInfo::DelegInfoKey &key);
   void setInfo(DelegInfo &&info);
   [[nodiscard]] virtual std::shared_ptr<DELEGBaseRecordContent> clone() const = 0;
