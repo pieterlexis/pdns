@@ -19,6 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include <stdexcept>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -915,6 +916,68 @@ bool DELEGBaseRecordContent::hasAuto() const
                      });
 }
 
+bool DELEGBaseRecordContent::mandatoryIsComplete(const bool throwOnInvalid = false) const
+{
+  if (const auto& mandatory = getInfo(DelegInfo::DelegInfoKey::mandatory); mandatory != std::nullopt) {
+    auto mandatoryKeys = mandatory->getMandatory();
+    if (!std::all_of(mandatoryKeys.cbegin(), mandatoryKeys.cend(),
+                     [this](const auto& mandatoryKey){
+                       return std::any_of(d_infos.cbegin(), d_infos.cend(), [mandatoryKey](const auto& info) { return info.getKey() == mandatoryKey; }); })) {
+      if (throwOnInvalid) {
+        throw std::invalid_argument("record has a mandatory field, but not all mandatory Deleg Infos are in the record");
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
+bool DELEGBaseRecordContent::isValid(const bool throwOnInvalid = false) const
+{
+  size_t needCount = 1;
+  if (const auto& mandatory = getInfo(DelegInfo::DelegInfoKey::mandatory); mandatory != std::nullopt) {
+    needCount = 2;
+    if (!mandatoryIsComplete(throwOnInvalid)) {
+      return false;
+    }
+  }
+
+  if (getInfo(DelegInfo::DelegInfoKey::include_delegparam) != std::nullopt && d_infos.size() > needCount) {
+    if (throwOnInvalid) {
+      throw std::invalid_argument("record has an include-delegparam field, but also other fields");
+    }
+    return false;
+  }
+  if (getInfo(DelegInfo::DelegInfoKey::server_name) != std::nullopt && d_infos.size() > needCount) {
+    if (throwOnInvalid) {
+      throw std::invalid_argument("record has a server-name field, but also other fields");
+    }
+    return false;
+  }
+  auto haveServerIPv4 = getInfo(DelegInfo::DelegInfoKey::server_ipv4) != std::nullopt;
+  auto haveServerIPv6 = getInfo(DelegInfo::DelegInfoKey::server_ipv6) != std::nullopt;
+  if (haveServerIPv4 && d_infos.size() > needCount && !haveServerIPv6) {
+    if (throwOnInvalid) {
+      throw std::invalid_argument("record has a server-ipv4 field, but also other fields");
+    }
+    return false;
+  }
+  if (haveServerIPv6 && d_infos.size() > needCount && !haveServerIPv4) {
+    if (throwOnInvalid) {
+      throw std::invalid_argument("record has a server-ipv6 field, but also other fields");
+    }
+    return false;
+  }
+  if (haveServerIPv4 && haveServerIPv6 && d_infos.size() > needCount + 1) {
+    if (throwOnInvalid) {
+      throw std::invalid_argument("record has both a server-ipv4 and server-ipv6 field, but also other fields");
+    }
+    return false;
+  }
+
+  return true;
+}
+
 std::optional<DelegInfo> DELEGBaseRecordContent::getInfo(const DelegInfo::DelegInfoKey &key) const
 {
   std::optional<DelegInfo> ret{std::nullopt};
@@ -925,6 +988,11 @@ std::optional<DelegInfo> DELEGBaseRecordContent::getInfo(const DelegInfo::DelegI
     ret = *info;
   }
   return ret;
+}
+
+std::set<DelegInfo> DELEGBaseRecordContent::getAllInfo() const
+{
+  return d_infos;
 }
 
 void DELEGBaseRecordContent::removeInfo(const DelegInfo::DelegInfoKey &key)
