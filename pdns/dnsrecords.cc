@@ -927,6 +927,11 @@ std::optional<DelegInfo> DELEGBaseRecordContent::getInfo(const DelegInfo::DelegI
   return ret;
 }
 
+std::set<DelegInfo> DELEGBaseRecordContent::getAllInfo() const
+{
+  return d_infos;
+}
+
 void DELEGBaseRecordContent::removeInfo(const DelegInfo::DelegInfoKey &key)
 {
   auto iter = std::find_if(d_infos.begin(), d_infos.end(), [key](const auto &info) { return info.getKey() == key; });
