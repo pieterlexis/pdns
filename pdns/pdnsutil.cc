@@ -1,9 +1,11 @@
+#include "deleg-records.hh"
 #include <cerrno>
 #include <csignal>
 #include <cstdlib>
 #include <fcntl.h>
 #include <fstream>
 #include <iomanip>
+#include <optional>
 #include <string>
 #include <termios.h>            //termios, TCSANOW, ECHO, ICANON
 #include <tuple>
@@ -1195,7 +1197,7 @@ static int checkZoneRecords(DNSSECKeeper &dk, UeberBackend &B, const ZoneName& z
       DNSZoneRecord zr;
       B.lookup(QType(QType::ANY), zone.operator const DNSName&(), sd_p.domain_id);
       while(B.get(zr)) {
-        if (zr.dr.d_type == QType::NS) {
+        if (QType(zr.dr.d_type).isDelegationType(true)) {
           ns = true;
           B.lookupEnd();
           break;
@@ -1373,6 +1375,9 @@ static int checkZoneRecords(DNSSECKeeper &dk, UeberBackend &B, const ZoneName& z
       // apex checks
       if (drr.qtype.getCode() == QType::NS) {
         hasNsAtApex=true;
+      } else if (drr.qtype.isDelegationType(false)) {
+        cout<<"[Warning] " + drr.qtype.toString() + " at apex in zone '"<<zone<<"', should not be here."<<endl;
+        numwarnings++;
       }
     } else {
       // non-apex checks
@@ -1383,6 +1388,39 @@ static int checkZoneRecords(DNSSECKeeper &dk, UeberBackend &B, const ZoneName& z
         checkOcclusion.insert({drr.qname, drr.qtype});
       } else if (drr.qtype.getCode() == QType::A || drr.qtype.getCode() == QType::AAAA) {
         glue.insert(drr.qname);
+      } else if (drr.qtype.isDelegationType(false)) {
+        checkOcclusion.insert({drr.qname, drr.qtype});
+      }
+    }
+
+    if (drr.qtype == QType::DELEG || drr.qtype == QType::DELEGPARAM) {
+      shared_ptr<DNSRecordContent> drc(DNSRecordContent::make(drr.qtype.getCode(), QClass::IN, drr.content));
+      auto delegRecord = std::dynamic_pointer_cast<DELEGBaseRecordContent>(drc);
+      const auto& delegInfos = delegRecord->getAllInfo();
+
+      size_t needCount = 1;
+
+      // Mandatory keys MUST be present
+      if (const auto& mandatory = delegRecord->getInfo(DelegInfo::DelegInfoKey::mandatory); mandatory != std::nullopt) {
+        needCount = 2;
+        auto mand = mandatory->getMandatory();
+        if (!std::all_of(delegInfos.cbegin(), delegInfos.cend(), [mand](const auto& info){ return mand.count(info.getKey()) > 0; })) {
+          cout<<"[Warning] "<<drr.qtype.toString()<<" record at "<<drr.qname.toLogString()<<" has a mandatory field, but not all mandatory Deleg Infos are in the record."<<endl;
+        }
+      }
+      if (delegRecord->getInfo(DelegInfo::DelegInfoKey::include_delegparam) != std::nullopt && delegInfos.size() > needCount) {
+          cout<<"[Warning] "<<drr.qtype.toString()<<" record at "<<drr.qname.toLogString()<<" has an include-delegparam field, but also other fields."<<endl;
+      }
+      if (delegRecord->getInfo(DelegInfo::DelegInfoKey::server_name) != std::nullopt && delegInfos.size() > needCount) {
+          cout<<"[Warning] "<<drr.qtype.toString()<<" record at "<<drr.qname.toLogString()<<" has a server-name field, but also other fields."<<endl;
+      }
+      auto haveServerIPv4 = delegRecord->getInfo(DelegInfo::DelegInfoKey::server_ipv4) != std::nullopt;
+      auto haveServerIPv6 = delegRecord->getInfo(DelegInfo::DelegInfoKey::server_ipv6) != std::nullopt;
+      if (delegRecord->getInfo(DelegInfo::DelegInfoKey::server_ipv4) != std::nullopt && delegInfos.size() > needCount && !haveServerIPv6) {
+          cout<<"[Warning] "<<drr.qtype.toString()<<" record at "<<drr.qname.toLogString()<<" has a server-ipv4 field, but also other fields."<<endl;
+      }
+      if (delegRecord->getInfo(DelegInfo::DelegInfoKey::server_ipv6) != std::nullopt && delegInfos.size() > needCount && !haveServerIPv4) {
+          cout<<"[Warning] "<<drr.qtype.toString()<<" record at "<<drr.qname.toLogString()<<" has a server-ipv6 field, but also other fields."<<endl;
       }
     }
 
@@ -1494,9 +1532,9 @@ static int checkZoneRecords(DNSSECKeeper &dk, UeberBackend &B, const ZoneName& z
       // a name does not occlude itself in the following situations:
       if (qname.first == drr.qname) {
         // NS does not occlude
-        if (qname.second == QType::NS) {
+        if (qname.second.isDelegationType(true)) {
           // ... DS or NS
-          if (drr.qtype == QType::NS || drr.qtype == QType::DS) {
+          if (drr.qtype.isDelegationType(true) || drr.qtype == QType::DS) {
             continue;
           }
           // ... presigned if RRSIG is for DS or NSEC
@@ -1572,21 +1610,21 @@ static int checkZoneRecords(DNSSECKeeper &dk, UeberBackend &B, const ZoneName& z
     ds_ns = false;
     done = (suppliedrecords != nullptr || !sd.db->doesDNSSEC());
     for( const auto &qname : checkOcclusion ) {
-      if( qname.second == QType::NS ) {
+      if( qname.second.isDelegationType(true) ) {
         if( qname.first == rr.qname ) {
           ds_ns = true;
         }
         if ( done ) {
           continue;
         }
-        if(!rr.auth) {
-          if( rr.qname.isPartOf( qname.first ) && ( qname.first != rr.qname || rr.qtype != QType::DS ) ) {
+        if(!rr.auth || (rr.auth && rr.qtype.isDelegationType(false))) {
+          if( rr.qname.isPartOf( qname.first ) && ( qname.first != rr.qname || rr.qtype != QType::DS || rr.qtype.isDelegationType(false)) ) {
             ok = done = true;
           }
           if( rr.qtype == QType::ENT && qname.first.isPartOf( rr.qname ) ) {
             ok = done = true;
           }
-        } else if( rr.qname.isPartOf( qname.first ) && ( ( qname.first != rr.qname || rr.qtype != QType::DS ) || rr.qtype == QType::NS ) ) {
+        } else if( rr.qname.isPartOf( qname.first ) && ( ( qname.first != rr.qname || rr.qtype != QType::DS || rr.qtype.isDelegationType(false)) || rr.qtype == QType::NS ) ) {
           ok = false;
           done = true;
         }
