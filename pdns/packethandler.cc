@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "dnsname.hh"
+#include "ednsextendederror.hh"
 #include "pdnsexception.hh"
 #include "qtype.hh"
 #include <cstdlib>
@@ -1399,6 +1400,7 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
       // The client is DELEG-unaware, but we have no NS Records next to the DELEG
       // We need to synthesize some things (draft-ietf-deleg-11 section 5.2.2.1)
       r->setA(true);
+      r->addEdnsExtendedError(EDNSExtendedError{static_cast<uint16_t>(EDNSExtendedError::code::NewDelegationOnly), ""});
       if (target == delegationPoint) {
         makeNOError(p, r, target, DNSName(), 0);
         return true;

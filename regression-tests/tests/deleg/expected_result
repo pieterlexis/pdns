@@ -31,7 +31,7 @@ Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='deleg-only.secure.deleg.com.', qtype=A
 ##### +DO -DE referral
 1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
-2	.	32768	IN	OPT	
+2	.	32768	IN	OPT	AA8AAgAi
 EDNS: version: 0, flags: do; udp: 1232
 Rcode: 3 (Non-Existent domain), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='foo.deleg-only.secure.deleg.com.', qtype=A
@@ -43,7 +43,7 @@ Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='deleg-only.secure.deleg.com.', qtype=DELEG
 ##### +DO -DE direct A query
 1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
-2	.	32768	IN	OPT	
+2	.	32768	IN	OPT	AA8AAgAi
 EDNS: version: 0, flags: do; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='deleg-only.secure.deleg.com.', qtype=A
@@ -283,7 +283,7 @@ Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=A
 ##### +DO -DE referral
 1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
-2	.	32768	IN	OPT	
+2	.	32768	IN	OPT	AA8AAgAi
 EDNS: version: 0, flags: do; udp: 1232
 Rcode: 3 (Non-Existent domain), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='foo.deleg-only.insecure.deleg.com.', qtype=A
@@ -295,7 +295,7 @@ Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=DELEG
 ##### +DO -DE direct A query
 1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
-2	.	32768	IN	OPT	
+2	.	32768	IN	OPT	AA8AAgAi
 EDNS: version: 0, flags: do; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=A
