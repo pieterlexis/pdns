@@ -38,7 +38,7 @@ Reply to question for qname='deleg-only.secure.deleg.com.', qtype=A
 1	qv7ij9cc3g7ufp3o4hjobu1kb9mkcaqi.deleg.com.	3600	IN	RRSIG	NSEC3 13 3 3600 [expiry] [inception] [keytag] deleg.com. ...
 1	s1and5v992vhq7q6vqajshoa1u11pi4v.deleg.com.	3600	IN	NSEC3	1 [flags] 1 abcd SB2R9UBD1DUQLB3MI58LSE6KELPPM8NN DS RRSIG DELEG
 1	s1and5v992vhq7q6vqajshoa1u11pi4v.deleg.com.	3600	IN	RRSIG	NSEC3 13 3 3600 [expiry] [inception] [keytag] deleg.com. ...
-2	.	32768	IN	OPT	
+2	.	32768	IN	OPT	AA8AAgAi
 EDNS: version: 0, flags: do; udp: 1232
 Rcode: 3 (Non-Existent domain), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='foo.deleg-only.secure.deleg.com.', qtype=A
@@ -54,7 +54,7 @@ Reply to question for qname='deleg-only.secure.deleg.com.', qtype=DELEG
 1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
 1	s1and5v992vhq7q6vqajshoa1u11pi4v.deleg.com.	3600	IN	NSEC3	1 [flags] 1 abcd SB2R9UBD1DUQLB3MI58LSE6KELPPM8NN DS RRSIG DELEG
 1	s1and5v992vhq7q6vqajshoa1u11pi4v.deleg.com.	3600	IN	RRSIG	NSEC3 13 3 3600 [expiry] [inception] [keytag] deleg.com. ...
-2	.	32768	IN	OPT	
+2	.	32768	IN	OPT	AA8AAgAi
 EDNS: version: 0, flags: do; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='deleg-only.secure.deleg.com.', qtype=A
@@ -344,7 +344,7 @@ Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=A
 1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
 1	grav22vs18n31q559lo14snn0hice8s1.deleg.com.	3600	IN	NSEC3	1 [flags] 1 abcd N8UAKD35SCSK7L987RJI17O14K3D7Q4F NS RRSIG DELEG
 1	grav22vs18n31q559lo14snn0hice8s1.deleg.com.	3600	IN	RRSIG	NSEC3 13 3 3600 [expiry] [inception] [keytag] deleg.com. ...
-2	.	32768	IN	OPT	
+2	.	32768	IN	OPT	AA8AAgAi
 EDNS: version: 0, flags: do; udp: 1232
 Rcode: 3 (Non-Existent domain), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='foo.deleg-only.insecure.deleg.com.', qtype=A
@@ -360,7 +360,7 @@ Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=DELEG
 1	96a8h8g6c0a3vpqud3gobtd0lk7iktfk.deleg.com.	3600	IN	RRSIG	NSEC3 13 3 3600 [expiry] [inception] [keytag] deleg.com. ...
 1	deleg.com.	3600	IN	RRSIG	SOA 13 2 3600 [expiry] [inception] [keytag] deleg.com. ...
 1	deleg.com.	3600	IN	SOA	ns1.deleg.com. mail.deleg.com. 2026072201 14400 3600 604800 3600
-2	.	32768	IN	OPT	
+2	.	32768	IN	OPT	AA8AAgAi
 EDNS: version: 0, flags: do; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
 Reply to question for qname='deleg-only.insecure.deleg.com.', qtype=A
