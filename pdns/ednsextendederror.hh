@@ -59,6 +59,7 @@ struct EDNSExtendedError
     UnableToConformToPolicy = 28,
     Synthesized = 29,
     NegativeTrustAnchor = 33,
+    NewDelegationOnly = 34,
   };
   uint16_t infoCode;
   std::string extraText;
