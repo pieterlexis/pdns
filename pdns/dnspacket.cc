@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include <cstdint>
+#include <numeric>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -41,6 +42,7 @@
 #include "dnsbackend.hh"
 #include "ednsoptions.hh"
 #include "ednscookies.hh"
+#include "ednsextendederror.hh"
 #include "pdnsexception.hh"
 #include "dnspacket.hh"
 #include "logger.hh"
@@ -240,6 +242,11 @@ bool DNSPacket::isEmpty()
   return (d_rrs.empty());
 }
 
+void DNSPacket::addEdnsExtendedError(EDNSExtendedError &&ede)
+{
+  d_ede.emplace_back(std::move(ede));
+}
+
 /** Must be called before attempting to access getData(). This function stuffs all resource
  *  records found in rrs into the data buffer. It also frees resource records queued for us.
  */
@@ -325,7 +332,10 @@ void DNSPacket::wrapup(bool throwsOnTruncation)
     static_assert(EVP_MAX_MD_SIZE <= 64, "EVP_MAX_MD_SIZE is overly huge on this system, please check");
   }
 
-  if(!d_rrs.empty() || !opts.empty() || d_haveednssubnet || d_haveednssection || d_haveednscookie) {
+  bool doEDE = d_haveednssection && !d_ede.empty();
+  auto optSizeWithEDE = size_t(std::accumulate(d_ede.cbegin(), d_ede.cend(), optsize, [](size_t sum, const auto& ede) { return sum + EDNS_OPTION_CODE_SIZE + EDNS_OPTION_LENGTH_SIZE + ede.size(); }));
+
+  if(!d_rrs.empty() || !opts.empty() || d_haveednssubnet || d_haveednssection || d_haveednscookie || doEDE) {
     try {
       uint8_t maxScopeMask=0;
       for(pos=d_rrs.begin(); pos < d_rrs.end(); ++pos) {
@@ -333,6 +343,10 @@ void DNSPacket::wrapup(bool throwsOnTruncation)
 
         pw.startRecord(pos->dr.d_name, pos->dr.d_type, pos->dr.d_ttl, pos->dr.d_class, pos->dr.d_place);
         pos->dr.getContent()->toPacket(pw);
+        if(pw.size() + optSizeWithEDE > (d_tcp ? 65535 : getMaxReplyLen())) {
+          // If the EDEs don't fit, don't add them
+          doEDE = false;
+        }
         if(pw.size() + optsize > (d_tcp ? 65535 : getMaxReplyLen())) {
           if (throwsOnTruncation) {
             throw PDNSException("attempt to write an oversized chunk, see https://docs.powerdns.com/authoritative/settings.html#workaround-11804");
@@ -369,6 +383,12 @@ void DNSPacket::wrapup(bool throwsOnTruncation)
       if (d_haveednscookie && d_eco.isWellFormed()) {
         d_eco.makeServerCookie(s_EDNSCookieKey, getInnerRemote());
         opts.emplace_back(EDNSOptionCode::COOKIE, d_eco.makeOptString());
+      }
+
+      if (doEDE) {
+        for (const auto& ede : d_ede) {
+          opts.emplace_back(EDNSOptionCode::EXTENDEDERROR, makeEDNSExtendedErrorOptString(ede));
+        }
       }
 
       if(!opts.empty() || d_haveednssection || d_dnssecOk || d_delegOk)
