@@ -45,6 +45,7 @@
 #include "logging.hh"
 #include "pdnsexception.hh"
 #include "dnsrecords.hh"
+#include "ednsextendederror.hh"
 
 
 //! This class represents DNS packets, either received or to be sent.
@@ -132,6 +133,7 @@ public:
     // WARNING: this is really 12 bits
     d_ednsrcode=extRCode;
   };
+  void addEdnsExtendedError(EDNSExtendedError &&ede);
   uint8_t getEDNSRCode() const { return d_ednsrcode; };
   uint32_t getHash() const { return d_hash; };
   void setHash(uint32_t hash) { d_hash = hash; };
@@ -192,6 +194,7 @@ private:
 
   vector<DNSZoneRecord> d_rrs; // 8
   std::unordered_set<size_t> d_dedup;
+  std::vector<EDNSExtendedError> d_ede;
   string d_rawpacket; // this is where everything lives 8
   EDNSCookiesOpt d_eco;
 
