@@ -61,6 +61,8 @@ struct EDNSExtendedError
     NegativeTrustAnchor = 33,
     NewDelegationOnly = 34,
   };
+  [[nodiscard]] size_t size() const;
+
   uint16_t infoCode;
   std::string extraText;
 };
