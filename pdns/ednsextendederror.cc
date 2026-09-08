@@ -23,6 +23,11 @@
 
 #include "ednsextendederror.hh"
 
+size_t EDNSExtendedError::size() const
+{
+  return 2 + extraText.size();
+}
+
 static bool getEDNSExtendedErrorOptFromStringView(const std::string_view& option, EDNSExtendedError& eee)
 {
   if (option.size() < sizeof(uint16_t)) {
