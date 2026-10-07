@@ -1206,7 +1206,7 @@ static int checkZoneRecords(DNSSECKeeper &dk, UeberBackend &B, const ZoneName& z
       DNSZoneRecord zr;
       B.lookup(QType(QType::ANY), zone.operator const DNSName&(), sd_p.domain_id);
       while(B.get(zr)) {
-        if (QType(zr.dr.d_type).isDelegationType(true)) {
+        if (QType::isDelegationType(zr.dr.d_type, true)) {
           ns = true;
           B.lookupEnd();
           break;

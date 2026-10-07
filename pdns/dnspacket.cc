@@ -208,7 +208,7 @@ vector<DNSZoneRecord*> DNSPacket::getDelegationExtensionRecords()
   vector<DNSZoneRecord*> arrs;
 
   for(auto & i : d_rrs) {
-    if (QType(i.dr.d_type).isDelegationType(false)) {
+    if (QType::isDelegationType(i.dr.d_type, false)) {
       arrs.push_back(&i);
     }
   }

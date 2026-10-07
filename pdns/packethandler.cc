@@ -354,7 +354,7 @@ vector<DNSZoneRecord> PacketHandler::getBestReferralDelExt(DNSPacket& p, const D
     }
     B.lookup(QType(QType::ANY), subdomain, d_sd.domain_id, &p);
     while(B.get(rr)) {
-      if (QType(rr.dr.d_type).isDelegationType(false)) {
+      if (QType::isDelegationType(rr.dr.d_type, false)) {
         ret.push_back(rr);
       }
     }
