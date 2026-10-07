@@ -168,13 +168,18 @@ public:
   // QTypes that MUST NOT be used with any other QType on the same name.
   const static std::set<uint16_t> exclusiveEntryTypes;
 
-  [[nodiscard]] bool isDelegationType(const bool withNS = true) const
+  [[nodiscard]] static bool isDelegationType(const uint16_t qtype, const bool withNS = true)
   {
-    bool isDeleg = (code >= delegationTypesLowerBound && code <= delegationTypesUpperBound);
+    bool isDeleg = (qtype >= delegationTypesLowerBound && qtype <= delegationTypesUpperBound);
     if (withNS) {
-      return code == NS || isDeleg;
+      return qtype == NS || isDeleg;
     }
     return isDeleg;
+  }
+
+  [[nodiscard]] bool isDelegationType(const bool withNS = true) const
+  {
+    return isDelegationType(code, withNS);
   }
 
 private:

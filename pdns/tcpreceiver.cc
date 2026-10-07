@@ -1162,7 +1162,7 @@ void TCPNameserver::axfrHints(XFRContext& ctx, vector<DNSZoneRecord>& zrrs)
 
       loopRR.dr.setContent(std::move(newRRC));
     }
-    if (QType(loopRR.dr.d_type).isDelegationType(false)) {
+    if (QType::isDelegationType(loopRR.dr.d_type, false)) {
       // TODO: add option for this
       ::pdns::auth::process_auto::processDelegAuto(loopRR, ctx.soa, s_DelegationAuto);
     }
