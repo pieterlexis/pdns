@@ -49,3 +49,18 @@ for s in auto auto-address auto-address-with-aaaa; do
 	cleandig $s.deleg.com A delegation-extensions showedns
 	echo ""
 done
+
+echo "### Testing ns-preserving.deleg.com"
+echo "##### -DE referral"
+cleandig foo.ns-preserving.deleg.com A showedns
+echo "##### -DE direct TYPE61695 query"
+cleandig ns-preserving.deleg.com TYPE61695 showedns
+echo "##### -DE direct A query"
+cleandig ns-preserving.deleg.com A showedns
+echo "##### +DE referral"
+cleandig foo.ns-preserving.deleg.com A delegation-extensions showedns
+echo "##### +DE direct TYPE61695 query"
+cleandig ns-preserving.deleg.com TYPE61695 delegation-extensions showedns
+echo "##### +DE direct A query"
+cleandig ns-preserving.deleg.com A delegation-extensions showedns
+echo ""
