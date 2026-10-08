@@ -58,3 +58,9 @@ ns1.auto-address-with-aaaa.deleg.com.      3600 IN A  192.0.2.10
 ns2.auto-address-with-aaaa.deleg.com.      3600 IN A  192.0.2.11
 ns1.auto-address-with-aaaa.deleg.com.      3600 IN AAAA 2001:db8::53:1
 ns2.auto-address-with-aaaa.deleg.com.      3600 IN AAAA 2001:db8::53:100:53
+
+ns-preserving.deleg.com.         3600 IN NS ns1.ns-preserving.deleg.com.
+ns-preserving.deleg.com.         3600 IN NS ns2.ns-preserving.deleg.com.
+ns-preserving.deleg.com.         3600 IN TYPE61695 \# 1 42
+ns1.ns-preserving.deleg.com.     3600 IN A  192.0.2.1
+ns2.ns-preserving.deleg.com.     3600 IN A  192.0.2.2
