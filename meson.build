@@ -928,6 +928,7 @@ if get_option('unit-tests')
       src_dir / 'test-packetcache_cc.cc',
       src_dir / 'test-packetcache_hh.cc',
       src_dir / 'test-proxy_protocol_cc.cc',
+      src_dir / 'test-qtype_hh.cc',
       src_dir / 'test-rcpgenerator_cc.cc',
       src_dir / 'test-sha_hh.cc',
       src_dir / 'test-signers.cc',

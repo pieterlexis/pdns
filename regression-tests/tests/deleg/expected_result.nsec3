@@ -717,3 +717,49 @@ EDNS: version: 0, flags: de; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='auto-address-with-aaaa.deleg.com.', qtype=A
 
+### Testing ns-preserving.deleg.com
+##### -DE referral
+1	ns-preserving.deleg.com.	3600	IN	NS	ns1.ns-preserving.deleg.com.
+1	ns-preserving.deleg.com.	3600	IN	NS	ns2.ns-preserving.deleg.com.
+2	ns1.ns-preserving.deleg.com.	3600	IN	A	192.0.2.1
+2	ns2.ns-preserving.deleg.com.	3600	IN	A	192.0.2.2
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-preserving.deleg.com.', qtype=A
+##### -DE direct TYPE61695 query
+0	ns-preserving.deleg.com.	3600	IN	TYPE61695	\# 1 42
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='ns-preserving.deleg.com.', qtype=TYPE61695
+##### -DE direct A query
+1	ns-preserving.deleg.com.	3600	IN	NS	ns1.ns-preserving.deleg.com.
+1	ns-preserving.deleg.com.	3600	IN	NS	ns2.ns-preserving.deleg.com.
+2	ns1.ns-preserving.deleg.com.	3600	IN	A	192.0.2.1
+2	ns2.ns-preserving.deleg.com.	3600	IN	A	192.0.2.2
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-preserving.deleg.com.', qtype=A
+##### +DE referral
+1	ns-preserving.deleg.com.	3600	IN	NS	ns1.ns-preserving.deleg.com.
+1	ns-preserving.deleg.com.	3600	IN	NS	ns2.ns-preserving.deleg.com.
+1	ns-preserving.deleg.com.	3600	IN	TYPE61695	\# 1 42
+2	.	8192	IN	OPT	
+2	ns1.ns-preserving.deleg.com.	3600	IN	A	192.0.2.1
+2	ns2.ns-preserving.deleg.com.	3600	IN	A	192.0.2.2
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='foo.ns-preserving.deleg.com.', qtype=A
+##### +DE direct TYPE61695 query
+0	ns-preserving.deleg.com.	3600	IN	TYPE61695	\# 1 42
+2	.	8192	IN	OPT	
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Reply to question for qname='ns-preserving.deleg.com.', qtype=TYPE61695
+##### +DE direct A query
+1	ns-preserving.deleg.com.	3600	IN	NS	ns1.ns-preserving.deleg.com.
+1	ns-preserving.deleg.com.	3600	IN	NS	ns2.ns-preserving.deleg.com.
+1	ns-preserving.deleg.com.	3600	IN	TYPE61695	\# 1 42
+2	.	8192	IN	OPT	
+2	ns1.ns-preserving.deleg.com.	3600	IN	A	192.0.2.1
+2	ns2.ns-preserving.deleg.com.	3600	IN	A	192.0.2.2
+EDNS: version: 0, flags: de; udp: 1232
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='ns-preserving.deleg.com.', qtype=A
+

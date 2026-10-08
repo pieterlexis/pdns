@@ -1388,11 +1388,16 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
 
   DNSName delegationPoint;
   bool NSECAdded = false;
+  bool hadNSOmitting = false;
 
   if (!delExtRRSet.empty()) {
     delegationPoint = delExtRRSet.begin()->dr.d_name;
     if (d_delegationextension){
       for(auto& rr: delExtRRSet) { // NOLINT(readability-identifier-length)
+        if (QType::isOnDemandDelegationType(rr.dr.d_type)) {
+          continue;
+        }
+        hadNSOmitting = hadNSOmitting || QType::isNsOmittingDelegationType(rr.dr.d_type);
         rr.dr.d_place=DNSResourceRecord::AUTHORITY;
         r->addRecord(std::move(rr));
       }
@@ -1411,8 +1416,8 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
     }
   }
 
-  if (!nsRRSet.empty() && (!d_delegationextension || delegationPoint.empty())) {
-    // Either DE was unset in the query, or no DelExt records exist
+  if (!nsRRSet.empty() && (!hadNSOmitting || !d_delegationextension || delegationPoint.empty())) {
+    // Either DE was unset in the query, no DelExt records exist, or we don't have to omit the NS RRset
     delegationPoint = nsRRSet.begin()->dr.d_name;
     for(auto& rr: nsRRSet) { // NOLINT(readability-identifier-length)
       rr.dr.d_place=DNSResourceRecord::AUTHORITY;

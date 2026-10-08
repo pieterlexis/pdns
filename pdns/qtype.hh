@@ -161,6 +161,14 @@ public:
 
   const static uint16_t delegationTypesLowerBound = 0xF000;
   const static uint16_t delegationTypesUpperBound = 0xF1FF;
+  const static uint16_t nsOmittingDelegationTypesLowerBound = 0xF000;
+  const static uint16_t nsOmittingDelegationTypesUpperBound = 0xF07F;
+  const static uint16_t nsPreservingDelegationTypesLowerBound = 0xF080;
+  const static uint16_t nsPreservingDelegationTypesUpperBound = 0xF0FF;
+  const static uint16_t onDemandDelegationTypesLowerBound = 0xF100;
+  const static uint16_t onDemandDelegationTypesUpperBound = 0xF1EF;
+  const static uint16_t privateDelegationTypesLowerBound = 0xF1F0;
+  const static uint16_t privateDelegationTypesUpperBound = 0xF1FF;
 
   const static std::map<const std::string, uint16_t> names;
   const static std::map<uint16_t, const std::string> numbers;
@@ -168,18 +176,51 @@ public:
   // QTypes that MUST NOT be used with any other QType on the same name.
   const static std::set<uint16_t> exclusiveEntryTypes;
 
-  [[nodiscard]] static bool isDelegationType(const uint16_t qtype, const bool withNS = true)
+  [[nodiscard]] static bool isDelegationType(const uint16_t qtype, const bool withNS = true, const bool includeOnDemand=false)
   {
     bool isDeleg = (qtype >= delegationTypesLowerBound && qtype <= delegationTypesUpperBound);
+    if (!includeOnDemand) {
+      isDeleg = isDeleg && !isOnDemandDelegationType(qtype);
+    }
     if (withNS) {
       return qtype == NS || isDeleg;
     }
     return isDeleg;
   }
 
-  [[nodiscard]] bool isDelegationType(const bool withNS = true) const
+  [[nodiscard]] bool isDelegationType(const bool withNS = true, const bool includeOnDemand=false) const
   {
-    return isDelegationType(code, withNS);
+    return isDelegationType(code, withNS, includeOnDemand);
+  }
+
+  [[nodiscard]] static bool isNsPreservingDelegationType(const uint16_t qtype)
+  {
+    return (qtype >= nsPreservingDelegationTypesLowerBound && qtype <= nsPreservingDelegationTypesUpperBound) || (qtype >= privateDelegationTypesLowerBound && qtype <= privateDelegationTypesUpperBound);
+  }
+
+  [[nodiscard]] bool isNsPreservingDelegationType()
+  {
+    return isNsPreservingDelegationType(code);
+  }
+
+  [[nodiscard]] static bool isNsOmittingDelegationType(const uint16_t qtype)
+  {
+    return (qtype >= nsOmittingDelegationTypesLowerBound && qtype <= nsOmittingDelegationTypesUpperBound);
+  }
+
+  [[nodiscard]] bool isNsOmittingDelegationType()
+  {
+    return isNsOmittingDelegationType(code);
+  }
+
+  [[nodiscard]] static bool isOnDemandDelegationType(const uint16_t qtype)
+  {
+    return (qtype >= onDemandDelegationTypesLowerBound && qtype <= onDemandDelegationTypesUpperBound);
+  }
+
+  [[nodiscard]] bool isOnDemandDelegationType()
+  {
+    return isOnDemandDelegationType(code);
   }
 
 private:
