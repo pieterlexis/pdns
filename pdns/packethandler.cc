@@ -1960,7 +1960,7 @@ bool PacketHandler::opcodeQueryInner2(DNSPacket& pkt, queryState &state, bool re
 
   DLOG(SLOG(g_log<<"Checking for referrals first, unless this is a DS or DelExt query"<<endl,
             d_slog->info(Logr::Debug, "Checking for referrals first, unless this is a DS or DelExt query")));
-  if(pkt.qtype.getCode() != QType::DS && !pkt.qtype.isDelegationType(false) && tryReferral(pkt, state.r, state.target, retargeted)) {
+  if(pkt.qtype.getCode() != QType::DS && !(pkt.qtype.isDelegationType(false, true) && d_delegationextension) && tryReferral(pkt, state.r, state.target, retargeted)) {
     return true;
   }
 
