@@ -219,8 +219,11 @@ Reply to question for qname='ns-only.secure.deleg.com.', qtype=A
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.both.secure.deleg.com.', qtype=A
 ##### -DO -DE direct DELEG query
-0	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
-Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+1	both.secure.deleg.com.	3600	IN	NS	ns1.both.secure.deleg.com.
+1	both.secure.deleg.com.	3600	IN	NS	ns2.both.secure.deleg.com.
+2	ns1.both.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.secure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='both.secure.deleg.com.', qtype=DELEG
 ##### -DO -DE direct A query
 1	both.secure.deleg.com.	3600	IN	NS	ns1.both.secure.deleg.com.
@@ -259,11 +262,15 @@ EDNS: version: 0, flags: do; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.both.secure.deleg.com.', qtype=A
 ##### +DO -DE direct DELEG query
-0	both.secure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
-0	both.secure.deleg.com.	3600	IN	RRSIG	DELEG 13 4 3600 [expiry] [inception] [keytag] deleg.com. ...
+1	both.secure.deleg.com.	3600	IN	DS	44030 8 2 d4c3d5552b8679faeebc317e5f048b614b2e5f607dc57f1553182d49ab2179f7
+1	both.secure.deleg.com.	3600	IN	NS	ns1.both.secure.deleg.com.
+1	both.secure.deleg.com.	3600	IN	NS	ns2.both.secure.deleg.com.
+1	both.secure.deleg.com.	3600	IN	RRSIG	DS 13 4 3600 [expiry] [inception] [keytag] deleg.com. ...
 2	.	32768	IN	OPT	
+2	ns1.both.secure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.secure.deleg.com.	3600	IN	A	192.0.2.11
 EDNS: version: 0, flags: do; udp: 1232
-Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='both.secure.deleg.com.', qtype=DELEG
 ##### +DO -DE direct A query
 1	both.secure.deleg.com.	3600	IN	DS	44030 8 2 d4c3d5552b8679faeebc317e5f048b614b2e5f607dc57f1553182d49ab2179f7
@@ -515,8 +522,11 @@ Reply to question for qname='ns-only.insecure.deleg.com.', qtype=A
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.both.insecure.deleg.com.', qtype=A
 ##### -DO -DE direct DELEG query
-0	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
-Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+1	both.insecure.deleg.com.	3600	IN	NS	ns1.both.insecure.deleg.com.
+1	both.insecure.deleg.com.	3600	IN	NS	ns2.both.insecure.deleg.com.
+2	ns1.both.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.insecure.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='both.insecure.deleg.com.', qtype=DELEG
 ##### -DO -DE direct A query
 1	both.insecure.deleg.com.	3600	IN	NS	ns1.both.insecure.deleg.com.
@@ -555,11 +565,15 @@ EDNS: version: 0, flags: do; udp: 1232
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.both.insecure.deleg.com.', qtype=A
 ##### +DO -DE direct DELEG query
-0	both.insecure.deleg.com.	3600	IN	DELEG	server-name=ns1.both.deleg.com.,ns2.both.deleg.com.
-0	both.insecure.deleg.com.	3600	IN	RRSIG	DELEG 13 4 3600 [expiry] [inception] [keytag] deleg.com. ...
+1	both.insecure.deleg.com.	3600	IN	NS	ns1.both.insecure.deleg.com.
+1	both.insecure.deleg.com.	3600	IN	NS	ns2.both.insecure.deleg.com.
+1	v596rjmrooc0q6st8mig4kgu6d7u6g7l.deleg.com.	3600	IN	NSEC3	1 [flags] 1 abcd 1V1FU7DE6JK3KJR90SDMF7PR8DLKJU8R NS RRSIG DELEG
+1	v596rjmrooc0q6st8mig4kgu6d7u6g7l.deleg.com.	3600	IN	RRSIG	NSEC3 13 3 3600 [expiry] [inception] [keytag] deleg.com. ...
 2	.	32768	IN	OPT	
+2	ns1.both.insecure.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.both.insecure.deleg.com.	3600	IN	A	192.0.2.11
 EDNS: version: 0, flags: do; udp: 1232
-Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='both.insecure.deleg.com.', qtype=DELEG
 ##### +DO -DE direct A query
 1	both.insecure.deleg.com.	3600	IN	NS	ns1.both.insecure.deleg.com.
@@ -608,8 +622,11 @@ Reply to question for qname='both.insecure.deleg.com.', qtype=A
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.auto.deleg.com.', qtype=A
 ##### -DE direct DELEG query
-0	auto.deleg.com.	3600	IN	DELEG	server-name=ns1.auto.deleg.com.,ns2.auto.deleg.com.
-Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+1	auto.deleg.com.	3600	IN	NS	ns1.auto.deleg.com.
+1	auto.deleg.com.	3600	IN	NS	ns2.auto.deleg.com.
+2	ns1.auto.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.auto.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='auto.deleg.com.', qtype=DELEG
 ##### -DE direct A query
 1	auto.deleg.com.	3600	IN	NS	ns1.auto.deleg.com.
@@ -646,8 +663,11 @@ Reply to question for qname='auto.deleg.com.', qtype=A
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.auto-address.deleg.com.', qtype=A
 ##### -DE direct DELEG query
-0	auto-address.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11
-Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+1	auto-address.deleg.com.	3600	IN	NS	ns1.auto-address.deleg.com.
+1	auto-address.deleg.com.	3600	IN	NS	ns2.auto-address.deleg.com.
+2	ns1.auto-address.deleg.com.	3600	IN	A	192.0.2.10
+2	ns2.auto-address.deleg.com.	3600	IN	A	192.0.2.11
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='auto-address.deleg.com.', qtype=DELEG
 ##### -DE direct A query
 1	auto-address.deleg.com.	3600	IN	NS	ns1.auto-address.deleg.com.
@@ -686,8 +706,13 @@ Reply to question for qname='auto-address.deleg.com.', qtype=A
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.auto-address-with-aaaa.deleg.com.', qtype=A
 ##### -DE direct DELEG query
-0	auto-address-with-aaaa.deleg.com.	3600	IN	DELEG	server-ipv4=192.0.2.10,192.0.2.11 server-ipv6=2001:db8::53:1,2001:db8::53:100:53
-Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+1	auto-address-with-aaaa.deleg.com.	3600	IN	NS	ns1.auto-address-with-aaaa.deleg.com.
+1	auto-address-with-aaaa.deleg.com.	3600	IN	NS	ns2.auto-address-with-aaaa.deleg.com.
+2	ns1.auto-address-with-aaaa.deleg.com.	3600	IN	A	192.0.2.10
+2	ns1.auto-address-with-aaaa.deleg.com.	3600	IN	AAAA	2001:db8::53:1
+2	ns2.auto-address-with-aaaa.deleg.com.	3600	IN	A	192.0.2.11
+2	ns2.auto-address-with-aaaa.deleg.com.	3600	IN	AAAA	2001:db8::53:100:53
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='auto-address-with-aaaa.deleg.com.', qtype=DELEG
 ##### -DE direct A query
 1	auto-address-with-aaaa.deleg.com.	3600	IN	NS	ns1.auto-address-with-aaaa.deleg.com.
@@ -726,8 +751,11 @@ Reply to question for qname='auto-address-with-aaaa.deleg.com.', qtype=A
 Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='foo.ns-preserving.deleg.com.', qtype=A
 ##### -DE direct TYPE61695 query
-0	ns-preserving.deleg.com.	3600	IN	TYPE61695	\# 1 42
-Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 1, opcode: 0
+1	ns-preserving.deleg.com.	3600	IN	NS	ns1.ns-preserving.deleg.com.
+1	ns-preserving.deleg.com.	3600	IN	NS	ns2.ns-preserving.deleg.com.
+2	ns1.ns-preserving.deleg.com.	3600	IN	A	192.0.2.1
+2	ns2.ns-preserving.deleg.com.	3600	IN	A	192.0.2.2
+Rcode: 0 (No Error), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
 Reply to question for qname='ns-preserving.deleg.com.', qtype=TYPE61695
 ##### -DE direct A query
 1	ns-preserving.deleg.com.	3600	IN	NS	ns1.ns-preserving.deleg.com.

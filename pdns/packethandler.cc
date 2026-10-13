@@ -354,7 +354,7 @@ vector<DNSZoneRecord> PacketHandler::getBestReferralDelExt(DNSPacket& p, const D
     }
     B.lookup(QType(QType::ANY), subdomain, d_sd.domain_id, &p);
     while(B.get(rr)) {
-      if (QType::isDelegationType(rr.dr.d_type, false)) {
+      if (QType::isDelegationType(rr.dr.d_type, false, false)) {
         ret.push_back(rr);
       }
     }
@@ -1960,7 +1960,7 @@ bool PacketHandler::opcodeQueryInner2(DNSPacket& pkt, queryState &state, bool re
 
   DLOG(SLOG(g_log<<"Checking for referrals first, unless this is a DS or DelExt query"<<endl,
             d_slog->info(Logr::Debug, "Checking for referrals first, unless this is a DS or DelExt query")));
-  if(pkt.qtype.getCode() != QType::DS && !pkt.qtype.isDelegationType(false) && tryReferral(pkt, state.r, state.target, retargeted)) {
+  if(pkt.qtype.getCode() != QType::DS && !pkt.qtype.isDelegationType(false, false) && tryReferral(pkt, state.r, state.target, retargeted)) {
     return true;
   }
 
@@ -2074,11 +2074,21 @@ bool PacketHandler::opcodeQueryInner2(DNSPacket& pkt, queryState &state, bool re
 
   DLOG(SLOG(g_log<<"After first ANY query for '"<<state.target<<"', id="<<d_sd.domain_id<<": weDone="<<weDone<<", weHaveUnauth="<<weHaveUnauth<<", weRedirected="<<weRedirected<<", haveAlias='"<<haveAlias<<"'"<<endl,
             d_slog->info(Logr::Debug, "After first ANY query", "query", Logging::Loggable(state.target), "id", Logging::Loggable(d_sd.domain_id), "weDone", Logging::Loggable(weDone), "weHaveUnauth", Logging::Loggable(weHaveUnauth), "weRedirected", Logging::Loggable(weRedirected), "haveAlias", Logging::Loggable(haveAlias))));
+
   if(pkt.qtype.getCode() == QType::DS && weHaveUnauth &&  !weDone && !weRedirected) {
     DLOG(SLOG(g_log<<"Q for DS of a name for which we do have NS, but for which we don't have DS; need to provide an AUTH answer that shows we don't"<<endl,
               d_slog->info(Logr::Debug, "Query for DS of a name for which we do have NS, but don't have any DS; need to provide an AUTH answer that shows this")));
     makeNOError(pkt, state.r, state.target, DNSName(), 1);
     return true;
+  }
+
+  // We have NS records for the QNAME, and DelExt, but the client doesn't understand DelExt. So response with a delegation.
+  if(pkt.qtype.isDelegationType(false, true) && weHaveUnauth && weDone && !weRedirected && !d_delegationextension) {
+    DLOG(SLOG(g_log<<"Q for DelExt of a name for which we do have NS, but no DE-flag in query, checking referrals"<<endl,
+              d_slog->info(Logr::Debug, "Q for DelExt of a name for which we do have NS, but no DE-flag in query, checking referrals")));
+    if (tryReferral(pkt, state.r, pkt.qdomain, retargeted)) {
+      return true;
+    }
   }
 
   if(!haveAlias.empty() && (!weDone || pkt.qtype.getCode() == QType::ANY)) {
