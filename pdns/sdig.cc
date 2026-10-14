@@ -1,3 +1,4 @@
+#include "dnsname.hh"
 #include "qtype.hh"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -44,7 +45,7 @@ static void usage()
   cerr << "sdig" << endl;
   cerr << "Syntax: sdig IP-ADDRESS-OR-DOH-URL PORT QNAME QTYPE "
           "[dnssec] [delegation-extensions] [ednssubnet SUBNET/MASK] [hidesoadetails] [hidettl] [hideednsrdata] "
-          "[recurse] [showflags] [showedns] "
+          "[recurse] [showflags] [showedns] [sort] "
           "[tcp] [dot] [insecure] [fastOpen] [subjectName name] [caStore file] [tlsProvider openssl|gnutls] "
           "[proxy UDP(0)/TCP(1) SOURCE-IP-ADDRESS-AND-PORT DESTINATION-IP-ADDRESS-AND-PORT] "
           "[cookie -/HEX] "
@@ -125,7 +126,7 @@ static void fillPacket(vector<uint8_t>& packet, const string& q, const string& t
   pw.getHeader()->id = htons(qid);
 }
 
-static void printReply(const string& reply, bool showflags, bool hidesoadetails, bool dumpluaraw, bool ignoreId, bool showedns, bool hideednsrdata)
+static void printReply(const string& reply, bool showflags, bool hidesoadetails, bool dumpluaraw, bool ignoreId, bool showedns, bool hideednsrdata, bool sort)
 {
   MOADNSParser mdp(false, reply);
 
@@ -169,6 +170,28 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
     cout<<"; udp: "<<std::to_string(edo.d_packetsize);
     cout<<endl;
   }
+
+  if (sort) {
+    std::sort(mdp.d_answers.begin(), mdp.d_answers.end(), [](auto left, auto right) {
+      if (left.d_place != right.d_place) {
+        return left.d_place < right.d_place;
+      }
+      if (left.d_name != right.d_name) {
+        return left.d_name.canonCompare(right.d_name);
+      }
+      if (left.d_class != right.d_class) {
+        return left.d_class < right.d_class;
+      }
+      if (left.d_type != right.d_type) {
+        return left.d_type < right.d_type;
+      }
+      if (left.d_ttl != right.d_ttl) {
+        return left.d_ttl < right.d_ttl;
+      }
+      return left.getContent()->serialize(DNSName()) < right.getContent()->serialize(DNSName());
+    });
+  }
+
 
   for (MOADNSParser::answers_t::const_iterator i = mdp.d_answers.begin();
        i != mdp.d_answers.end(); ++i) {
@@ -216,7 +239,7 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
         cout << "\t" << parts[0] << " "
              << parts[1] << " [serial] " << parts[3] << " " << parts[4] << " "
              << parts[5] << " " << parts[6] << "\n";
-        continue;
+       continue;
       }
     }
     if (i->d_type == QType::OPT && hideednsrdata) {
@@ -274,6 +297,7 @@ try {
   bool showedns = false;
   bool hidesoadetails = false;
   bool hideednsrdata = false;
+  bool sort = false;
   bool doh = false;
   bool dot = false;
   bool fastOpen = false;
@@ -326,6 +350,8 @@ try {
         hidesoadetails = true;
       else if (strcmp(argv[i], "hidettl") == 0)
         hidettl = true;
+      else if (strcmp(argv[i], "sort") == 0)
+        sort = true;
       else if (strcmp(argv[i], "hideednsrdata") == 0)
         hideednsrdata = true;
       else if (strcmp(argv[i], "tcp") == 0)
@@ -495,7 +521,7 @@ try {
     string question(packet.begin(), packet.end());
     // FIXME: how do we use proxyheader here?
     reply = mc.postURL(argv[1], question, mch, timeout.tv_sec, fastOpen);
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata, sort);
 #else
     throw PDNSException("please link sdig against libcurl for DoH support");
 #endif
@@ -517,7 +543,7 @@ try {
       reply = reply.substr(2);
     }
 
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, true, showedns, hideednsrdata);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, true, showedns, hideednsrdata, sort);
   } else if (tcp) {
     std::shared_ptr<TLSCtx> tlsCtx{nullptr};
     if (dot) {
@@ -565,7 +591,7 @@ try {
       if (handler.read(&reply[0], len, timeout) != len) {
         throw PDNSException("tcp read failed");
       }
-      printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata);
+      printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata, sort);
     }
   } else // udp
   {
@@ -582,7 +608,7 @@ try {
     if (!result)
       throw std::runtime_error("Timeout waiting for data");
     sock.recvFrom(reply, dest);
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata, sort);
   }
 
 } catch (std::exception& e) {
