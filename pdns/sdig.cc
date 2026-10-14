@@ -1,3 +1,4 @@
+#include "qtype.hh"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -42,7 +43,8 @@ static void usage()
 {
   cerr << "sdig" << endl;
   cerr << "Syntax: sdig IP-ADDRESS-OR-DOH-URL PORT QNAME QTYPE "
-          "[dnssec] [delegation-extensions] [ednssubnet SUBNET/MASK] [hidesoadetails] [hidettl] [recurse] [showflags] [showedns] "
+          "[dnssec] [delegation-extensions] [ednssubnet SUBNET/MASK] [hidesoadetails] [hidettl] [hideednsrdata] "
+          "[recurse] [showflags] [showedns] "
           "[tcp] [dot] [insecure] [fastOpen] [subjectName name] [caStore file] [tlsProvider openssl|gnutls] "
           "[proxy UDP(0)/TCP(1) SOURCE-IP-ADDRESS-AND-PORT DESTINATION-IP-ADDRESS-AND-PORT] "
           "[cookie -/HEX] "
@@ -123,7 +125,7 @@ static void fillPacket(vector<uint8_t>& packet, const string& q, const string& t
   pw.getHeader()->id = htons(qid);
 }
 
-static void printReply(const string& reply, bool showflags, bool hidesoadetails, bool dumpluaraw, bool ignoreId, bool showedns)
+static void printReply(const string& reply, bool showflags, bool hidesoadetails, bool dumpluaraw, bool ignoreId, bool showedns, bool hideednsrdata)
 {
   MOADNSParser mdp(false, reply);
 
@@ -217,6 +219,10 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
         continue;
       }
     }
+    if (i->d_type == QType::OPT && hideednsrdata) {
+      cout << "\t[hidden]" << "\n";
+      continue;
+    }
     cout << "\t" << i->getContent()->getZoneRepresentation() << "\n";
   }
 
@@ -267,6 +273,7 @@ try {
   bool showflags = false;
   bool showedns = false;
   bool hidesoadetails = false;
+  bool hideednsrdata = false;
   bool doh = false;
   bool dot = false;
   bool fastOpen = false;
@@ -319,6 +326,8 @@ try {
         hidesoadetails = true;
       else if (strcmp(argv[i], "hidettl") == 0)
         hidettl = true;
+      else if (strcmp(argv[i], "hideednsrdata") == 0)
+        hideednsrdata = true;
       else if (strcmp(argv[i], "tcp") == 0)
         tcp = true;
       else if (strcmp(argv[i], "dot") == 0)
@@ -486,7 +495,7 @@ try {
     string question(packet.begin(), packet.end());
     // FIXME: how do we use proxyheader here?
     reply = mc.postURL(argv[1], question, mch, timeout.tv_sec, fastOpen);
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata);
 #else
     throw PDNSException("please link sdig against libcurl for DoH support");
 #endif
@@ -508,7 +517,7 @@ try {
       reply = reply.substr(2);
     }
 
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, true, showedns);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, true, showedns, hideednsrdata);
   } else if (tcp) {
     std::shared_ptr<TLSCtx> tlsCtx{nullptr};
     if (dot) {
@@ -556,7 +565,7 @@ try {
       if (handler.read(&reply[0], len, timeout) != len) {
         throw PDNSException("tcp read failed");
       }
-      printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns);
+      printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata);
     }
   } else // udp
   {
@@ -573,7 +582,7 @@ try {
     if (!result)
       throw std::runtime_error("Timeout waiting for data");
     sock.recvFrom(reply, dest);
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata);
   }
 
 } catch (std::exception& e) {
