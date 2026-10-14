@@ -21,6 +21,7 @@
  */
 #include "dnsname.hh"
 #include "ednsextendederror.hh"
+#include "logging.hh"
 #include "pdnsexception.hh"
 #include "qtype.hh"
 #include <cstdlib>
@@ -1373,33 +1374,50 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
 {
   vector<DNSZoneRecord> delExtRRSet = getBestReferralDelExt(p, target);
   vector<DNSZoneRecord> nsRRSet = getBestReferralNS(p, target);
+  vector<DNSZoneRecord> toAdd{};
+  DNSName delegationPoint;
 
-  if (delExtRRSet.empty() && nsRRSet.empty()) {
+  if (!delExtRRSet.empty()) {
+    delegationPoint = delExtRRSet.begin()->dr.d_name;
+  }
+
+  if (!nsRRSet.empty()) {
+    if (delegationPoint.empty()) {
+      delegationPoint = nsRRSet.begin()->dr.d_name;
+    } else {
+      // We have NS and DelExt delegations, let's check which one's the better one
+      if (delegationPoint.countLabels() > nsRRSet.begin()->dr.d_name.countLabels()) {
+        // NS RRSet has fewer labels, so it is a better delegation point
+        delegationPoint = nsRRSet.begin()->dr.d_name;
+        delExtRRSet.clear();
+      } else if (delegationPoint.countLabels() < nsRRSet.begin()->dr.d_name.countLabels()) {
+        // NS RRSet has more labels, so DelExt is the better delegation point
+        nsRRSet.clear();
+      }
+    }
+  }
+
+  DLOG(SLOG(g_log<<Logger::Info<<"in tryReferral"<<"'"<<endl,
+            d_slog->info(Logr::Info, "in TryReferral, after processing", "delExtRRSet.size()", Logging::Loggable(delExtRRSet.size()), "nsRRSet.size()", Logging::Loggable(nsRRSet.size()), "target", Logging::Loggable(target), "delegationPoint", Logging::Loggable(delegationPoint.toLogString()))));
+
+  if (delegationPoint.empty()) {
     // No delegation here
     return false;
   }
 
-  if (!delExtRRSet.empty() && !nsRRSet.empty()) {
-    if (delExtRRSet.begin()->dr.d_name != nsRRSet.begin()->dr.d_name) {
-      // TODO: what to do.... return the highest delegation?
-      throw PDNSException("DelExt RRSet has name '" + delExtRRSet.begin()->dr.d_name.toLogString()+"', but NS RRSet has '"+ nsRRSet.begin()->dr.d_name.toLogString()+"'");
-    }
-  }
-
-  DNSName delegationPoint;
   bool NSECAdded = false;
   bool hadNSOmitting = false;
 
   if (!delExtRRSet.empty()) {
-    delegationPoint = delExtRRSet.begin()->dr.d_name;
     if (d_delegationextension){
+      if (delegationPoint == target && p.qtype.isDelegationType(false, false)) {
+        // We have a direct query for a delegation type *at* the delegation point, don't send a delegation
+        return false;
+      }
       for(auto& rr: delExtRRSet) { // NOLINT(readability-identifier-length)
-        if (QType::isOnDemandDelegationType(rr.dr.d_type)) {
-          continue;
-        }
         hadNSOmitting = hadNSOmitting || QType::isNsOmittingDelegationType(rr.dr.d_type);
         rr.dr.d_place=DNSResourceRecord::AUTHORITY;
-        r->addRecord(std::move(rr));
+        toAdd.emplace_back(std::move(rr));
       }
     } else if (nsRRSet.empty()) {
       // The client is DELEG-unaware, but we have no NS Records next to the DELEG
@@ -1416,13 +1434,16 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
     }
   }
 
-  if (!nsRRSet.empty() && (!hadNSOmitting || !d_delegationextension || delegationPoint.empty())) {
+  if (!nsRRSet.empty() && (!hadNSOmitting || !d_delegationextension)) {
     // Either DE was unset in the query, no DelExt records exist, or we don't have to omit the NS RRset
-    delegationPoint = nsRRSet.begin()->dr.d_name;
     for(auto& rr: nsRRSet) { // NOLINT(readability-identifier-length)
       rr.dr.d_place=DNSResourceRecord::AUTHORITY;
-      r->addRecord(std::move(rr));
+      toAdd.emplace_back(std::move(rr));
     }
+  }
+
+  for (auto &&record : toAdd) {
+    r->addRecord(std::move(record));
   }
 
   if(d_delegationextension && d_dnssec) {
@@ -1430,11 +1451,6 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
     // NOTE: We do this, regardless of the ADT flag in the DNSKEY
     addNSECX(p, r, delegationPoint, DNSName(), 1);
     NSECAdded = true;
-  }
-
-  if (delegationPoint.empty()) {
-    // impossible
-    abort();
   }
 
   if(!retargeted) {
@@ -2082,13 +2098,11 @@ bool PacketHandler::opcodeQueryInner2(DNSPacket& pkt, queryState &state, bool re
     return true;
   }
 
-  // We have NS records for the QNAME, and DelExt, but the client doesn't understand DelExt. So response with a delegation.
-  if(pkt.qtype.isDelegationType(false, true) && weHaveUnauth && weDone && !weRedirected && !d_delegationextension) {
-    DLOG(SLOG(g_log<<"Q for DelExt of a name for which we do have NS, but no DE-flag in query, checking referrals"<<endl,
-              d_slog->info(Logr::Debug, "Q for DelExt of a name for which we do have NS, but no DE-flag in query, checking referrals")));
-    if (tryReferral(pkt, state.r, pkt.qdomain, retargeted)) {
-      return true;
-    }
+  if(pkt.qtype.isDelegationType(false, true) && weHaveUnauth && !weDone && !weRedirected && d_delegationextension) {
+    DLOG(SLOG(g_log<<"Q for DelExt of a name for which we do have NS, but for which we don't have DelExt; need to provide an AUTH answer that shows we don't"<<endl,
+              d_slog->info(Logr::Debug, "Query for DelExt of a name for which we do have NS, but don't have any DelExt; need to provide an AUTH answer that shows this")));
+    makeNOError(pkt, state.r, state.target, DNSName(), 1);
+    return true;
   }
 
   if(!haveAlias.empty() && (!weDone || pkt.qtype.getCode() == QType::ANY)) {
@@ -2097,6 +2111,33 @@ bool PacketHandler::opcodeQueryInner2(DNSPacket& pkt, queryState &state, bool re
     DP->completePacket(state.r, haveAlias, state.target, aliasScopeMask);
     state.r = nullptr;
     return false;
+  }
+
+  // referral for DelExt query
+  if(pkt.qtype.isDelegationType(false, true)) {
+    DLOG(SLOG(g_log<<"Qtype is DelExt"<<endl,
+              d_slog->info(Logr::Debug, "QType is DelExt")));
+    bool doReferral = true;
+
+    if (!(weHaveUnauth && !d_delegationextension)) {
+      // The client undestands DelExt and there are no NS records at this name
+      for (auto& loopRR : rrset) {
+        if (loopRR.dr.d_type == pkt.qtype) {
+          doReferral = false;
+          break;
+        }
+      }
+    }
+
+    if(doReferral) {
+      DLOG(SLOG(g_log<<"DelExt query found no direct result, trying referral now"<<endl,
+                d_slog->info(Logr::Debug, "DelExt query found no direct result, trying referral now")));
+      if(tryReferral(pkt, state.r, state.target, retargeted)) {
+        DLOG(SLOG(g_log<<"Got referral for DelExt query"<<endl,
+                  d_slog->info(Logr::Debug, "Got referral for DelExt query")));
+        return true;
+      }
+    }
   }
 
   // referral for DS query
