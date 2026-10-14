@@ -45,7 +45,7 @@ static void usage()
   cerr << "sdig" << endl;
   cerr << "Syntax: sdig IP-ADDRESS-OR-DOH-URL PORT QNAME QTYPE "
           "[dnssec] [delegation-extensions] [ednssubnet SUBNET/MASK] [hidesoadetails] [hidettl] [hideednsrdata] "
-          "[recurse] [showflags] [showedns] [sort] "
+          "[recurse] [showflags] [showedns] [sort] [lowercasename] "
           "[tcp] [dot] [insecure] [fastOpen] [subjectName name] [caStore file] [tlsProvider openssl|gnutls] "
           "[proxy UDP(0)/TCP(1) SOURCE-IP-ADDRESS-AND-PORT DESTINATION-IP-ADDRESS-AND-PORT] "
           "[cookie -/HEX] "
@@ -126,7 +126,7 @@ static void fillPacket(vector<uint8_t>& packet, const string& q, const string& t
   pw.getHeader()->id = htons(qid);
 }
 
-static void printReply(const string& reply, bool showflags, bool hidesoadetails, bool dumpluaraw, bool ignoreId, bool showedns, bool hideednsrdata, bool sort)
+static void printReply(const string& reply, bool showflags, bool hidesoadetails, bool dumpluaraw, bool ignoreId, bool showedns, bool hideednsrdata, bool sort, bool lowercasename)
 {
   MOADNSParser mdp(false, reply);
 
@@ -195,7 +195,7 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
 
   for (MOADNSParser::answers_t::const_iterator i = mdp.d_answers.begin();
        i != mdp.d_answers.end(); ++i) {
-    cout << i->d_place - 1 << "\t" << i->d_name.toString() << "\t"
+    cout << i->d_place - 1 << "\t" << (lowercasename ? i->d_name.makeLowerCase().toString() : i->d_name.toString()) << "\t"
          << ttl(i->d_ttl) << "\t" << nameForClass(i->d_class, i->d_type) << "\t"
          << DNSRecordContent::NumberToType(i->d_type);
     if (dumpluaraw) {
@@ -297,6 +297,7 @@ try {
   bool showedns = false;
   bool hidesoadetails = false;
   bool hideednsrdata = false;
+  bool lowercasename = false;
   bool sort = false;
   bool doh = false;
   bool dot = false;
@@ -350,6 +351,8 @@ try {
         hidesoadetails = true;
       else if (strcmp(argv[i], "hidettl") == 0)
         hidettl = true;
+      else if (strcmp(argv[i], "lowercasename") == 0)
+        lowercasename = true;
       else if (strcmp(argv[i], "sort") == 0)
         sort = true;
       else if (strcmp(argv[i], "hideednsrdata") == 0)
@@ -521,7 +524,7 @@ try {
     string question(packet.begin(), packet.end());
     // FIXME: how do we use proxyheader here?
     reply = mc.postURL(argv[1], question, mch, timeout.tv_sec, fastOpen);
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata, sort);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata, sort, lowercasename);
 #else
     throw PDNSException("please link sdig against libcurl for DoH support");
 #endif
@@ -543,7 +546,7 @@ try {
       reply = reply.substr(2);
     }
 
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, true, showedns, hideednsrdata, sort);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, true, showedns, hideednsrdata, sort, lowercasename);
   } else if (tcp) {
     std::shared_ptr<TLSCtx> tlsCtx{nullptr};
     if (dot) {
@@ -591,7 +594,7 @@ try {
       if (handler.read(&reply[0], len, timeout) != len) {
         throw PDNSException("tcp read failed");
       }
-      printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata, sort);
+      printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata, sort, lowercasename);
     }
   } else // udp
   {
@@ -608,7 +611,7 @@ try {
     if (!result)
       throw std::runtime_error("Timeout waiting for data");
     sock.recvFrom(reply, dest);
-    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata, sort);
+    printReply(reply, showflags, hidesoadetails, dumpluaraw, false, showedns, hideednsrdata, sort, lowercasename);
   }
 
 } catch (std::exception& e) {
