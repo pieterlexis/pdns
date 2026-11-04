@@ -51,6 +51,7 @@ thread_local ProtobufServersInfo t_outgoingProtobufServers;
 
 thread_local std::unique_ptr<MT_t> t_multiTasker; // the big MTasker
 std::unique_ptr<MemRecursorCache> g_recCache;
+std::unique_ptr<MemRecursorCache> g_delegationCache;
 std::unique_ptr<NegCache> g_negCache;
 std::unique_ptr<RecursorPacketCache> g_packetCache;
 

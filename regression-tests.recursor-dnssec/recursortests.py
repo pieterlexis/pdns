@@ -238,6 +238,8 @@ dname-bogus.secure.example. 3600 IN DNAME bogus.example.
 non-apex-dnskey.secure.example. 3600 IN DNSKEY 257 3 13 CT6AJ4MEOtNDgj0+xLtTLGHf1WbLsKWZI8ONHOt/6q7hTjeWSnY/SGig1dIKZrHg+pJFUSPaxeShv48SYVRKEg==
 non-apex-dnskey2.secure.example. 3600 IN DNSKEY 256 3 13 CT6AJ4MEOtNDgj0+xLtTLGHf1WbLsKWZI8ONHOt/6q7hTjeWSnY/SGig1dIKZrHg+pJFUSPaxeShv48SYVRKEg==
 non-apex-dnskey3.secure.example. 3600 IN DNSKEY 256 3 13 DT6AJ4MEOtNDgj0+xLtTLGHf1WbLsKWZI8ONHOt/6q7hTjeWSnY/SGig1dIKZrHg+pJFUSPaxeShv48SYVRKEg==
+
+deleg.secure.example. 3600 IN DELEG server-ipv4={prefix}.12
         """,
         "dname-secure.example": """
 dname-secure.example. 3600 IN SOA {soa}
@@ -339,6 +341,10 @@ delay2.example.                       3600 IN NS n1.delay2.example.
 ns1.delay2.example.                   3600 IN A    {prefix}.17
 *.delay2.example.                     0    LUA TXT ";" "local socket=require('socket')" "socket.sleep(tonumber(qname:getRawLabels()[1])/10)" "return 'a'"
         """,
+        "deleg.secure.example": """
+deleg.secure.example.                       3600 IN SOA  {soa}
+deleg.secure.example.                   3600 IN A    192.0.2.112
+"""
     }
 
     # The private keys for the zones (note that DS records should go into
@@ -409,7 +415,7 @@ PrivateKey: Ep9uo6+wwjb4MaOmqq7LHav2FLrjotVOeZg8JT1Qk04=
         "9": {"threads": 1, "zones": ["secure.example", "islandofsecurity.example"]},
         "10": {"threads": 1, "zones": ["example"]},
         # 11 is used by CircleCI provided resolver
-        "12": {"threads": 1, "zones": ["bogus.example", "undelegated.secure.example", "undelegated.insecure.example"]},
+        "12": {"threads": 1, "zones": ["bogus.example", "undelegated.secure.example", "undelegated.insecure.example", "deleg.secure.example"]},
         "13": {"threads": 1, "zones": ["insecure.example", "insecure.sub2.secure.example", "dname-secure.example"]},
         "14": {"threads": 1, "zones": ["optout.example"]},
         "15": {"threads": 1, "zones": ["insecure.optout.example", "secure.optout.example", "cname-secure.example"]},

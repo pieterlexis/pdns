@@ -77,6 +77,7 @@ public:
   bool d_validpacket{false};
   bool d_aabit{false}, d_tcbit{false};
   bool d_haveEDNS{false};
+  bool d_haveDelegationExtensions{false};
 };
 
 class EDNSSubnetOpts;

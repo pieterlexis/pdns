@@ -28,12 +28,15 @@
 #include "arguments.hh"
 #include "aggressive_nsec.hh"
 #include "cachecleaner.hh"
+#include "deleg-records.hh"
+#include "dns.hh"
 #include "dns_random.hh"
 #include "dnsparser.hh"
 #include "dnsrecords.hh"
 #include "ednssubnet.hh"
 #include "logger.hh"
 #include "lua-recursor4.hh"
+#include "qtype.hh"
 #include "rec-lua-conf.hh"
 #include "syncres.hh"
 #include "dnssec.hh"
@@ -4396,9 +4399,9 @@ void SyncRes::sanitizeRecords(const std::string& prefix, LWResult& lwr, const DN
     }
 
     /* dealing with the records in authority */
-    // Only allow NS, DS, SOA, RRSIG, NSEC, NSEC3 in AUTHORITY section
+    // Only allow NS, DelExt, DS, SOA, RRSIG, NSEC, NSEC3 in AUTHORITY section
     else if (rec->d_place == DNSResourceRecord::AUTHORITY) {
-      if (rec->d_type != QType::NS && rec->d_type != QType::DS && rec->d_type != QType::SOA && rec->d_type != QType::RRSIG && rec->d_type != QType::NSEC && rec->d_type != QType::NSEC3) {
+      if (!QType::isDelegationType(rec->d_type, true, false) && rec->d_type != QType::DS && rec->d_type != QType::SOA && rec->d_type != QType::RRSIG && rec->d_type != QType::NSEC && rec->d_type != QType::NSEC3) {
         LOG(prefix << qname << ": Removing irrelevant record '" << rec->toString() << "' in the AUTHORITY section received from " << auth << endl);
         skipvec[counter] = true;
         ++skipCount;
@@ -5147,6 +5150,7 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
   uint32_t dnameTTL = 0;
   bool referralOnDS = false;
 
+  bool haveDelegationTypes{false};
   for (auto& rec : lwr.d_records) {
     if (rec.d_type == QType::OPT || rec.d_class != QClass::IN) {
       continue;
@@ -5304,10 +5308,20 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
         }
       }
     }
-    else if (rec.d_place == DNSResourceRecord::AUTHORITY && rec.d_type == QType::NS && qname.isPartOf(rec.d_name)) {
+    else if (rec.d_place == DNSResourceRecord::AUTHORITY && QType(rec.d_type).isDelegationType(true) && qname.isPartOf(rec.d_name)) {
       if (moreSpecificThan(rec.d_name, auth)) {
+        if (haveDelegationTypes && rec.d_type == QType::NS) {
+          // We're not doing NS when there are DELEG-like records
+          continue;
+        }
+        if (QType(rec.d_type).isDelegationType(false)) {
+          // Remove any NS records collected
+          nsset.clear();
+          haveDelegationTypes = true;
+        }
+
         newauth = rec.d_name;
-        LOG(prefix << qname << ": Got NS record '" << rec.d_name << "' -> '" << rec.getContent()->getZoneRepresentation() << "'" << endl);
+        LOG(prefix << qname << ": Got delegation record '" << rec.d_name << "|"<< rec.d_type <<"' -> '" << rec.getContent()->getZoneRepresentation() << "'" << endl);
 
         /* check if we have a referral from the parent zone to a child zone for a DS query, which is not right */
         if (qtype == QType::DS && (newauth.isPartOf(qname) || qname == newauth)) {
@@ -5319,12 +5333,46 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
           if (auto content = getRR<NSRecordContent>(rec)) {
             nsset.insert(content->getNS());
           }
+          if (auto content = getRR<DELEGBaseRecordContent>(rec)) {
+            for (const auto& info : content->getAllInfo()) {
+              switch (info.getKey()) {
+                case DelegInfo::server_name: {
+                  auto nsNames = info.getDnsNames();
+                  nsset.insert(nsNames.begin(), nsNames.end());
+                  break;
+                }
+                case DelegInfo::server_ipv4: [[fallthrough]];
+                case DelegInfo::server_ipv6:
+                  // TODO: implement
+                  break;
+                default:
+                  break;
+              }
+            }
+          }
         }
       }
       else {
-        LOG(prefix << qname << ": Got upwards/level NS record '" << rec.d_name << "' -> '" << rec.getContent()->getZoneRepresentation() << "', had '" << auth << "'" << endl);
+        LOG(prefix << qname << ": Got upwards/level delegation record '" << rec.d_name << "' -> '" << rec.getContent()->getZoneRepresentation() << "', had '" << auth << "'" << endl);
         if (auto content = getRR<NSRecordContent>(rec)) {
           nsset.insert(content->getNS());
+        }
+        if (auto content = getRR<DELEGBaseRecordContent>(rec)) {
+          for (const auto& info : content->getAllInfo()) {
+            switch (info.getKey()) {
+              case DelegInfo::server_name: {
+                auto nsNames = info.getDnsNames();
+                nsset.insert(nsNames.begin(), nsNames.end());
+                break;
+              }
+              case DelegInfo::server_ipv4: [[fallthrough]];
+              case DelegInfo::server_ipv6:
+                // TODO: implement
+                break;
+              default:
+                break;
+            }
+          }
         }
       }
     }
