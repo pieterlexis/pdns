@@ -31,19 +31,23 @@
 #include "deleg-records.hh"
 #include "dns.hh"
 #include "dns_random.hh"
+#include "dnsname.hh"
 #include "dnsparser.hh"
 #include "dnsrecords.hh"
 #include "ednssubnet.hh"
 #include "logger.hh"
 #include "lua-recursor4.hh"
+#include "qtype.hh"
 #include "rec-lua-conf.hh"
 #include "syncres.hh"
 #include "dnssec.hh"
+#include "recursor_cache.hh"
 #include "validate-recursor.hh"
 #include "rec-taskqueue.hh"
 #include "shuffle.hh"
 #include "rec-nsspeeds.hh"
 #include "resolve-context.hh"
+#include "validate.hh"
 
 rec::GlobalCounters g_Counters;
 thread_local rec::TCounters t_Counters(g_Counters);
@@ -2037,14 +2041,15 @@ int SyncRes::doResolveNoQNameMinimization(const DNSName& qname, const QType qtyp
       return res;
     }
 
-    LOG(prefix << qname << ": No cache hit for '" << qname << "|" << qtype << "', trying to find an appropriate NS record" << endl);
+    LOG(prefix << qname << ": No cache hit for '" << qname << "|" << qtype << "', trying to find appropriate delegation information" << endl);
 
     DNSName subdomain(qname);
     if (qtype == QType::DS) {
       subdomain.chopOff();
     }
 
-    NsSet nsset;
+    auto delegation = getBestDelegationFor(subdomain);
+
     bool flawedNSSet = false;
 
     // the two retries allow getBestNSNamesFromCache&co to reprime the root
@@ -2278,10 +2283,196 @@ bool SyncRes::canUseRecords(const std::string& prefix, const DNSName& qname, con
   return true;
 }
 
-void SyncRes::getBestNSFromCache(const DNSName& qname, const QType qtype, vector<DNSRecord>& bestns, bool* flawedNSSet, unsigned int depth, const string& prefix, set<GetBestNSAnswer>& beenthere, const std::optional<DNSName>& cutOffDomain) // NOLINT(readability-function-cognitive-complexity)
+/* ! Gets all address information from the cache for DELEG and DELEGPARAM records
+ * This function implements a large part of draft-ietf-deleg-13 section 5.1.2
+ *
+ * @param record: The record we need to handle
+ * @param flags: Any flags for the cache lookup
+ * @param prefix: Spaces we need to prefix our loglines with
+ * @param originalQName: QName of the initial, originating query. Used only for logging
+ * @param originalDelegNama: There's a bunch of restrictions in the server-name and include-delegparam names based on the owner of the DELEG.
+ * @param delegationInfo: This is where all the IP info (and info on missing records) ends up
+ * @param limit: When we get a chain of included DELEGPARAMs, we decrement this before "recursing"
+ * @return: Whether or not we were able to extract the required info from the record
+ */
+bool SyncRes::getDelegationInfoFromDeleg(const DNSRecord& record, const MemRecursorCache::Flags& flags, const string& prefix, const DNSName& originalQName, const DNSName& originalDelegName, DelegationRecordInfo& delegationInfo, size_t limit)
+{
+  auto delegrr = getRR<DELEGBaseRecordContent>(record);
+  if (delegrr == nullptr) {
+    // We weren't passed a DELEG or DELEGPARAM
+    return false;
+  }
+
+  limit--;
+  if (limit == 0) {
+    // Max depth reached
+    return false;
+  }
+  delegationInfo.clear();
+
+  auto allInfos = delegrr->getAllInfo();
+  std::set<DelegInfo::DelegInfoKey> allKeys;
+
+  // Step 1
+  // Discard all DelegInfo elements with DelegInfoKey values that are
+  // not supported by the resolver implementation. If no DelegInfo
+  // elements remain after this filtering, stop processing the
+  // record. Otherwise, continue using only the supported DelegInfo
+  // elements.
+  for (auto it = allInfos.begin(); it != allInfos.end(); it++) {
+    if (it->getKey() > DelegInfo::DelegInfoKey::include_delegparam) {
+      allInfos.erase(it);
+      continue;
+    }
+    allKeys.insert(it->getKey());
+  }
+  if (allInfos.empty()) {
+    return false;
+  }
+
+  // Step 2
+  // If a DelegInfo element with the "mandatory" DelegInfoKey is
+  // present, check its DelegInfoValue. The DelegInfoValue is a list
+  // of keys which MUST have corresponding DelegInfo elements in the
+  // record after the filtering in the previous steps. If any of the
+  // listed DelegInfo elements is not present, stop processing this
+  // record.
+  if (auto info = delegrr->getInfo(DelegInfo::DelegInfoKey::mandatory); info != std::nullopt) {
+    auto mandatoryKeys = info->getMandatory();
+    if (!std::includes(allKeys.begin(), allKeys.end(), mandatoryKeys.begin(), mandatoryKeys.end())) {
+      // There are keys in mandatory that are in the in record
+      return false;
+    }
+  }
+
+  // Step 3
+  // If a record has more than one type of server information key
+  // (excluding the IPv4/IPv6 case, see Section 3.4), or if it has
+  // multiple server information keys of the same type, that record
+  // is malformed. Stop processing this record.
+  if (allKeys.count(DelegInfo::DelegInfoKey::server_ipv4) > 0 || allKeys.count(DelegInfo::DelegInfoKey::server_ipv6)) {
+    if (allKeys.count(DelegInfo::DelegInfoKey::include_delegparam) > 0 || allKeys.count(DelegInfo::DelegInfoKey::server_name) > 0) {
+      return false;
+    }
+  }
+
+  if (allKeys.count(DelegInfo::DelegInfoKey::include_delegparam) > 0 && allKeys.count(DelegInfo::DelegInfoKey::server_name) > 0) {
+    return false;
+  }
+
+  bool weDone{false};
+
+  // Step 5
+  // If server-ipv4 and/or server-ipv6 keys are present inside the
+  // record, copy all of the address values into SLIST. Stop
+  // processing this record.
+  if (auto info = delegrr->getInfo(DelegInfo::DelegInfoKey::server_ipv4); info != std::nullopt && s_doIPv4) {
+    delegationInfo.addresses.insert(info->getServerIPs().begin(), info->getServerIPs().end());
+    weDone = true;
+  }
+  if (auto info = delegrr->getInfo(DelegInfo::DelegInfoKey::server_ipv6); info != std::nullopt && s_doIPv6) {
+    delegationInfo.addresses.insert(info->getServerIPs().begin(), info->getServerIPs().end());
+    weDone = true;
+  }
+  if (weDone) {
+    return true;
+  }
+
+  // Step 6
+  // If a server-name key is present in the record, resolve each name
+  // in the value into IPv4 and/or IPv6 addresses. Copy these
+  // addresses into SLIST. Stop processing this record.
+  if (auto info = delegrr->getInfo(DelegInfo::DelegInfoKey::server_name); info != std::nullopt) {
+    for (const auto& name : info->getDnsNames()) {
+      if (name.isPartOf(originalDelegName)) {
+        // Step 4
+        // If any DNS name referenced by server-name key or the include-
+        // delegparam key is equal to or is a subdomain of the delegated
+        // domain (i.e. the DELEG record owner), that record is malformed.
+        // Stop processing this record.
+        delegationInfo.clear();
+        return false;
+      }
+      std::set<QType> nsNameAddressTypes;
+      if (s_doIPv4) {
+        nsNameAddressTypes.insert(QType::A);
+      }
+      if (s_doIPv6) {
+        nsNameAddressTypes.insert(QType::AAAA);
+      }
+
+      vState state{vState::Indeterminate};
+      vector<DNSRecord> addrRecords;
+      for (const auto& qtype : nsNameAddressTypes) {
+        auto ttd = g_recCache->get(d_now.tv_sec, name, qtype, flags, &addrRecords, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state, nullptr);
+        if (ttd == -1 || g_now.tv_sec > ttd) {
+          delegationInfo.missing.insert({name, qtype});
+          continue;
+        }
+        if (!canUseRecords(prefix, originalQName, record.d_name, qtype, state)) {
+          continue;
+        }
+        for (const auto& addrRecord : addrRecords) {
+          if (auto aRecordContent = getRR<ARecordContent>(addrRecord); aRecordContent != nullptr) {
+            delegationInfo.addresses.insert(aRecordContent->getCA());
+            continue;
+          }
+          if (auto aaaaRecordContent = getRR<AAAARecordContent>(addrRecord); aaaaRecordContent != nullptr) {
+            delegationInfo.addresses.insert(aaaaRecordContent->getCA());
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  // Step 7
+  // If an include-delegparam key is present in the record, resolve
+  // each name in the value using the DELEGPARAM RR type. Recursively
+  // apply the algorithm described in this section, after checking
+  // that the maximum loop count described in Section 7.1 has not
+  // been reached.
+  if (auto info = delegrr->getInfo(DelegInfo::DelegInfoKey::include_delegparam); info != std::nullopt) {
+    bool hadGoodOne{false};
+    for (const auto& includeName : info->getDnsNames()) {
+      if (includeName.isPartOf(originalDelegName)) {
+        // Step 4
+        // If any DNS name referenced by server-name key or the include-
+        // delegparam key is equal to or is a subdomain of the delegated
+        // domain (i.e. the DELEG record owner), that record is malformed.
+        // Stop processing this record.
+        return false;
+      }
+      vState state{vState::Indeterminate};
+      vector<DNSRecord> delegParams;
+      auto ttd = g_recCache->get(d_now.tv_sec, includeName, QType::DELEGPARAM, flags, &delegParams, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state, nullptr);
+      if (ttd == -1 || g_now.tv_sec > ttd) {
+        delegationInfo.missing.insert({includeName, QType::DELEGPARAM});
+        continue;
+      }
+      if (!canUseRecords(prefix, originalQName, includeName, QType::DELEGPARAM, state)) {
+        continue;
+      }
+      DelegationRecordInfo includedDelegationRecordInfo; // Don't clobber the one we were passed
+      for (const auto& delegRecord : delegParams) {
+        // XXX: Is includeName the correct one to pass, or should we pass originalDelegName?
+        if (getDelegationInfoFromDeleg(delegRecord, flags, prefix, originalQName, includeName, includedDelegationRecordInfo, limit)) {
+          hadGoodOne = true;
+          // Transplant
+          delegationInfo.addresses.insert(includedDelegationRecordInfo.addresses.begin(), includedDelegationRecordInfo.addresses.end());
+          delegationInfo.missing.insert(includedDelegationRecordInfo.missing.begin(), includedDelegationRecordInfo.missing.end());
+        }
+      }
+    }
+    return hadGoodOne;
+  }
+  return false;
+}
+
+void SyncRes::getBestNSFromCache(const DNSName& qname, const QType qtype, DelegationSet& delegationSet, unsigned int depth, const string& prefix, set<GetBestNSAnswer>& beenthere, const std::optional<DNSName>& cutOffDomain) // NOLINT(readability-function-cognitive-complexity)
 {
   DNSName subdomain(qname);
-  bestns.clear();
+  std::vector<rec::DelegationInfo> delegationInfos;
   bool brokeloop = false;
   MemRecursorCache::Flags flags = MemRecursorCache::None;
   if (d_serveStale) {
@@ -2292,82 +2483,155 @@ void SyncRes::getBestNSFromCache(const DNSName& qname, const QType qtype, vector
       break;
     }
     brokeloop = false;
-    LOG(prefix << qname << ": Checking if we have NS in cache for '" << subdomain << "'" << endl);
-    vector<DNSRecord> nsVector;
-    *flawedNSSet = false;
+    LOG(prefix << qname << ": Checking if we have delegation in cache for '" << subdomain << "'" << endl);
+    vector<DNSRecord> records;
 
+    bool hadDELEG{false};
     vState state{vState::Indeterminate};
-    if (bool isAuth = false; g_recCache->get(d_now.tv_sec, subdomain, QType::NS, flags, &nsVector, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state, &isAuth) > 0 && canUseRecords(prefix, qname, subdomain, QType::NS, state)) {
-      if (s_maxnsperresolve > 0 && nsVector.size() > s_maxnsperresolve) {
+    bool isAuth = false;
+
+    if (g_recCache->get(d_now.tv_sec, subdomain, QType::DELEG, flags, &records, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state, &isAuth) > 0 && canUseRecords(prefix, qname, subdomain, QType::DELEG, state) && isAuth) {
+      if (s_maxnsperresolve > 0 && records.size() > s_maxnsperresolve) {
         vector<DNSRecord> selected;
         selected.reserve(s_maxnsperresolve);
-        std::sample(nsVector.cbegin(), nsVector.cend(), std::back_inserter(selected), s_maxnsperresolve, pdns::dns_random_engine());
-        nsVector = std::move(selected);
+        std::sample(records.cbegin(), records.cend(), std::back_inserter(selected), s_maxnsperresolve, pdns::dns_random_engine());
+        records = std::move(selected);
       }
-      bestns.reserve(nsVector.size());
 
-      vector<DNSName> missing;
-      for (const auto& nsRecord : nsVector) {
-        if (nsRecord.d_ttl > (unsigned int)d_now.tv_sec) {
-          vector<DNSRecord> aset;
-          QType nsqt{QType::ADDR};
-          if (s_doIPv4 && !s_doIPv6) {
-            nsqt = QType::A;
-          }
-          else if (!s_doIPv4 && s_doIPv6) {
-            nsqt = QType::AAAA;
-          }
-
-          auto nrr = getRR<NSRecordContent>(nsRecord);
-          state = vState::Indeterminate;
-          if (nrr && (!nrr->getNS().isPartOf(subdomain) || g_recCache->get(d_now.tv_sec, nrr->getNS(), nsqt, flags, doLog() ? &aset : nullptr, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state) > 0)) {
-            // We make use of the fact that if get() is not called the state is still Indeterminate
-            if (!canUseRecords(prefix, qname, nrr->getNS(), nsqt, state)) {
-              continue;
-            }
-            bestns.push_back(nsRecord);
-            LOG(prefix << qname << ": NS (with ip, or non-glue) in cache for '" << subdomain << "' -> '" << nrr->getNS() << "'");
-            LOG(", within bailiwick: " << nrr->getNS().isPartOf(subdomain));
-            if (!aset.empty()) {
-              LOG(", in cache, ttl=" << (unsigned int)(((time_t)aset.begin()->d_ttl - d_now.tv_sec)) << endl);
-            }
-            else {
-              LOG(", not in cache / did not look at cache" << endl);
-            }
-          }
-          else if (nrr != nullptr) {
-            *flawedNSSet = true;
-            LOG(prefix << qname << ": NS in cache for '" << subdomain << "', but needs glue (" << nrr->getNS() << ") which we miss or is expired" << endl);
-            missing.emplace_back(nrr->getNS());
+      for (const auto& delegRecord : records) {
+        LOG(prefix << qname << ": DELEG in cache for '" << subdomain << "' -> '" << delegRecord.getContent()->getZoneRepresentation() << "'" << endl;);
+        DelegationRecordInfo info;
+        size_t includeLimit = s_max_CNAMES_followed;
+        if (getDelegationInfoFromDeleg(delegRecord, flags, prefix + "  ", qname, delegRecord.d_name, info, includeLimit)) {
+          hadDELEG = true;
+          delegationSet[delegRecord.getContent()->getZoneRepresentation()] = info;
+          if (!info.missing.empty()) {
           }
         }
       }
-      if (*flawedNSSet && bestns.empty() && isAuth) {
+    }
+
+    else if (!hadDELEG && g_recCache->get(d_now.tv_sec, subdomain, QType::NS, flags, &records, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state, &isAuth) > 0 && canUseRecords(prefix, qname, subdomain, QType::NS, state)) {
+      if (s_maxnsperresolve > 0 && records.size() > s_maxnsperresolve) {
+        vector<DNSRecord> selected;
+        selected.reserve(s_maxnsperresolve);
+        std::sample(records.cbegin(), records.cend(), std::back_inserter(selected), s_maxnsperresolve, pdns::dns_random_engine());
+        records = std::move(selected);
+      }
+      bool flawedNSSet = false;
+      for (const auto& nsRecord : records) {
+        if (nsRecord.d_ttl <= (unsigned int)d_now.tv_sec) {
+          continue;
+        }
+
+        vector<DNSRecord> aset;
+        QType nsqt{QType::ADDR};
+        if (s_doIPv4 && !s_doIPv6) {
+          nsqt = QType::A;
+        }
+        else if (!s_doIPv4 && s_doIPv6) {
+          nsqt = QType::AAAA;
+        }
+
+        auto nrr = getRR<NSRecordContent>(nsRecord);
+        state = vState::Indeterminate;
+        if (nrr && (!nrr->getNS().isPartOf(subdomain) || g_recCache->get(d_now.tv_sec, nrr->getNS(), nsqt, flags, &aset, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state) > 0)) {
+          // We make use of the fact that if get() is not called the state is still Indeterminate
+          if (!canUseRecords(prefix, qname, nrr->getNS(), nsqt, state)) {
+            continue;
+          }
+
+          DelegationRecordInfo delegationRecordInfo;
+
+          bool hadV4{false};
+          bool hadV6{false};
+          for (const auto& addrRecord : aset) {
+            if (auto content = getRR<ARecordContent>(addrRecord); content != nullptr) {
+              hadV4 = true;
+              delegationRecordInfo.addresses.insert(content->getCA());
+              continue;
+            }
+            if (auto content = getRR<AAAARecordContent>(addrRecord); content != nullptr) {
+              hadV6 = true;
+              delegationRecordInfo.addresses.insert(content->getCA());
+            }
+          }
+          if (!hadV4 && s_doIPv4) {
+            delegationRecordInfo.missing.insert({nrr->getNS(), QType::A});
+          }
+          if (!hadV6 && s_doIPv6) {
+            delegationRecordInfo.missing.insert({nrr->getNS(), QType::AAAA});
+          }
+          delegationSet[nrr->getNS().toStringRootDot()] = delegationRecordInfo;
+
+          LOG(prefix << qname << ": NS (with ip, or non-glue) in cache for '" << subdomain << "' -> '" << nrr->getNS() << "'");
+          LOG(", within bailiwick: " << nrr->getNS().isPartOf(subdomain));
+          if (!aset.empty()) {
+            LOG(", in cache, ttl=" << (unsigned int)(((time_t)aset.begin()->d_ttl - d_now.tv_sec)) << endl);
+          }
+          else {
+            LOG(", not in cache / did not look at cache" << endl);
+          }
+        }
+        else if (nrr != nullptr) {
+          LOG(prefix << qname << ": NS in cache for '" << subdomain << "', but needs glue (" << nrr->getNS() << ") which we miss or is expired" << endl);
+          flawedNSSet = true;
+          delegationSet[nrr->getNS().toStringRootDot()] = {
+            .addresses = {},
+            .missing = {
+              {
+                nrr->getNS(), QType::A
+              },
+              {
+                nrr->getNS(), QType::AAAA
+              },
+            }
+          };
+        }
+      }
+
+      if (flawedNSSet && isAuth) {
         // The authoritative (child) NS records did not produce any usable addresses, wipe them, so
         // these useless records do not prevent parent records to be inserted into the cache
         LOG(prefix << qname << ": Wiping flawed authoritative NS records for " << subdomain << endl);
         g_recCache->doWipeCache(subdomain, false, QType::NS);
       }
-      if (!missing.empty() && missing.size() < nsVector.size()) {
-        // We miss glue, but we have a chance to resolve it
-        // Pick a few and push async tasks to resolve them
-        const unsigned int max = 2;
-        unsigned int counter = 0;
-        shuffle(missing.begin(), missing.end(), pdns::dns_random_engine());
-        for (const auto& name : missing) {
-          if (s_doIPv4 && pushResolveIfNotInNegCache(name, QType::A, d_now)) {
-            LOG(prefix << qname << ": A glue for " << subdomain << " NS " << name << " missing, pushed task to resolve" << endl);
-            counter++;
-          }
-          if (s_doIPv6 && pushResolveIfNotInNegCache(name, QType::AAAA, d_now)) {
-            LOG(prefix << qname << ": AAAA glue for " << subdomain << " NS " << name << " missing, pushed task to resolve" << endl);
-            counter++;
-          }
-          if (counter >= max) {
-            break;
-          }
+    }
+    std::set<std::tuple<DNSName, QType>> missing;
+    std::set<ComboAddress> allAddrs;
+    for (const auto& delegationInfo : delegationSet) {
+      missing.insert(delegationInfo.second.missing.begin(), delegationInfo.second.missing.end());
+      allAddrs.insert(delegationInfo.second.addresses.begin(), delegationInfo.second.addresses.end());
+    }
+
+
+    if (!missing.empty() && missing.size() < allAddrs.size()) {
+      // We miss glue or have server-names without addresses, but we have a chance to resolve it
+      // Pick a few and push async tasks to resolve them
+      const unsigned int max = 3;
+      unsigned int counter = 0;
+      shuffle(missing.begin(), missing.end(), pdns::dns_random_engine());
+      for (const auto& [name, lookupQType] : missing) {
+        if (counter >= max) {
+          break;
+        }
+        if (s_doIPv4 && lookupQType == QType::A && pushResolveIfNotInNegCache(name, lookupQType, d_now)) {
+          // TODO: fix log message
+          LOG(prefix << qname << ": A glue for " << subdomain << " NS " << name << " missing, pushed task to resolve" << endl);
+          counter++;
+          continue;
+        }
+        if (s_doIPv6 && lookupQType == QType::AAAA && pushResolveIfNotInNegCache(name, lookupQType, d_now)) {
+          // TODO: fix log message
+          LOG(prefix << qname << ": AAAA glue for " << subdomain << " NS " << name << " missing, pushed task to resolve" << endl);
+          counter++;
+          continue;
+        }
+        if (pushResolveIfNotInNegCache(name, lookupQType, d_now)) {
+          counter++;
         }
       }
+    }
 
       if (!bestns.empty()) {
         GetBestNSAnswer answer;
@@ -2431,7 +2695,7 @@ SyncRes::domainmap_t::const_iterator SyncRes::getBestAuthZone(DNSName* qname)
 }
 
 /** doesn't actually do the work, leaves that to getBestNSFromCache */
-DNSName SyncRes::getBestNSNamesFromCache(const DNSName& qname, const QType qtype, NsSet& nsset, bool* flawedNSSet, unsigned int depth, const string& prefix, set<GetBestNSAnswer>& beenthere)
+DNSName SyncRes::getBestNSNamesFromCache(const DNSName& qname, const QType qtype, NsSet& nsset, bool* flawedNSSet, DelegationInfo& delegationInfo, unsigned int depth, const string& prefix, set<GetBestNSAnswer>& beenthere)
 {
   DNSName authOrForwDomain(qname);
 
@@ -6660,4 +6924,25 @@ bool SyncRes::answerIsNOData(uint16_t requestedType, int rcode, const std::vecto
     return rec.d_place == DNSResourceRecord::ANSWER && rec.d_type == requestedType;
   });
 #endif
+}
+
+rec::DelegationInfo SyncRes::getBestDelegationFor(const DNSName &subdomain)
+{
+  DNSName authOrForwDomain(subdomain);
+  rec::DelegationInfo ret;
+  auto iter = getBestAuthZone(&authOrForwDomain);
+  if (iter != t_sstorage.domainmap->end()) {
+    ret.d_type = rec::DelegationInfo::FORWARDNORECURSE;
+    ret.d_addrs = iter->second.d_servers;
+    if (iter->second.isAuth()) {
+      ret.d_type = rec::DelegationInfo::LOCALAUTH;
+      return ret;
+    }
+    if (iter->second.shouldRecurse()) {
+      ret.d_type = rec::DelegationInfo::FORWARD;
+      return ret;
+    }
+  }
+
+
 }

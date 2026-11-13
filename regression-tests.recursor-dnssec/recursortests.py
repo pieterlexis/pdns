@@ -252,6 +252,7 @@ bad-auth-with-fake-1918-ns.secure.example. 3600 IN NS ns.bad-auth-with-fake-1918
 ;; fake DS, the records are signed with a different DNSKEY
 bad-auth-with-fake-1918-ns.secure.example. 3600 IN DS 59332 13 1 aabbccddeeff11223344556677889900aabbccdd
 ns.bad-auth-with-fake-1918-ns.secure.example. 3600 IN A {prefix}.19
+deleg.secure.example. 3600 IN DELEG server-ipv4={prefix}.12
         """,
         "dname-secure.example": """
 dname-secure.example. 3600 IN SOA {soa}
@@ -370,6 +371,10 @@ ns.bad-auth-with-fake-1918-ns.secure.example. 3600 IN A {prefix}.19
 
 a.bad-auth-with-fake-1918-ns.secure.example. 3600 IN A 192.0.2.19
         """,
+        "deleg.secure.example": """
+deleg.secure.example.                       3600 IN SOA  {soa}
+deleg.secure.example.                   3600 IN A    192.0.2.112
+"""
     }
 
     # The private keys for the zones (note that DS records should go into
@@ -445,7 +450,7 @@ PrivateKey: Ep9uo6+wwjb4MaOmqq7LHav2FLrjotVOeZg8JT1Qk04=
         "9": {"threads": 1, "zones": ["secure.example", "islandofsecurity.example"]},
         "10": {"threads": 1, "zones": ["example"]},
         # 11 is used by CircleCI provided resolver
-        "12": {"threads": 1, "zones": ["bogus.example", "undelegated.secure.example", "undelegated.insecure.example"]},
+        "12": {"threads": 1, "zones": ["bogus.example", "undelegated.secure.example", "undelegated.insecure.example", "deleg.secure.example"]},
         "13": {"threads": 1, "zones": ["insecure.example", "insecure.sub2.secure.example", "dname-secure.example"]},
         "14": {"threads": 1, "zones": ["optout.example"]},
         "15": {"threads": 1, "zones": ["insecure.optout.example", "secure.optout.example", "cname-secure.example"]},

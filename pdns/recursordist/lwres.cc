@@ -34,6 +34,7 @@
 #include "syncres.hh"
 #include "resolve-context.hh"
 #include "remote_logger.hh"
+#include "validate-recursor.hh"
 
 static bool g_cookies = false;
 

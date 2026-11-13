@@ -25,6 +25,7 @@
 #include "utility.hh"
 #include "dns.hh"
 #include "qtype.hh"
+#include <unordered_map>
 #include <vector>
 #include <set>
 #include <unordered_set>
@@ -55,6 +56,7 @@
 #include "rec-tcounters.hh"
 #include "ednsextendederror.hh"
 #include "protozero-trace.hh"
+#include "delegation-cache.hh"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -75,6 +77,25 @@ enum class AdditionalMode : uint8_t; // defined in rec-lua-conf.hh
 class RecursorLua4;
 
 using NsSet = std::unordered_map<DNSName, pair<vector<ComboAddress>, bool>>;
+
+class DelegationRecordInfo {
+public:
+  // TODO: A type field for:
+  //   * Delegation
+  //   * Forward
+  //   * ForwardRecurse
+  //   * LocalAuth
+  std::set<ComboAddress> addresses;
+  std::set<std::tuple<DNSName, QType>> missing; // Any info not in the cache, like ns.example.com|A or bla.hoster.example|DELEGPARAM
+
+  void clear() {
+    addresses.clear();
+    missing.clear();
+  }
+};
+
+
+using DelegationSet = std::unordered_map<std::string, DelegationRecordInfo>;
 
 extern std::unique_ptr<NegCache> g_negCache;
 
@@ -715,8 +736,9 @@ private:
   bool doCNAMECacheCheck(const DNSName& qname, QType qtype, vector<DNSRecord>& ret, unsigned int depth, const string& prefix, int& res, Context& context, bool wasAuthZone, bool wasForwardRecurse, bool checkForDups);
   bool doCacheCheck(const DNSName& qname, const DNSName& authname, bool wasForwardedOrAuthZone, bool wasAuthZone, bool wasForwardRecurse, QType qtype, vector<DNSRecord>& ret, unsigned int depth, const string& prefix, int& res, Context& context);
   bool canUseRecords(const std::string& prefix, const DNSName& qname, const DNSName& name, QType qtype, vState state);
-  void getBestNSFromCache(const DNSName& qname, QType qtype, vector<DNSRecord>& bestns, bool* flawedNSSet, unsigned int depth, const string& prefix, set<GetBestNSAnswer>& beenthere, const std::optional<DNSName>& cutOffDomain = std::nullopt);
-  DNSName getBestNSNamesFromCache(const DNSName& qname, QType qtype, NsSet& nsset, bool* flawedNSSet, unsigned int depth, const string& prefix, set<GetBestNSAnswer>& beenthere);
+  void getBestNSFromCache(const DNSName& qname, QType qtype, rec::DelegationInfo& delegationInfo, bool* flawedNSSet, unsigned int depth, const string& prefix, set<GetBestNSAnswer>& beenthere, const std::optional<DNSName>& cutOffDomain = std::nullopt);
+  rec::DelegationInfo getBestDelegationFor(const DNSName& subdomain);
+  bool getDelegationInfoFromDeleg(const DNSRecord& record, const MemRecursorCache::Flags& flags, const string& prefix, const DNSName& originalQName, const DNSName& originalDelegName, DelegationRecordInfo& delegationInfo, size_t limit);
 
   vector<std::pair<DNSName, float>> shuffleInSpeedOrder(const DNSName& qname, NsSet& nameservers, const string& prefix);
   vector<ComboAddress> shuffleForwardSpeed(const DNSName& qname, const vector<ComboAddress>& rnameservers, const string& prefix, bool wasRd);
