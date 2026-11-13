@@ -125,6 +125,7 @@ public:
   bool d_seenNSEC{false};
   // whether the answer denies the existence of a DS (referrals)
   bool d_deniesDS{false};
+  bool d_haveDelegationExtensions{false};
 };
 
 class EDNSSubnetOpts;

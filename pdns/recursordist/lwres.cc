@@ -678,7 +678,8 @@ static LWResult::Result asyncresolve(const OptLog& log, const ComboAddress& addr
       addPadding(packetWriter, bufsize, opts);
     }
 
-    packetWriter.addOpt(g_outgoingEDNSBufsize, 0, g_dnssecmode == DNSSECMode::Off ? 0 : EDNSOpts::DNSSECOK, opts);
+    uint16_t flags = EDNSOpts::ednsFlag::DELEGATIONEXTENSIONS | (g_dnssecmode == DNSSECMode::Off ? 0 : EDNSOpts::DNSSECOK);
+    packetWriter.addOpt(g_outgoingEDNSBufsize, 0, flags, opts);
     packetWriter.commit();
   }
   lwr->d_rcode = 0;
@@ -870,6 +871,7 @@ static LWResult::Result asyncresolve(const OptLog& log, const ComboAddress& addr
 
       if (EDNSOpts edo; EDNS0Level > 0 && getEDNSOpts(mdp, &edo)) {
         lwr->d_haveEDNS = true;
+        lwr->d_haveDelegationExtensions = (edo.d_extFlags & EDNSOpts::ednsFlag::DELEGATIONEXTENSIONS) > 0;
 
         // If we sent out ECS, we can also expect to see a return with or without ECS, the absent case
         // is not handled explicitly. If we do see a ECS in the reply, the source part *must* match
