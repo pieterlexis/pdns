@@ -25,6 +25,7 @@
 #include "utility.hh"
 #include "dns.hh"
 #include "qtype.hh"
+#include <tuple>
 #include <vector>
 #include <set>
 #include <unordered_set>
@@ -760,6 +761,7 @@ private:
   void updateValidationStatusInCache(const DNSName& qname, QType qtype, bool aaFlag, vState newState) const;
   void initZoneCutsFromTA(const DNSName& from, const string& prefix);
   size_t countSupportedDS(const dsset_t& dsSet, const string& prefix);
+  void pruneToMaxNSPerResolve(vector<DNSRecord>& nsVector);
 
   void handleNewTarget(const std::string& prefix, const DNSName& qname, const DNSName& newtarget, QType qtype, std::vector<DNSRecord>& ret, int& rcode, unsigned int depth, const std::vector<DNSRecord>& recordsFromAnswer, vState& state);
 
@@ -770,6 +772,14 @@ private:
 
   tcache_t validateSignatures(const std::string& prefix, LWResult& lwr, const DNSName& qname, QType qtype, const DNSName& auth, bool wasForwardRecurse, vState& state, unsigned int depth);
   void checkDenialOfExistence(unsigned int depth, const std::string& prefix, LWResult& lwr, const DNSName& qname, QType qtype, const DNSName& auth, tcache_t& tcache, vState& state);
+
+  static DNSName s_delegNameServerSuffix;
+
+  // Return:
+  //   bool                 Success
+  //   vector<ComboAddress> Extracted addresses
+  std::tuple<bool, vector<ComboAddress>> getIPAddressesFromDeleg(const DNSRecord& record, const MemRecursorCache::Flags& flags, const string& prefix, const DNSName& originalQName, const DNSName& originalDelegName, const size_t limit);
+  void getBestDelegFromCache(const DNSName& qname, QType qtype, vector<DNSRecord>& bestns, bool* flawedNSSet, unsigned int depth, const string& prefix, set<GetBestNSAnswer>& beenthere, const std::optional<DNSName>& cutOffDomain = std::nullopt);
 
   void setUpdatingRootNS()
   {

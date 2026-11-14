@@ -22,7 +22,9 @@
 
 #include "config.h"
 
+#include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 
 #include "arguments.hh"
@@ -31,11 +33,13 @@
 #include "deleg-records.hh"
 #include "dns.hh"
 #include "dns_random.hh"
+#include "dnsname.hh"
 #include "dnsparser.hh"
 #include "dnsrecords.hh"
 #include "ednssubnet.hh"
 #include "logger.hh"
 #include "lua-recursor4.hh"
+#include "qtype.hh"
 #include "rec-lua-conf.hh"
 #include "syncres.hh"
 #include "dnssec.hh"
@@ -2278,6 +2282,15 @@ bool SyncRes::canUseRecords(const std::string& prefix, const DNSName& qname, con
   return true;
 }
 
+void SyncRes::pruneToMaxNSPerResolve(vector<DNSRecord>& nsVector) {
+  if (s_maxnsperresolve > 0 && nsVector.size() > s_maxnsperresolve) {
+    vector<DNSRecord> selected;
+    selected.reserve(s_maxnsperresolve);
+    std::sample(nsVector.cbegin(), nsVector.cend(), std::back_inserter(selected), s_maxnsperresolve, pdns::dns_random_engine());
+    nsVector = std::move(selected);
+  }
+}
+
 void SyncRes::getBestNSFromCache(const DNSName& qname, const QType qtype, vector<DNSRecord>& bestns, bool* flawedNSSet, unsigned int depth, const string& prefix, set<GetBestNSAnswer>& beenthere, const std::optional<DNSName>& cutOffDomain) // NOLINT(readability-function-cognitive-complexity)
 {
   DNSName subdomain(qname);
@@ -2297,13 +2310,35 @@ void SyncRes::getBestNSFromCache(const DNSName& qname, const QType qtype, vector
     *flawedNSSet = false;
 
     vState state{vState::Indeterminate};
-    if (bool isAuth = false; g_recCache->get(d_now.tv_sec, subdomain, QType::NS, flags, &nsVector, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state, &isAuth) > 0 && canUseRecords(prefix, qname, subdomain, QType::NS, state)) {
-      if (s_maxnsperresolve > 0 && nsVector.size() > s_maxnsperresolve) {
-        vector<DNSRecord> selected;
-        selected.reserve(s_maxnsperresolve);
-        std::sample(nsVector.cbegin(), nsVector.cend(), std::back_inserter(selected), s_maxnsperresolve, pdns::dns_random_engine());
-        nsVector = std::move(selected);
+
+    bool isAuth{false};
+    // DELEG first!
+    if (g_recCache->get(d_now.tv_sec, subdomain, QType::DELEG, flags, &nsVector, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state, &isAuth) > 0 && canUseRecords(prefix, qname, subdomain, QType::DELEG, state)) {
+      pruneToMaxNSPerResolve(nsVector);
+      bestns.reserve(nsVector.size());
+      DNSRecord fakeNS;
+      fakeNS.d_name = subdomain;
+      fakeNS.d_class = QClass::IN;
+      fakeNS.d_type = QType::NS;
+      size_t ctr{0};
+      for (const auto& delegRecord : nsVector) {
+        if (delegRecord.d_ttl > (unsigned int)d_now.tv_sec) {
+          size_t limit = s_max_CNAMES_followed;
+          auto [success, addresses] = getIPAddressesFromDeleg(delegRecord, flags, prefix, qname, delegRecord.d_name, limit);
+          if (!success) {
+            *flawedNSSet = true;
+            continue;
+          }
+          fakeNS.d_ttl = delegRecord.d_ttl;
+          DNSName fakeName = subdomain + DNSName(std::to_string(ctr)) + s_delegNameServerSuffix;
+          auto fakeRecordContent= std::make_shared<NSRecordContent>(fakeName);
+          fakeNS.setContent(std::move(fakeRecordContent));
+          bestns.push_back(fakeNS);
+        }
       }
+      return;
+    } else if (g_recCache->get(d_now.tv_sec, subdomain, QType::NS, flags, &nsVector, d_cacheRemote, d_routingTag, nullptr, nullptr, nullptr, &state, &isAuth) > 0 && canUseRecords(prefix, qname, subdomain, QType::NS, state)) {
+      pruneToMaxNSPerResolve(nsVector);
       bestns.reserve(nsVector.size());
 
       vector<DNSName> missing;
@@ -2341,30 +2376,30 @@ void SyncRes::getBestNSFromCache(const DNSName& qname, const QType qtype, vector
             missing.emplace_back(nrr->getNS());
           }
         }
-      }
-      if (*flawedNSSet && bestns.empty() && isAuth) {
-        // The authoritative (child) NS records did not produce any usable addresses, wipe them, so
-        // these useless records do not prevent parent records to be inserted into the cache
-        LOG(prefix << qname << ": Wiping flawed authoritative NS records for " << subdomain << endl);
-        g_recCache->doWipeCache(subdomain, false, QType::NS);
-      }
-      if (!missing.empty() && missing.size() < nsVector.size()) {
-        // We miss glue, but we have a chance to resolve it
-        // Pick a few and push async tasks to resolve them
-        const unsigned int max = 2;
-        unsigned int counter = 0;
-        shuffle(missing.begin(), missing.end(), pdns::dns_random_engine());
-        for (const auto& name : missing) {
-          if (s_doIPv4 && pushResolveIfNotInNegCache(name, QType::A, d_now)) {
-            LOG(prefix << qname << ": A glue for " << subdomain << " NS " << name << " missing, pushed task to resolve" << endl);
-            counter++;
-          }
-          if (s_doIPv6 && pushResolveIfNotInNegCache(name, QType::AAAA, d_now)) {
-            LOG(prefix << qname << ": AAAA glue for " << subdomain << " NS " << name << " missing, pushed task to resolve" << endl);
-            counter++;
-          }
-          if (counter >= max) {
-            break;
+        if (*flawedNSSet && bestns.empty() && isAuth) {
+          // The authoritative (child) NS records did not produce any usable addresses, wipe them, so
+          // these useless records do not prevent parent records to be inserted into the cache
+          LOG(prefix << qname << ": Wiping flawed authoritative NS records for " << subdomain << endl);
+          g_recCache->doWipeCache(subdomain, false, QType::NS);
+        }
+        if (!missing.empty() && missing.size() < nsVector.size()) {
+          // We miss glue, but we have a chance to resolve it
+          // Pick a few and push async tasks to resolve them
+          const unsigned int max = 2;
+          unsigned int counter = 0;
+          shuffle(missing.begin(), missing.end(), pdns::dns_random_engine());
+          for (const auto& name : missing) {
+            if (s_doIPv4 && pushResolveIfNotInNegCache(name, QType::A, d_now)) {
+              LOG(prefix << qname << ": A glue for " << subdomain << " NS " << name << " missing, pushed task to resolve" << endl);
+              counter++;
+            }
+            if (s_doIPv6 && pushResolveIfNotInNegCache(name, QType::AAAA, d_now)) {
+              LOG(prefix << qname << ": AAAA glue for " << subdomain << " NS " << name << " missing, pushed task to resolve" << endl);
+              counter++;
+            }
+            if (counter >= max) {
+              break;
+            }
           }
         }
       }
@@ -2376,6 +2411,9 @@ void SyncRes::getBestNSFromCache(const DNSName& qname, const QType qtype, vector
         for (const auto& bestNSRecord : bestns) {
           if (auto nsContent = getRR<NSRecordContent>(bestNSRecord)) {
             answer.bestns.emplace(bestNSRecord.d_name, nsContent->getNS());
+          }
+          if (auto delegContent = getRR<DELEGRecordContent>(bestNSRecord)) {
+            answer.bestns.emplace(bestNSRecord.d_name, );
           }
         }
 
