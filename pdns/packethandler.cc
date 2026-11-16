@@ -19,6 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include "deleg-records.hh"
 #include "dnsname.hh"
 #include "ednsextendederror.hh"
 #include "logging.hh"
@@ -346,7 +347,8 @@ int PacketHandler::doChaosRequest(const DNSPacket& p, std::unique_ptr<DNSPacket>
 
 vector<DNSZoneRecord> PacketHandler::getBestReferralDelExt(DNSPacket& p, const DNSName &target)
 {
-  vector<DNSZoneRecord> ret;
+  vector<DNSZoneRecord> nsOmitting;
+  vector<DNSZoneRecord> nsPreserving;
   DNSZoneRecord rr;
   DNSName subdomain(target);
   do {
@@ -355,15 +357,16 @@ vector<DNSZoneRecord> PacketHandler::getBestReferralDelExt(DNSPacket& p, const D
     }
     B.lookup(QType(QType::ANY), subdomain, d_sd.domain_id, &p);
     while(B.get(rr)) {
-      if (QType::isDelegationType(rr.dr.d_type, false, false)) {
-        ret.push_back(rr);
+      if (QType::isNsOmittingDelegationType(rr.dr.d_type)) {
+        nsOmitting.push_back(rr);
       }
     }
-    if(!ret.empty()) {
-      return ret;
+    if(!nsOmitting.empty()) {
+      // This is a delegation
+      return nsOmitting;
     }
   } while( subdomain.chopOff() );   // 'www.powerdns.org' -> 'powerdns.org' -> 'org' -> ''
-  return ret;
+  return {};
 }
 
 vector<DNSZoneRecord> PacketHandler::getBestReferralNS(DNSPacket& p, const DNSName &target)
@@ -1371,13 +1374,13 @@ bool PacketHandler::addDSforNS(DNSPacket& p, std::unique_ptr<DNSPacket>& r, cons
 
 bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName &target, bool retargeted)
 {
-  vector<DNSZoneRecord> delExtRRSet = getBestReferralDelExt(p, target);
-  vector<DNSZoneRecord> nsRRSet = getBestReferralNS(p, target);
+  auto nsOmittingDelExtRRSet = getBestReferralDelExt(p, target);
+  auto nsRRSet = getBestReferralNS(p, target);
   vector<DNSZoneRecord> toAdd{};
   DNSName delegationPoint;
 
-  if (!delExtRRSet.empty()) {
-    delegationPoint = delExtRRSet.begin()->dr.d_name;
+  if (!nsOmittingDelExtRRSet.empty()) {
+    delegationPoint = nsOmittingDelExtRRSet.begin()->dr.d_name;
   }
 
   if (!nsRRSet.empty()) {
@@ -1388,7 +1391,7 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
       if (delegationPoint.countLabels() > nsRRSet.begin()->dr.d_name.countLabels()) {
         // NS RRSet has fewer labels, so it is a better delegation point
         delegationPoint = nsRRSet.begin()->dr.d_name;
-        delExtRRSet.clear();
+        nsOmittingDelExtRRSet.clear();
       } else if (delegationPoint.countLabels() < nsRRSet.begin()->dr.d_name.countLabels()) {
         // NS RRSet has more labels, so DelExt is the better delegation point
         nsRRSet.clear();
@@ -1397,7 +1400,7 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
   }
 
   DLOG(SLOG(g_log<<Logger::Info<<"in tryReferral"<<"'"<<endl,
-            d_slog->info(Logr::Info, "in TryReferral, after processing", "delExtRRSet.size()", Logging::Loggable(delExtRRSet.size()), "nsRRSet.size()", Logging::Loggable(nsRRSet.size()), "target", Logging::Loggable(target), "delegationPoint", Logging::Loggable(delegationPoint.toLogString()))));
+            d_slog->info(Logr::Info, "in TryReferral, after processing", "nsOmittingDelExtRRSet.size()", Logging::Loggable(nsOmittingDelExtRRSet.size()), "nsPreservingDelExtRRSet.size()", nsPreservingDelExtRRSet.size() ,"nsRRSet.size()", Logging::Loggable(nsRRSet.size()), "target", Logging::Loggable(target), "delegationPoint", Logging::Loggable(delegationPoint.toLogString()))));
 
   if (delegationPoint.empty()) {
     // No delegation here
@@ -1405,16 +1408,14 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
   }
 
   bool NSECAdded = false;
-  bool hadNSOmitting = false;
 
-  if (!delExtRRSet.empty()) {
+  if (!nsOmittingDelExtRRSet.empty()) {
     if (d_delegationextension){
       if (delegationPoint == target && p.qtype.isDelegationType(false, false)) {
         // We have a direct query for a delegation type *at* the delegation point, don't send a delegation
         return false;
       }
-      for(auto& rr: delExtRRSet) { // NOLINT(readability-identifier-length)
-        hadNSOmitting = hadNSOmitting || QType::isNsOmittingDelegationType(rr.dr.d_type);
+      for(auto& rr: nsOmittingDelExtRRSet) { // NOLINT(readability-identifier-length)
         rr.dr.d_place=DNSResourceRecord::AUTHORITY;
         toAdd.emplace_back(std::move(rr));
       }
@@ -1433,7 +1434,7 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
     }
   }
 
-  if (!nsRRSet.empty() && (!hadNSOmitting || !d_delegationextension)) {
+  if (!nsRRSet.empty() && (nsOmittingDelExtRRSet.empty() || !d_delegationextension)) {
     // Either DE was unset in the query, no DelExt records exist, or we don't have to omit the NS RRset
     for(auto& rr: nsRRSet) { // NOLINT(readability-identifier-length)
       rr.dr.d_place=DNSResourceRecord::AUTHORITY;
@@ -1443,6 +1444,19 @@ bool PacketHandler::tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, con
 
   for (auto &&record : toAdd) {
     r->addRecord(std::move(record));
+  }
+
+  // Regardless of whether we're sending a referral for NS or NS-Omitting DelExt,
+  // We need to send the NS-preserving DelExt records as well
+  if (d_delegationextension) {
+    DNSZoneRecord dnsRR;
+    B.lookup(QType::ANY, delegationPoint, d_sd.domain_id);
+    while(B.get(dnsRR)) {
+      if (QType::isNsPreservingDelegationType(dnsRR.dr.d_type)) {
+        dnsRR.dr.d_place = DNSResourceRecord::AUTHORITY;
+        r->addRecord(std::move(dnsRR));
+      }
+    }
   }
 
   if(d_delegationextension && d_dnssec) {
