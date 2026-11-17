@@ -23,7 +23,9 @@
 #include <vector>
 
 #include "auto-record-processing.hh"
+#include "deleg-records.hh"
 #include "dnsbackend.hh"
+#include "pdnsexception.hh"
 
 namespace pdns::auth::process_auto
 {
@@ -101,29 +103,33 @@ void processDelegAuto(DNSZoneRecord& rec, SOAData& sd, bool autoEnabled) // NOLI
     }
     switch (delegInfoType) {
     case DelegInfo::DelegInfoKey::server_name: {
-      // NOTE: we need to keep names around for the other DelegInfos
-      auto movableNames = names;
-      for (auto i = movableNames.begin(); i != movableNames.end(); i++) {
-        if (i->isPartOf(rec.dr.d_name)) {
-          // Can't have server-names under the delegation
-          // TODO: Log that we've removed a name
-          movableNames.erase(i);
+        // NOTE: we need to keep names around for the other DelegInfos
+        std::vector<DNSName> movableNames;
+        for (const auto& name : names) {
+          if (!name.isPartOf(rec.dr.d_name)) {
+            // Can't have server-names under the delegation
+            // TODO: Log that we've removed a name
+            movableNames.emplace_back(name);
+          }
         }
-      }
-      DelegInfo newInfo(DelegInfo::DelegInfoKey::server_name, std::move(movableNames), false);
-      newRRC->setInfo(std::move(newInfo));
-      break;
+        if (movableNames.empty()) {
+          throw PDNSException(rec.dr.d_name.toLogString() + "|" + QType(rec.dr.d_type).toString() + ": No valid server-names in the NS names");
+        }
+        DelegInfo newInfo(DelegInfo::DelegInfoKey::server_name, std::move(movableNames), false);
+        newRRC->setInfo(std::move(newInfo));
+        break;
     }
     case DelegInfo::DelegInfoKey::server_ipv4: /* fallthrough */
     case DelegInfo::DelegInfoKey::server_ipv6: {
       if (names.empty()) {
-        // XXX: This should be an error
-        newRRC->removeInfo(delegInfoType);
-        continue;
+        throw PDNSException(rec.dr.d_name.toLogString() + "|" + QType(rec.dr.d_type).toString() + ": No NS found for server-ipv4 or server-ipv6");
       }
       std::set<ComboAddress> addresses;
       for (const auto& name : names) {
         auto tmpAddresses = getIPAddressFor(name, delegInfoType == DelegInfo::DelegInfoKey::server_ipv4 ? QType::A : QType::AAAA, sd);
+        if (tmpAddresses.empty()) {
+            throw PDNSException(rec.dr.d_name.toLogString() + "|" + QType(rec.dr.d_type).toString() + ": No " + DelegInfo::keyToString(delegInfoType) + " glue addresses found for " + name.toLogString());
+        }
         addresses.insert(tmpAddresses.begin(), tmpAddresses.end());
       }
       if (addresses.empty()) {

@@ -39,17 +39,22 @@ both.secure.deleg.com.         3600 IN DS 44030 8 2 D4C3D5552B8679FAEEBC317E5F04
 ns1.both.secure.deleg.com.     3600 IN A  192.0.2.10
 ns2.both.secure.deleg.com.     3600 IN A  192.0.2.11
 
-auto.deleg.com.          3600 IN NS ns1.auto.deleg.com.
-auto.deleg.com.          3600 IN NS ns2.auto.deleg.com.
+auto.deleg.com.          3600 IN NS ns1.example.com.
+auto.deleg.com.          3600 IN NS ns2.example.com.
 auto.deleg.com.          3600 IN DELEG server-name=auto
-ns1.auto.deleg.com.      3600 IN A  192.0.2.10
-ns2.auto.deleg.com.      3600 IN A  192.0.2.11
+auto-broken.deleg.com.          3600 IN DELEG server-name=auto ; Will ServFail, NS servers are in-bailiwick
+auto-broken.deleg.com.          3600 IN NS ns1.auto-broken.deleg.com.
+auto-broken.deleg.com.          3600 IN NS ns2.auto-broken.deleg.com.
 
 auto-address.deleg.com.          3600 IN NS ns1.auto-address.deleg.com.
 auto-address.deleg.com.          3600 IN NS ns2.auto-address.deleg.com.
-auto-address.deleg.com.          3600 IN DELEG server-ipv4=auto server-ipv6=auto
+auto-address.deleg.com.          3600 IN DELEG server-ipv4=auto
 ns1.auto-address.deleg.com.      3600 IN A  192.0.2.10
 ns2.auto-address.deleg.com.      3600 IN A  192.0.2.11
+
+auto-address-no-v4.deleg.com.          3600 IN NS ns1.auto-address-no-v4.deleg.com.
+auto-address-no-v4.deleg.com.          3600 IN DELEG server-ipv4=auto ; No v4 address, will servfail
+ns1.auto-address-no-v4.deleg.com.      3600 IN AAAA  2001:db8::53
 
 auto-address-with-aaaa.deleg.com.          3600 IN NS ns1.auto-address-with-aaaa.deleg.com.
 auto-address-with-aaaa.deleg.com.          3600 IN NS ns2.auto-address-with-aaaa.deleg.com.

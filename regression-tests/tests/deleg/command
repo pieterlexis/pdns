@@ -50,6 +50,10 @@ for s in auto auto-address auto-address-with-aaaa; do
 	echo ""
 done
 
+echo "### Testing broken auto"
+cleandig foo.auto-broken.deleg.com A delegation-extensions showedns
+cleandig foo.auto-address-no-v4.deleg.com A delegation-extensions showedns
+
 echo "### Testing ns-preserving.deleg.com"
 echo "##### -DE referral"
 cleandig foo.ns-preserving.deleg.com A showedns
